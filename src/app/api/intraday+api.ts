@@ -17,12 +17,36 @@ export async function GET(request: Request) {
   try {
     const interval = range === '1d' ? '5m' : '15m';
     
+    // YahooFinance v2 requires period1 instead of range
+    // Request a few extra days to account for weekends/holidays
+    const daysToFetch = range === '1d' ? 5 : 10; 
+    const period1 = new Date(Date.now() - daysToFetch * 24 * 60 * 60 * 1000);
+    
     const chartData = await yahooFinance.chart(ticker, {
-      range: range as any,
+      period1,
       interval: interval as any,
     }, { validateResult: false });
 
-    const history = chartData.quotes.filter(q => q.close !== null).map(q => ({
+    if (!chartData.quotes || chartData.quotes.length === 0) {
+      return Response.json({ data: [] });
+    }
+
+    // Filter to only the last 1 day or 5 days of trading
+    const validQuotes = chartData.quotes.filter(q => q.close !== null);
+    if (validQuotes.length === 0) return Response.json({ data: [] });
+    
+    const lastDate = new Date(validQuotes[validQuotes.length - 1].date);
+    
+    let history = [];
+    if (range === '1d') {
+      const lastDayString = lastDate.toISOString().split('T')[0];
+      history = validQuotes.filter(q => new Date(q.date).toISOString().startsWith(lastDayString));
+    } else {
+      const fiveDaysAgo = new Date(lastDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+      history = validQuotes.filter(q => new Date(q.date) >= fiveDaysAgo);
+    }
+
+    history = history.map(q => ({
       date: q.date,
       close: q.close
     }));

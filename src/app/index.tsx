@@ -112,9 +112,12 @@ export default function HomeScreen() {
         const json = await res.json();
         if (json.data) {
           setIntradayData(prev => ({ ...prev, [cacheKey]: json.data }));
+        } else {
+          setIntradayData(prev => ({ ...prev, [cacheKey]: [] }));
         }
       } catch (err) {
         console.error('Intraday error', err);
+        setIntradayData(prev => ({ ...prev, [cacheKey]: [] }));
       }
     })();
   }, [chartPeriod, expandedTicker]);
