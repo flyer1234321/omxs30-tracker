@@ -66,7 +66,8 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
-  const [chartPeriod, setChartPeriod] = useState<'1M'|'3M'|'6M'|'1Y'>('6M');
+  const [chartPeriod, setChartPeriod] = useState<'1D'|'1W'|'1M'|'3M'|'6M'|'1Y'>('6M');
+  const [intradayData, setIntradayData] = useState<Record<string, ChartDataPoint[]>>({});
   const searchTimeout = useRef<any>(null);
 
   const getExplanation = (label: string, item: StockData) => {
@@ -96,6 +97,27 @@ export default function HomeScreen() {
       } catch (e) {}
     })();
   }, []);
+
+  useEffect(() => {
+    if (chartPeriod !== '1D' && chartPeriod !== '1W') return;
+    if (!expandedTicker) return;
+    
+    const range = chartPeriod === '1D' ? '1d' : '5d';
+    const cacheKey = `${expandedTicker}-${range}`;
+    if (intradayData[cacheKey]) return; // already fetched
+    
+    (async () => {
+      try {
+        const res = await fetch(`/api/intraday?ticker=${expandedTicker}&range=${range}`);
+        const json = await res.json();
+        if (json.data) {
+          setIntradayData(prev => ({ ...prev, [cacheKey]: json.data }));
+        }
+      } catch (err) {
+        console.error('Intraday error', err);
+      }
+    })();
+  }, [chartPeriod, expandedTicker]);
 
   const saveWatchlist = async (list: string[]) => {
     try { await AsyncStorage.setItem('@watchlist', JSON.stringify(list)); setWatchlist(list); } catch (e) {}
@@ -310,29 +332,58 @@ export default function HomeScreen() {
   const renderChart = (item: StockData) => {
     if (!item.chartHistory || item.chartHistory.length === 0) return null;
     
-    // Filter history based on selected period
-    let days = 125;
-    if (chartPeriod === '1M') days = 21;
-    if (chartPeriod === '3M') days = 63;
-    if (chartPeriod === '1Y') days = 252;
+    let filteredHistory = [];
+    let isIntraday = false;
+    let loadingIntraday = false;
     
-    const startIndex = Math.max(0, item.chartHistory.length - days);
-    const filteredHistory = item.chartHistory.slice(startIndex);
+    if (chartPeriod === '1D' || chartPeriod === '1W') {
+      const range = chartPeriod === '1D' ? '1d' : '5d';
+      const cacheKey = `${item.ticker}-${range}`;
+      if (intradayData[cacheKey]) {
+        filteredHistory = intradayData[cacheKey];
+        isIntraday = true;
+      } else {
+        loadingIntraday = true;
+      }
+    } else {
+      let days = 125;
+      if (chartPeriod === '1M') days = 21;
+      if (chartPeriod === '3M') days = 63;
+      if (chartPeriod === '1Y') days = 252;
+      const startIndex = Math.max(0, item.chartHistory.length - days);
+      filteredHistory = item.chartHistory.slice(startIndex);
+    }
+    
+    if (loadingIntraday) {
+      return (
+        <View style={[s.chartSection, { height: 230, justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="small" color="#007AFF" />
+        </View>
+      );
+    }
     
     if (filteredHistory.length === 0) return null;
 
     const labelInterval = Math.max(1, Math.floor(filteredHistory.length / 5));
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+    const weekdays = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
 
     const priceData = filteredHistory.map((d, i) => {
       let label = '';
       if (i % labelInterval === 0 || i === filteredHistory.length - 1) {
         const dateObj = new Date(d.date);
-        label = `${dateObj.getDate()} ${months[dateObj.getMonth()]}`;
+        if (chartPeriod === '1D') {
+          label = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+        } else if (chartPeriod === '1W') {
+          label = `${weekdays[dateObj.getDay()]}`;
+        } else {
+          label = `${dateObj.getDate()} ${months[dateObj.getMonth()]}`;
+        }
       }
       return { value: d.close, label };
     });
-    const smaData = filteredHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
+    
+    const smaData = isIntraday ? [] : filteredHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
     const chartWidth = SCREEN_WIDTH - 100;
 
     // Calculate Y-axis range for better detail
@@ -352,7 +403,7 @@ export default function HomeScreen() {
         <View style={s.chartHeader}>
           <Text style={s.chartTitle}>Kursutveckling</Text>
           <View style={s.periodTabs}>
-            {(['1M', '3M', '6M', '1Y'] as const).map(p => (
+            {(['1D', '1W', '1M', '3M', '6M', '1Y'] as const).map(p => (
               <TouchableOpacity key={p} style={[s.periodBtn, chartPeriod === p && s.periodBtnActive]} onPress={() => setChartPeriod(p)}>
                 <Text style={[s.periodBtnText, chartPeriod === p && s.periodBtnTextActive]}>{p}</Text>
               </TouchableOpacity>
@@ -361,11 +412,11 @@ export default function HomeScreen() {
         </View>
         <View style={s.chartLegend}>
           <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#007AFF' }]} /><Text style={s.legendText}>Kurs</Text></View>
-          {smaData.length > 0 && chartPeriod !== '1M' && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
+          {smaData.length > 0 && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
         </View>
         <LineChart
           data={priceData}
-          data2={smaData.length > 0 && chartPeriod !== '1M' ? smaData : undefined}
+          data2={smaData.length > 0 ? smaData : undefined}
           width={chartWidth}
           height={180}
           color="#007AFF"
