@@ -58,6 +58,53 @@ function calculateRSI(history: any[], period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
+function generateSignal(item: any) {
+  let score = 0;
+  const reasons: string[] = [];
+  
+  const { currentPrice, sma125, sma200, rsi, fiftyTwoWeekLow } = item;
+  
+  if (sma125 && currentPrice < sma125) {
+    score += 1;
+    reasons.push('Kursen ligger under SMA 125 (6-månaderssnittet)');
+  }
+  
+  if (sma200 && currentPrice < sma200) {
+    score += 1;
+    reasons.push('Kursen ligger under SMA 200 (200-dagarssnittet)');
+  }
+  
+  if (rsi && rsi < 30) {
+    score += 2;
+    reasons.push('RSI är under 30 (översåld)');
+    if (rsi < 20) {
+      score += 1;
+      reasons.push('RSI är under 20 (kraftigt översåld)');
+    }
+  }
+  
+  if (fiftyTwoWeekLow && currentPrice <= fiftyTwoWeekLow * 1.05) {
+    score += 1;
+    reasons.push('Kursen är inom 5% från 52-veckorslägsta');
+  }
+  
+  let signal: 'KÖP' | 'SÄLJ' | 'NEUTRAL' = 'NEUTRAL';
+  
+  if (score >= 3) {
+    signal = 'KÖP';
+  } else if (score >= 1) {
+    signal = 'NEUTRAL';
+  } else {
+    // Check sell conditions
+    if (sma125 && sma200 && rsi && currentPrice > sma125 && currentPrice > sma200 && rsi > 70) {
+      signal = 'SÄLJ';
+      reasons.push('Kursen är över både SMA 125 och SMA 200 samt RSI > 70 (överköpt)');
+    }
+  }
+  
+  return { signal, reasons };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const market = url.searchParams.get('market') || 'omxs30';
@@ -105,12 +152,26 @@ export async function GET(request: Request) {
         const sma125 = calculateSMA(history, 125);
         const sma200 = calculateSMA(history, 200);
         const rsi = calculateRSI(history, 14);
+        
+        const latestVolume = history[history.length - 1].volume || 0;
+        const vol20 = history.slice(-20);
+        const avgVolume20 = vol20.reduce((acc, curr) => acc + (curr.volume || 0), 0) / (vol20.length || 1);
 
-        // We return ALL data, and let the frontend filter it.
-        // Also return the last 30 days of close prices for the mini-chart
-        const chartHistory = history.slice(-30).map(q => ({ date: q.date, close: q.close }));
+        const chartHistory = [];
+        const chartHistoryLength = 125;
+        const startIndex = Math.max(0, history.length - chartHistoryLength);
+        
+        for (let i = startIndex; i < history.length; i++) {
+            const historyUpToI = history.slice(0, i + 1);
+            const sma125AtDay = calculateSMA(historyUpToI, 125);
+            chartHistory.push({
+                date: history[i].date,
+                close: history[i].close,
+                sma125: sma125AtDay
+            });
+        }
 
-        results.push({
+        const itemData = {
           ticker,
           companyName,
           currentPrice,
@@ -118,7 +179,22 @@ export async function GET(request: Request) {
           sma200,
           rsi,
           diffPercent125: sma125 ? ((currentPrice - sma125) / sma125) * 100 : null,
+          fiftyTwoWeekLow: quote?.fiftyTwoWeekLow || null,
+          fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh || null,
+          trailingPE: quote?.trailingPE || null,
+          dividendYield: quote?.dividendYield || null,
+          marketCap: quote?.marketCap || null,
+          regularMarketChangePercent: quote?.regularMarketChangePercent || null,
+          latestVolume,
+          avgVolume20,
           chartHistory
+        };
+        
+        const { signal, reasons } = generateSignal(itemData);
+
+        results.push({
+          ...itemData,
+          signalInfo: { signal, reasons }
         });
       } catch (err) {
         console.error(`Failed to fetch data for ${ticker}:`, err);
