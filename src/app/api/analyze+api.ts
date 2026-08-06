@@ -216,15 +216,19 @@ function generateHealthCheck(item: any) {
   if (rsi !== null && rsi < 30) observations.push('Aktien är tekniskt översåld');
   if (nearLowPassed) observations.push('Kursen närmar sig årslägsta');
   
-  let summary = '';
+  const diffPct = sma125 ? Math.abs(((currentPrice - sma125) / sma125) * 100).toFixed(1) : '0.0';
+  const priceAction = sma125 ? (currentPrice < sma125 ? `handlas ${diffPct}% under` : `handlas ${diffPct}% över`) + ' sitt 6-månaderssnitt' : 'handlas nära sitt snitt';
+  const rsiText = (rsi !== null && rsi < 30) ? ` och RSI ligger på ${rsi.toFixed(0)} (översåld)` : '';
+  const divText = dividendYield ? `. Direktavkastningen är ${(dividendYield * 100).toFixed(1)}%` : '';
+  const lowText = (fiftyTwoWeekLow && ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10) ? `. ${( ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100 ).toFixed(1)}% från 52v-lägsta` : '';
+
+  let summary = `${companyName} ${priceAction}${rsiText}${divText}${lowText}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
   if (grade === 'A' || grade === 'B') {
-    const obs = observations.length >= 2 ? `${observations[0]} och ${observations[1].toLowerCase()}` : (observations[0] || 'många indikatorer ser positiva ut');
-    summary = `${companyName} visar flera tecken på köpläge. ${obs}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
+    summary += ' Övergripande visar aktien flera tecken på köpläge.';
   } else if (grade === 'C') {
-    const obs = observations[0] || 'Inga särskilda utstickare för tillfället';
-    summary = `${companyName} är i ett neutralt läge just nu. ${obs}. Avvakta.`;
+    summary += ' Övergripande är aktien i ett neutralt läge.';
   } else {
-    summary = `${companyName} visar inga tydliga köpsignaler just nu.`;
+    summary += ' Inga tydliga köpsignaler för tillfället.';
   }
   
   return { grade, gradeScore, summary, riskLevel, momentum, checklist };
@@ -318,7 +322,12 @@ export async function GET(request: Request) {
           chartHistory,
           bollingerBands,
           macdData,
-          volatility
+          volatility,
+          earningsTimestamp: quote?.earningsTimestamp || null,
+          priceToBook: quote?.priceToBook || null,
+          bookValue: quote?.bookValue || null,
+          fiftyDayAverage: quote?.fiftyDayAverage || null,
+          twoHundredDayAverage: quote?.twoHundredDayAverage || null
         };
         
         const healthCheck = generateHealthCheck(itemData);

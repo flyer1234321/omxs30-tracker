@@ -68,13 +68,23 @@ export default function HomeScreen() {
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
   const searchTimeout = useRef<any>(null);
 
-  const checkExplanations: Record<string, string> = {
-    'Tjänar företaget pengar?': 'P/E-talet visar hur mycket du betalar per krona vinst. Ett P/E på 15 betyder att du betalar 15 kr för varje krona företaget tjänar. Lägre P/E kan betyda att aktien är billig, men kan också signalera problem.',
-    'Betalar utdelning?': 'Direktavkastningen visar hur stor del av aktiekursen du får tillbaka varje år i utdelning. T.ex. 4% betyder att du får 4 kr per år för varje 100 kr du investerar. Stabil utdelning tyder på ett hälsosamt företag.',
-    'Har aktien fallit kraftigt?': 'När en aktie faller snabbt kan det vara tillfällig panik — eller ett genuint problem. Om övriga nyckeltal (vinst, utdelning) fortfarande ser bra ut, kan ett kraftigt fall vara ett köptillfälle.',
-    'Nära botten?': 'Om kursen är nära sitt lägsta pris de senaste 52 veckorna kan det tyda på att den mesta nedgången redan har skett. Men det kan också betyda att det finns underliggande problem.',
-    'Översåld (RSI)?': 'RSI mäter om en aktie har sålts för aggressivt på kort tid. Under 30 = översåld (potentiellt köpläge). Över 70 = överköpt (potentiellt dags att sälja). Det är som en "gummibandseffekt" — ju mer utsträckt, desto troligare studsar den tillbaka.',
-    'Under glidande medelvärde?': 'SMA 125 är genomsnittskursen de senaste 6 månaderna. När aktien handlas under detta snitt visar det att den kortsiktiga trenden är negativ. Stora stabila bolag brukar inte stanna under snittet särskilt länge.',
+  const getExplanation = (label: string, item: StockData) => {
+    switch (label) {
+      case 'Tjänar företaget pengar?':
+        return `P/E-talet visar hur mycket du betalar för 1 kr av bolagets vinst. Ett "normalt" värde ligger runt 15. ${item.companyName} har just nu ett P/E på ${item.trailingPE?.toFixed(1) || 'okänt'}, vilket innebär att det är ${item.trailingPE ? (item.trailingPE < 15 ? 'relativt lågt värderat i förhållande till vinsten' : 'ganska högt värderat') : 'okänt'}.`;
+      case 'Betalar utdelning?':
+        return `Direktavkastningen visar hur stor del av aktiekursen du får tillbaka varje år i utdelning. ${item.companyName} delar ut ${(item.dividendYield ? (item.dividendYield * 100).toFixed(1) : '0')}% varje år. Stabil utdelning över tid tyder på ett hälsosamt bolag.`;
+      case 'Har aktien fallit kraftigt?':
+        return `När en aktie faller snabbt kan det vara tillfällig panik (bra köpläge) eller ett genuint problem (varning). ${item.companyName} handlas just nu på ${item.currentPrice?.toFixed(2)} kr.`;
+      case 'Nära botten?':
+        return `Lägsta priset för ${item.ticker.replace('.ST','')} de senaste 52 veckorna var ${item.fiftyTwoWeekLow?.toFixed(2) || 'okänt'} kr (Nuvarande pris: ${item.currentPrice?.toFixed(2)} kr). Om kursen vänder upp från botten kan det vara ett starkt stödområde.`;
+      case 'Översåld (RSI)?':
+        return `RSI mäter om en aktie har sålts för aggressivt. Under 30 är "översålt" och över 70 "överköpt". ${item.companyName} har ett RSI på ${item.rsi?.toFixed(1) || 'okänt'}. ${item.rsi && item.rsi < 35 ? 'Den är utsträckt på nedsidan, som ett gummiband som kan snärta tillbaka.' : 'Den befinner sig i en normal/stark zon.'}`;
+      case 'Under glidande medelvärde?':
+        return `Genomsnittskursen de senaste 6 månaderna (SMA 125) ligger på ${item.sma125?.toFixed(2) || 'okänt'} kr. ${item.companyName} ligger just nu ${item.sma125 && item.currentPrice && item.currentPrice < item.sma125 ? 'under detta snitt (svag kortsiktig trend)' : 'över detta snitt (stark trend)'}.`;
+      default:
+        return '';
+    }
   };
 
   useEffect(() => {
@@ -270,7 +280,7 @@ export default function HomeScreen() {
           {hc.checklist.map((ci, i) => {
             const checkKey = `${item.ticker}-${i}`;
             const isOpen = expandedCheck === checkKey;
-            const explanation = checkExplanations[ci.label] || '';
+            const explanation = getExplanation(ci.label, item);
             return (
               <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)}>
                 <View style={[s.checkRow, isOpen && { backgroundColor: '#1a2332', borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
@@ -298,7 +308,14 @@ export default function HomeScreen() {
 
   const renderChart = (item: StockData) => {
     if (!item.chartHistory || item.chartHistory.length === 0) return null;
-    const priceData = item.chartHistory.map(d => ({ value: d.close }));
+    const priceData = item.chartHistory.map((d, i) => {
+      let label = '';
+      if (i % 25 === 0 || i === item.chartHistory.length - 1) {
+        const dateObj = new Date(d.date);
+        label = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
+      }
+      return { value: d.close, label };
+    });
     const smaData = item.chartHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
     const chartWidth = SCREEN_WIDTH - 100;
 
@@ -336,6 +353,9 @@ export default function HomeScreen() {
           stepValue={stepValue}
           yAxisOffset={yMin}
           yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
+          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 40, marginLeft: -10 }}
+          spacing={(chartWidth - 20) / Math.max(item.chartHistory.length, 1)}
+          initialSpacing={10}
           yAxisColor="#333"
           xAxisColor="#333"
           rulesColor="#222"
@@ -445,19 +465,21 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      <View style={s.header}>
-        <View style={s.headerRow}>
-          <Text style={s.headerTitle}>📊 Screener</Text>
-          <View style={s.headerBadge}><Text style={s.headerBadgeText}>{filteredData.length} av {data.length}</Text></View>
+      <View style={s.topSticky}>
+        <View style={s.header}>
+          <View style={s.headerRow}>
+            <Text style={s.headerTitle}>📊 Screener</Text>
+            <View style={s.headerBadge}><Text style={s.headerBadgeText}>{filteredData.length} av {data.length}</Text></View>
+          </View>
+          <Text style={s.headerSub}>
+            {lastUpdated ? `Uppdaterad ${new Date(lastUpdated).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'Hämtar...'}
+            {gradeACount > 0 ? ` · 🏆 ${gradeACount} med betyg A` : ''}
+          </Text>
         </View>
-        <Text style={s.headerSub}>
-          {lastUpdated ? `Uppdaterad ${new Date(lastUpdated).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}` : 'Hämtar...'}
-          {gradeACount > 0 ? ` · 🏆 ${gradeACount} med betyg A` : ''}
-        </Text>
+        {renderTabs()}
+        {renderSearch()}
+        {renderFilters()}
       </View>
-      {renderTabs()}
-      {renderSearch()}
-      {renderFilters()}
       {loading && !refreshing ? (
         <View style={s.loadingWrap}><ActivityIndicator size="large" color="#007AFF" /><Text style={s.loadingText}>Analyserar marknaden...</Text></View>
       ) : (
@@ -479,6 +501,7 @@ export default function HomeScreen() {
 // ─── STYLES ─────────────────────────────────
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  topSticky: { backgroundColor: '#000', zIndex: 10, paddingBottom: 5 },
   header: { paddingHorizontal: 20, paddingTop: 50, paddingBottom: 12 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: '#FFF' },
@@ -505,7 +528,7 @@ const s = StyleSheet.create({
   wlChip: { backgroundColor: '#2C2C2E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   wlChipText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
 
-  filtersScroll: { marginBottom: 10 },
+  filtersScroll: { marginBottom: 15, paddingBottom: 5 },
   filtersRow: { paddingHorizontal: 16, gap: 8 },
   chip: { backgroundColor: '#1C1C1E', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#333' },
   chipActive: { backgroundColor: 'rgba(0,122,255,0.15)', borderColor: '#007AFF' },
