@@ -58,51 +58,173 @@ function calculateRSI(history: any[], period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
-function generateSignal(item: any) {
-  let score = 0;
-  const reasons: string[] = [];
+function calculateBollingerBands(history: any[], period = 20, stdDev = 2) {
+  if (history.length < period) return null;
+  const recent = history.slice(-period);
+  const middle = recent.reduce((acc, curr) => acc + curr.close, 0) / period;
   
-  const { currentPrice, sma125, sma200, rsi, fiftyTwoWeekLow } = item;
+  const variance = recent.reduce((acc, curr) => acc + Math.pow(curr.close - middle, 2), 0) / period;
+  const std = Math.sqrt(variance);
   
-  if (sma125 && currentPrice < sma125) {
-    score += 1;
-    reasons.push('Kursen ligger under SMA 125 (6-månaderssnittet)');
+  return {
+    upper: middle + stdDev * std,
+    middle: middle,
+    lower: middle - stdDev * std
+  };
+}
+
+function calculateMACD(history: any[]) {
+  if (history.length < 26) return null;
+  
+  const ema = (data: number[], period: number) => {
+    let result = [];
+    let k = 2 / (period + 1);
+    let initialSma = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    result.push(initialSma);
+    for (let i = period; i < data.length; i++) {
+      result.push(data[i] * k + result[result.length - 1] * (1 - k));
+    }
+    return result;
+  };
+  
+  const closes = history.map(h => h.close);
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  
+  const macdLine = [];
+  for (let i = 0; i < ema26.length; i++) {
+    const idx12 = ema12.length - ema26.length + i;
+    macdLine.push(ema12[idx12] - ema26[i]);
   }
   
-  if (sma200 && currentPrice < sma200) {
-    score += 1;
-    reasons.push('Kursen ligger under SMA 200 (200-dagarssnittet)');
+  if (macdLine.length < 9) return null;
+  const signalLine = ema(macdLine, 9);
+  
+  const histogram = [];
+  for(let i=0; i<signalLine.length; i++) {
+    const idxMacd = macdLine.length - signalLine.length + i;
+    histogram.push(macdLine[idxMacd] - signalLine[i]);
   }
   
-  if (rsi && rsi < 30) {
-    score += 2;
-    reasons.push('RSI är under 30 (översåld)');
-    if (rsi < 20) {
-      score += 1;
-      reasons.push('RSI är under 20 (kraftigt översåld)');
+  const currentMacd = macdLine[macdLine.length - 1];
+  const currentSignal = signalLine[signalLine.length - 1];
+  const currentHistogram = histogram[histogram.length - 1];
+  
+  let trend: 'up' | 'down' | 'neutral' = 'neutral';
+  if (histogram.length >= 3) {
+    const h = histogram;
+    const len = h.length;
+    if (currentHistogram > 0 && h[len-1] > h[len-2] && h[len-2] > h[len-3]) {
+      trend = 'up';
+    } else if (currentHistogram < 0 && h[len-1] < h[len-2] && h[len-2] < h[len-3]) {
+      trend = 'down';
     }
   }
-  
-  if (fiftyTwoWeekLow && currentPrice <= fiftyTwoWeekLow * 1.05) {
-    score += 1;
-    reasons.push('Kursen är inom 5% från 52-veckorslägsta');
+
+  return { macd: currentMacd, signal: currentSignal, histogram: currentHistogram, trend };
+}
+
+function calculateVolatility(history: any[], period = 20) {
+  if (history.length < period + 1) return null;
+  const recent = history.slice(-(period + 1));
+  const returns = [];
+  for (let i = 1; i < recent.length; i++) {
+    returns.push(Math.log(recent[i].close / recent[i - 1].close));
   }
   
-  let signal: 'KÖP' | 'SÄLJ' | 'NEUTRAL' = 'NEUTRAL';
+  const mean = returns.reduce((sum, val) => sum + val, 0) / returns.length;
+  const variance = returns.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / returns.length;
+  const std = Math.sqrt(variance);
   
-  if (score >= 3) {
-    signal = 'KÖP';
-  } else if (score >= 1) {
-    signal = 'NEUTRAL';
+  return std * Math.sqrt(252) * 100; // Annualized percentage
+}
+
+function generateHealthCheck(item: any) {
+  let gradeScore = 0;
+  const checklist = [];
+  
+  const { currentPrice, sma125, rsi, fiftyTwoWeekLow, fiftyTwoWeekHigh, trailingPE, dividendYield, regularMarketChangePercent, bollingerBands, macdData, volatility, companyName, latestVolume, avgVolume20 } = item;
+  
+  const pePassed = trailingPE !== null && trailingPE > 0;
+  checklist.push({ label: 'Tjänar företaget pengar?', passed: pePassed, detail: pePassed ? `P/E: ${trailingPE.toFixed(1)}` : 'Negativt/Saknas' });
+  if (pePassed) gradeScore += 1;
+  
+  const divPassed = dividendYield !== null && dividendYield > 0;
+  checklist.push({ label: 'Betalar utdelning?', passed: divPassed, detail: divPassed ? `Direktavkastning: ${(dividendYield * 100).toFixed(1)}%` : 'Ingen utdelning' });
+  if (divPassed) gradeScore += 1;
+  
+  let dropVal = 0;
+  if (fiftyTwoWeekHigh) {
+    dropVal = ((fiftyTwoWeekHigh - currentPrice) / fiftyTwoWeekHigh) * 100;
+  } else if (sma125) {
+    dropVal = ((sma125 - currentPrice) / sma125) * 100;
+  }
+  const dropPassed = dropVal > 8;
+  checklist.push({ label: 'Har aktien fallit kraftigt?', passed: dropPassed, detail: `Faller ${dropVal.toFixed(1)}%` });
+  if (dropPassed) gradeScore += 1;
+  
+  const nearLowPassed = fiftyTwoWeekLow ? ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10 : false;
+  checklist.push({ label: 'Nära botten?', passed: nearLowPassed, detail: fiftyTwoWeekLow ? `${(((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow)*100).toFixed(1)}% från botten` : 'N/A' });
+  if (nearLowPassed) gradeScore += 1;
+  
+  const rsiPassed = rsi !== null && rsi < 35;
+  checklist.push({ label: 'Översåld (RSI)?', passed: rsiPassed, detail: rsi ? `RSI: ${rsi.toFixed(1)}` : 'N/A' });
+  if (rsiPassed) gradeScore += 1;
+  
+  const smaPassed = sma125 !== null && currentPrice < sma125;
+  const smaDiff = sma125 ? ((sma125 - currentPrice) / sma125) * 100 : 0;
+  checklist.push({ label: 'Under glidande medelvärde?', passed: smaPassed, detail: smaPassed ? `${smaDiff.toFixed(1)}% under` : 'Över SMA' });
+  if (smaPassed) gradeScore += 1;
+  
+  if (rsi !== null && rsi < 20) gradeScore += 1;
+  
+  const nearLowerBB = bollingerBands && currentPrice <= bollingerBands.lower * 1.01;
+  if (nearLowerBB) gradeScore += 1;
+  
+  if (macdData && macdData.trend === 'up') gradeScore += 1;
+  
+  const passedItems = checklist.filter(c => c.passed).length;
+  
+  let grade: 'A'|'B'|'C'|'D'|'F' = 'F';
+  if ((gradeScore >= 8 || (passedItems >= 6 && rsi !== null && rsi < 25)) && pePassed && divPassed) {
+    grade = 'A';
+  } else if (gradeScore >= 6) {
+    grade = 'B';
+  } else if (gradeScore >= 4) {
+    grade = 'C';
+  } else if (gradeScore >= 2) {
+    grade = 'D';
   } else {
-    // Check sell conditions
-    if (sma125 && sma200 && rsi && currentPrice > sma125 && currentPrice > sma200 && rsi > 70) {
-      signal = 'SÄLJ';
-      reasons.push('Kursen är över både SMA 125 och SMA 200 samt RSI > 70 (överköpt)');
-    }
+    grade = 'F';
   }
   
-  return { signal, reasons };
+  let riskLevel: 'Låg' | 'Medel' | 'Hög' = 'Låg';
+  if (volatility !== null) {
+    if (volatility > 40) riskLevel = 'Hög';
+    else if (volatility > 25) riskLevel = 'Medel';
+  }
+  
+  const momentum = macdData ? (macdData.trend === 'up' ? 'Uppåt' : (macdData.trend === 'down' ? 'Nedåt' : 'Sidledes')) : 'Sidledes';
+  
+  const observations = [];
+  if (nearLowerBB) observations.push('Kursen är vid sin statistiska botten');
+  if (macdData && macdData.trend === 'up') observations.push('Momentum håller på att vända uppåt');
+  if (latestVolume && avgVolume20 && latestVolume > 1.5 * avgVolume20) observations.push('Handelsvolymen är ovanligt hög');
+  if (rsi !== null && rsi < 30) observations.push('Aktien är tekniskt översåld');
+  if (nearLowPassed) observations.push('Kursen närmar sig årslägsta');
+  
+  let summary = '';
+  if (grade === 'A' || grade === 'B') {
+    const obs = observations.length >= 2 ? `${observations[0]} och ${observations[1].toLowerCase()}` : (observations[0] || 'många indikatorer ser positiva ut');
+    summary = `${companyName} visar flera tecken på köpläge. ${obs}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
+  } else if (grade === 'C') {
+    const obs = observations[0] || 'Inga särskilda utstickare för tillfället';
+    summary = `${companyName} är i ett neutralt läge just nu. ${obs}. Avvakta.`;
+  } else {
+    summary = `${companyName} visar inga tydliga köpsignaler just nu.`;
+  }
+  
+  return { grade, gradeScore, summary, riskLevel, momentum, checklist };
 }
 
 export async function GET(request: Request) {
@@ -152,6 +274,9 @@ export async function GET(request: Request) {
         const sma125 = calculateSMA(history, 125);
         const sma200 = calculateSMA(history, 200);
         const rsi = calculateRSI(history, 14);
+        const bollingerBands = calculateBollingerBands(history, 20, 2);
+        const macdData = calculateMACD(history);
+        const volatility = calculateVolatility(history, 20);
         
         const latestVolume = history[history.length - 1].volume || 0;
         const vol20 = history.slice(-20);
@@ -187,14 +312,17 @@ export async function GET(request: Request) {
           regularMarketChangePercent: quote?.regularMarketChangePercent || null,
           latestVolume,
           avgVolume20,
-          chartHistory
+          chartHistory,
+          bollingerBands,
+          macdData,
+          volatility
         };
         
-        const { signal, reasons } = generateSignal(itemData);
+        const healthCheck = generateHealthCheck(itemData);
 
         results.push({
           ...itemData,
-          signalInfo: { signal, reasons }
+          healthCheck
         });
       } catch (err) {
         console.error(`Failed to fetch data for ${ticker}:`, err);
