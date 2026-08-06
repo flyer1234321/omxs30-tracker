@@ -189,13 +189,13 @@ function generateHealthCheck(item: any) {
   const passedItems = checklist.filter(c => c.passed).length;
   
   let grade: 'A'|'B'|'C'|'D'|'F' = 'F';
-  if ((gradeScore >= 8 || (passedItems >= 6 && rsi !== null && rsi < 25)) && pePassed && divPassed) {
+  if ((gradeScore >= 7 || (passedItems >= 5 && rsi !== null && rsi < 30)) && pePassed && divPassed) {
     grade = 'A';
-  } else if (gradeScore >= 6) {
+  } else if (gradeScore >= 5) {
     grade = 'B';
-  } else if (gradeScore >= 4) {
+  } else if (gradeScore >= 3) {
     grade = 'C';
-  } else if (gradeScore >= 2) {
+  } else if (gradeScore >= 1) {
     grade = 'D';
   } else {
     grade = 'F';
