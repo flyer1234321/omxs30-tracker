@@ -394,7 +394,7 @@ export default function HomeScreen() {
         } else if (chartPeriod === '1W') {
           label = `${weekdays[dateObj.getDay()]}`;
         } else {
-          label = `${dateObj.getDate()} ${months[dateObj.getMonth()]}`;
+          label = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
         }
       }
       return { value: d.close, label };
@@ -449,7 +449,7 @@ export default function HomeScreen() {
           stepValue={stepValue}
           yAxisOffset={yMin}
           yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 80, marginLeft: -30, textAlign: 'center' }}
+          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10 }}
           spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
           initialSpacing={10}
           yAxisColor="#333"
@@ -480,6 +480,45 @@ export default function HomeScreen() {
       </View>
     </View>
   );
+
+  const renderTrendAnalysis = (item: StockData) => {
+    if (!item.sma125 || !item.currentPrice) return null;
+    
+    const diffPercent = ((item.currentPrice - item.sma125) / item.sma125) * 100;
+    const isTesting = Math.abs(diffPercent) <= 2.0;
+    
+    let title = '';
+    let text = '';
+    let color = '';
+    let icon = '';
+
+    if (isTesting) {
+      title = 'Testar Brytpunkt (SMA 125)';
+      text = `Aktien handlas just nu på ${item.currentPrice.toFixed(2)} kr, vilket är mycket nära halvårstrenden på ${item.sma125.toFixed(2)} kr. Ett utbrott uppåt under hög volym kan vara en köpsignal, medan ett brott nedåt kan ses som en varningssignal.`;
+      color = '#FFCC00';
+      icon = '⚠️';
+    } else if (item.currentPrice > item.sma125) {
+      title = 'Positiv Trend (Bullish)';
+      text = `Aktien befinner sig i en positiv trend eftersom kursen (${item.currentPrice.toFixed(2)} kr) handlas över sitt 125-dagars snitt (${item.sma125.toFixed(2)} kr). SMA 125 fungerar just nu som ett dynamiskt "golv" (stöd) vid eventuella nedgångar.`;
+      color = '#34C759';
+      icon = '📈';
+    } else {
+      title = 'Negativ Trend (Bearish)';
+      text = `Aktien befinner sig i en negativ trend eftersom kursen (${item.currentPrice.toFixed(2)} kr) handlas under sitt 125-dagars snitt (${item.sma125.toFixed(2)} kr). SMA 125 fungerar just nu som ett dynamiskt "tak" (motstånd) som är svårt att bryta igenom.`;
+      color = '#FF3B30';
+      icon = '📉';
+    }
+
+    return (
+      <View style={[s.trendBox, { borderLeftColor: color }]}>
+        <View style={s.trendHeader}>
+          <Text style={s.trendIcon}>{icon}</Text>
+          <Text style={[s.trendTitle, { color }]}>{title}</Text>
+        </View>
+        <Text style={s.trendText}>{text}</Text>
+      </View>
+    );
+  };
 
   const renderItem = ({ item }: { item: StockData }) => {
     const isExpanded = expandedTicker === item.ticker;
@@ -539,6 +578,7 @@ export default function HomeScreen() {
         {isExpanded && (
           <View style={s.expanded}>
             {renderHealthCard(item)}
+            {renderTrendAnalysis(item)}
             {renderChart(item)}
             {renderFundamentals(item)}
             {market === 'watchlist' && (
@@ -689,6 +729,13 @@ const s = StyleSheet.create({
   checkResultText: { color: '#9CA3AF', fontSize: 13, fontWeight: '700' },
   checkExplain: { backgroundColor: '#111827', borderRadius: 8, padding: 12, marginTop: 4, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#007AFF' },
   checkExplainText: { color: '#9CA3AF', fontSize: 13, lineHeight: 19 },
+
+  // Trend Analysis
+  trendBox: { backgroundColor: '#111827', borderRadius: 14, padding: 16, marginBottom: 16, borderLeftWidth: 4 },
+  trendHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
+  trendIcon: { fontSize: 18 },
+  trendTitle: { fontSize: 15, fontWeight: '700' },
+  trendText: { color: '#D1D5DB', fontSize: 13, lineHeight: 20 },
 
   // Chart
   chartSection: { marginBottom: 16 },
