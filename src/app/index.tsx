@@ -58,7 +58,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [market, setMarket] = useState<'omxs30' | 'dji' | 'watchlist'>('omxs30');
+  const [market, setMarket] = useState<'omxs30' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist'>('omxs30');
   const [filter, setFilter] = useState<'ALL' | 'A' | 'B' | 'UNDER_SMA' | 'RSI'>('ALL');
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
@@ -199,15 +199,22 @@ export default function HomeScreen() {
   // ─── RENDER FUNCTIONS ─────────────────────────────────
 
   const renderTabs = () => (
-    <View style={s.tabsContainer}>
-      {(['omxs30', 'dji', 'watchlist'] as const).map(tab => (
-        <TouchableOpacity key={tab} style={[s.tab, market === tab && s.activeTab]} onPress={() => setMarket(tab)}>
-          <Text style={[s.tabText, market === tab && s.activeTabText]}>
-            {tab === 'omxs30' ? '🇸🇪 Sverige' : tab === 'dji' ? '🇺🇸 USA' : '⭐ Min Lista'}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabsContainer}>
+      {(['omxs30', 'dji', 'tech', 'swe_fastigheter', 'watchlist'] as const).map(tab => {
+        let label = '';
+        if (tab === 'omxs30') label = '🇸🇪 Sverige';
+        else if (tab === 'dji') label = '🇺🇸 USA';
+        else if (tab === 'tech') label = '💻 Tech';
+        else if (tab === 'swe_fastigheter') label = '🏢 Fastigheter';
+        else label = '⭐ Min Lista';
+
+        return (
+          <TouchableOpacity key={tab} style={[s.tab, market === tab && s.activeTab]} onPress={() => setMarket(tab)}>
+            <Text style={[s.tabText, market === tab && s.activeTabText]}>{label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 
   const renderFilters = () => (
@@ -585,8 +592,9 @@ const s = StyleSheet.create({
   headerBadgeText: { color: '#8E8E93', fontSize: 13, fontWeight: '600' },
   headerSub: { fontSize: 13, color: '#8E8E93', marginTop: 4 },
 
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 10 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#222' },
+  tabsScroll: { flexGrow: 0, marginBottom: 12 },
+  tabsContainer: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 4 },
+  tab: { paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#222' },
   activeTab: { borderBottomColor: '#007AFF' },
   tabText: { color: '#8E8E93', fontWeight: '600', fontSize: 14 },
   activeTabText: { color: '#007AFF' },
