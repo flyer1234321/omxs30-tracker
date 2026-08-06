@@ -281,7 +281,7 @@ export async function GET(request: Request) {
         const currentPrice = quote?.regularMarketPrice;
         const companyName = quote?.longName || quote?.shortName || ticker;
 
-        const history = chartData.quotes;
+        const history = chartData.quotes.filter((q: any) => q.close !== null);
 
         if (!history || history.length === 0 || !currentPrice) {
           continue;

@@ -418,7 +418,7 @@ export default function HomeScreen() {
     const stepValue = (yMax - yMin) / noOfSections;
 
     return (
-      <View style={s.chartSection}>
+      <View style={[s.chartSection, { height: 260 }]}>
         <View style={s.chartHeader}>
           <Text style={s.chartTitle}>Kursutveckling</Text>
           <View style={s.periodTabs}>
@@ -434,7 +434,7 @@ export default function HomeScreen() {
           {smaData.length > 0 && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
         </View>
         <LineChart
-          key={`${item.ticker}-${chartPeriod}`} // Force remount to fix buggy animation morphing between periods
+          key={`${item.ticker}-${chartPeriod}`}
           data={priceData}
           data2={smaData.length > 0 ? smaData : undefined}
           width={chartWidth}
@@ -449,7 +449,7 @@ export default function HomeScreen() {
           stepValue={stepValue}
           yAxisOffset={yMin}
           yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 45, marginLeft: -15 }}
+          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 80, marginLeft: -30, textAlign: 'center' }}
           spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
           initialSpacing={10}
           yAxisColor="#333"
