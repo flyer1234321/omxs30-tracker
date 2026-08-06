@@ -6,6 +6,7 @@
     "@expo/server": "^0.7.5",
     "@expo/ui": "~57.0.9",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "babel-plugin-module-resolver": "^5.0.3",
     "expo": "~57.0.10",
     "expo-constants": "~57.0.9",
     "expo-device": "~57.0.1",
@@ -30,6 +31,7 @@
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
+    "react-native-web-linear-gradient": "^1.1.2",
     "react-native-worklets": "0.10.1",
     "yahoo-finance2": "^4.0.0"
   },
