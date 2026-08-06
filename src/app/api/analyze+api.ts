@@ -1,5 +1,8 @@
 import YahooFinance from 'yahoo-finance2';
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
+const yahooFinance = new YahooFinance({ 
+  suppressNotices: ['yahooSurvey', 'ripHistorical'],
+  validation: { logErrors: false }
+});
 
 const MARKETS: Record<string, string[]> = {
   omxs30: [
@@ -250,7 +253,7 @@ export async function GET(request: Request) {
     period1.setMonth(period1.getMonth() - 12); // 12 months back to ensure 200 trading days
 
     const results = [];
-    const quotes = await yahooFinance.quote(tickersToFetch);
+    const quotes = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false });
     const quotesMap = new Map();
     quotes.forEach(q => quotesMap.set(q.symbol, q));
 
@@ -259,7 +262,7 @@ export async function GET(request: Request) {
         const chartData = await yahooFinance.chart(ticker, {
           period1,
           interval: '1d',
-        });
+        }, { validateResult: false });
 
         const quote = quotesMap.get(ticker);
         const currentPrice = quote?.regularMarketPrice;

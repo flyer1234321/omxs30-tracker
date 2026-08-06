@@ -65,7 +65,17 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
   const searchTimeout = useRef<any>(null);
+
+  const checkExplanations: Record<string, string> = {
+    'Tjänar företaget pengar?': 'P/E-talet visar hur mycket du betalar per krona vinst. Ett P/E på 15 betyder att du betalar 15 kr för varje krona företaget tjänar. Lägre P/E kan betyda att aktien är billig, men kan också signalera problem.',
+    'Betalar utdelning?': 'Direktavkastningen visar hur stor del av aktiekursen du får tillbaka varje år i utdelning. T.ex. 4% betyder att du får 4 kr per år för varje 100 kr du investerar. Stabil utdelning tyder på ett hälsosamt företag.',
+    'Har aktien fallit kraftigt?': 'När en aktie faller snabbt kan det vara tillfällig panik — eller ett genuint problem. Om övriga nyckeltal (vinst, utdelning) fortfarande ser bra ut, kan ett kraftigt fall vara ett köptillfälle.',
+    'Nära botten?': 'Om kursen är nära sitt lägsta pris de senaste 52 veckorna kan det tyda på att den mesta nedgången redan har skett. Men det kan också betyda att det finns underliggande problem.',
+    'Översåld (RSI)?': 'RSI mäter om en aktie har sålts för aggressivt på kort tid. Under 30 = översåld (potentiellt köpläge). Över 70 = överköpt (potentiellt dags att sälja). Det är som en "gummibandseffekt" — ju mer utsträckt, desto troligare studsar den tillbaka.',
+    'Under glidande medelvärde?': 'SMA 125 är genomsnittskursen de senaste 6 månaderna. När aktien handlas under detta snitt visar det att den kortsiktiga trenden är negativ. Stora stabila bolag brukar inte stanna under snittet särskilt länge.',
+  };
 
   useEffect(() => {
     (async () => {
@@ -256,14 +266,26 @@ export default function HomeScreen() {
 
         {/* Checklist */}
         <View style={s.checklist}>
-          <Text style={s.checklistTitle}>Hälsokoll</Text>
-          {hc.checklist.map((item, i) => (
-            <View key={i} style={s.checkRow}>
-              <Text style={s.checkIcon}>{item.passed ? '✅' : '❌'}</Text>
-              <Text style={[s.checkLabel, !item.passed && { color: '#666' }]}>{item.label}</Text>
-              <Text style={[s.checkDetail, item.passed ? { color: '#34C759' } : { color: '#666' }]}>{item.detail}</Text>
-            </View>
-          ))}
+          <Text style={s.checklistTitle}>Hälsokoll — tryck på en rad för förklaring</Text>
+          {hc.checklist.map((ci, i) => {
+            const checkKey = `${item.ticker}-${i}`;
+            const isOpen = expandedCheck === checkKey;
+            const explanation = checkExplanations[ci.label] || '';
+            return (
+              <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)}>
+                <View style={[s.checkRow, isOpen && { backgroundColor: '#1a2332', borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
+                  <Text style={s.checkIcon}>{ci.passed ? '✅' : '❌'}</Text>
+                  <Text style={[s.checkLabel, !ci.passed && { color: '#666' }]}>{ci.label}</Text>
+                  <Text style={[s.checkDetail, ci.passed ? { color: '#34C759' } : { color: '#666' }]}>{ci.detail}</Text>
+                </View>
+                {isOpen && explanation ? (
+                  <View style={s.checkExplain}>
+                    <Text style={s.checkExplainText}>{explanation}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
           <View style={s.checkResult}>
             <Text style={s.checkResultText}>
               {hc.checklist.filter(c => c.passed).length}/{hc.checklist.length} uppfyllda → Betyg {hc.grade}
@@ -278,14 +300,52 @@ export default function HomeScreen() {
     if (!item.chartHistory || item.chartHistory.length === 0) return null;
     const priceData = item.chartHistory.map(d => ({ value: d.close }));
     const smaData = item.chartHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
-    const chartWidth = SCREEN_WIDTH - 80;
+    const chartWidth = SCREEN_WIDTH - 100;
+
+    // Calculate Y-axis range for better detail
+    const allValues = item.chartHistory.map(d => d.close).filter(v => v != null);
+    const smaValues = item.chartHistory.map(d => d.sma125).filter(v => v != null) as number[];
+    const allPrices = [...allValues, ...smaValues];
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    const padding = (maxPrice - minPrice) * 0.1 || 1;
+    const yMin = Math.floor(minPrice - padding);
+    const yMax = Math.ceil(maxPrice + padding);
+    const noOfSections = 4;
+    const stepValue = (yMax - yMin) / noOfSections;
+
     return (
       <View style={s.chartSection}>
+        <Text style={s.chartTitle}>Kursutveckling — 125 dagar</Text>
         <View style={s.chartLegend}>
           <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#007AFF' }]} /><Text style={s.legendText}>Kurs</Text></View>
           {smaData.length > 0 && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
         </View>
-        <LineChart data={priceData} data2={smaData.length > 0 ? smaData : undefined} width={chartWidth} height={140} color="#007AFF" color2="#FF9500" thickness={2} thickness2={1.5} hideDataPoints hideDataPoints2 hideRules hideYAxisText yAxisColor="transparent" xAxisColor="#333" curved areaChart startFillColor="rgba(0,122,255,0.15)" endFillColor="rgba(0,122,255,0.02)" startOpacity={0.3} endOpacity={0} />
+        <LineChart
+          data={priceData}
+          data2={smaData.length > 0 ? smaData : undefined}
+          width={chartWidth}
+          height={180}
+          color="#007AFF"
+          color2="#FF9500"
+          thickness={2}
+          thickness2={1.5}
+          hideDataPoints
+          hideDataPoints2
+          noOfSections={noOfSections}
+          stepValue={stepValue}
+          yAxisOffset={yMin}
+          yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
+          yAxisColor="#333"
+          xAxisColor="#333"
+          rulesColor="#222"
+          curved
+          areaChart
+          startFillColor="rgba(0,122,255,0.2)"
+          endFillColor="rgba(0,122,255,0.02)"
+          startOpacity={0.4}
+          endOpacity={0}
+        />
       </View>
     );
   };
@@ -419,7 +479,7 @@ export default function HomeScreen() {
 // ─── STYLES ─────────────────────────────────
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12 },
+  header: { paddingHorizontal: 20, paddingTop: 50, paddingBottom: 12 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: '#FFF' },
   headerBadge: { backgroundColor: '#1C1C1E', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
@@ -500,9 +560,12 @@ const s = StyleSheet.create({
   checkDetail: { fontSize: 13, fontWeight: '700', minWidth: 60, textAlign: 'right' },
   checkResult: { borderTopWidth: 1, borderTopColor: '#374151', paddingTop: 10, marginTop: 6, alignItems: 'center' },
   checkResultText: { color: '#9CA3AF', fontSize: 13, fontWeight: '700' },
+  checkExplain: { backgroundColor: '#111827', borderRadius: 8, padding: 12, marginTop: 4, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#007AFF' },
+  checkExplainText: { color: '#9CA3AF', fontSize: 13, lineHeight: 19 },
 
   // Chart
   chartSection: { marginBottom: 16 },
+  chartTitle: { color: '#8E8E93', fontSize: 13, fontWeight: '600', marginBottom: 8 },
   chartLegend: { flexDirection: 'row', gap: 16, marginBottom: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
