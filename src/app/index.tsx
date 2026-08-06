@@ -66,6 +66,7 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<'1M'|'3M'|'6M'|'1Y'>('6M');
   const searchTimeout = useRef<any>(null);
 
   const getExplanation = (label: string, item: StockData) => {
@@ -308,20 +309,35 @@ export default function HomeScreen() {
 
   const renderChart = (item: StockData) => {
     if (!item.chartHistory || item.chartHistory.length === 0) return null;
-    const priceData = item.chartHistory.map((d, i) => {
+    
+    // Filter history based on selected period
+    let days = 125;
+    if (chartPeriod === '1M') days = 21;
+    if (chartPeriod === '3M') days = 63;
+    if (chartPeriod === '1Y') days = 252;
+    
+    const startIndex = Math.max(0, item.chartHistory.length - days);
+    const filteredHistory = item.chartHistory.slice(startIndex);
+    
+    if (filteredHistory.length === 0) return null;
+
+    const labelInterval = Math.max(1, Math.floor(filteredHistory.length / 5));
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+
+    const priceData = filteredHistory.map((d, i) => {
       let label = '';
-      if (i % 25 === 0 || i === item.chartHistory.length - 1) {
+      if (i % labelInterval === 0 || i === filteredHistory.length - 1) {
         const dateObj = new Date(d.date);
-        label = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
+        label = `${dateObj.getDate()} ${months[dateObj.getMonth()]}`;
       }
       return { value: d.close, label };
     });
-    const smaData = item.chartHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
+    const smaData = filteredHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
     const chartWidth = SCREEN_WIDTH - 100;
 
     // Calculate Y-axis range for better detail
-    const allValues = item.chartHistory.map(d => d.close).filter(v => v != null);
-    const smaValues = item.chartHistory.map(d => d.sma125).filter(v => v != null) as number[];
+    const allValues = filteredHistory.map(d => d.close).filter(v => v != null);
+    const smaValues = filteredHistory.map(d => d.sma125).filter(v => v != null) as number[];
     const allPrices = [...allValues, ...smaValues];
     const minPrice = Math.min(...allPrices);
     const maxPrice = Math.max(...allPrices);
@@ -333,14 +349,23 @@ export default function HomeScreen() {
 
     return (
       <View style={s.chartSection}>
-        <Text style={s.chartTitle}>Kursutveckling — 125 dagar</Text>
+        <View style={s.chartHeader}>
+          <Text style={s.chartTitle}>Kursutveckling</Text>
+          <View style={s.periodTabs}>
+            {(['1M', '3M', '6M', '1Y'] as const).map(p => (
+              <TouchableOpacity key={p} style={[s.periodBtn, chartPeriod === p && s.periodBtnActive]} onPress={() => setChartPeriod(p)}>
+                <Text style={[s.periodBtnText, chartPeriod === p && s.periodBtnTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
         <View style={s.chartLegend}>
           <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#007AFF' }]} /><Text style={s.legendText}>Kurs</Text></View>
-          {smaData.length > 0 && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
+          {smaData.length > 0 && chartPeriod !== '1M' && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
         </View>
         <LineChart
           data={priceData}
-          data2={smaData.length > 0 ? smaData : undefined}
+          data2={smaData.length > 0 && chartPeriod !== '1M' ? smaData : undefined}
           width={chartWidth}
           height={180}
           color="#007AFF"
@@ -353,8 +378,8 @@ export default function HomeScreen() {
           stepValue={stepValue}
           yAxisOffset={yMin}
           yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 40, marginLeft: -10 }}
-          spacing={(chartWidth - 20) / Math.max(item.chartHistory.length, 1)}
+          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10, width: 45, marginLeft: -15 }}
+          spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
           initialSpacing={10}
           yAxisColor="#333"
           xAxisColor="#333"
@@ -588,7 +613,14 @@ const s = StyleSheet.create({
 
   // Chart
   chartSection: { marginBottom: 16 },
-  chartTitle: { color: '#8E8E93', fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  chartTitle: { color: '#8E8E93', fontSize: 13, fontWeight: '600' },
+  periodTabs: { flexDirection: 'row', backgroundColor: '#1C1C1E', borderRadius: 6, padding: 2 },
+  periodBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 },
+  periodBtnActive: { backgroundColor: '#3A3A3C' },
+  periodBtnText: { color: '#8E8E93', fontSize: 11, fontWeight: '600' },
+  periodBtnTextActive: { color: '#FFF' },
+  
   chartLegend: { flexDirection: 'row', gap: 16, marginBottom: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },

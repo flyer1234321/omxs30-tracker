@@ -290,7 +290,7 @@ export async function GET(request: Request) {
         const avgVolume20 = vol20.reduce((acc, curr) => acc + (curr.volume || 0), 0) / (vol20.length || 1);
 
         const chartHistory = [];
-        const chartHistoryLength = 125;
+        const chartHistoryLength = 252; // Return 1 year of trading data for timeframe selector
         const startIndex = Math.max(0, history.length - chartHistoryLength);
         
         for (let i = startIndex; i < history.length; i++) {
