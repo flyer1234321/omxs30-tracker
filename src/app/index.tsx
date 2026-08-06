@@ -576,6 +576,21 @@ export default function HomeScreen() {
         {renderSearch()}
         {renderFilters()}
       </View>
+      
+      {loading && !refreshing && data.length === 0 ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={s.loadingText}>Analyserar marknaden...</Text>
+        </View>
+      ) : (
+        <FlatList 
+          data={filteredData} 
+          keyExtractor={i => i.ticker} 
+          renderItem={renderItem}
+          ListEmptyComponent={() => (
+            <View style={s.emptyWrap}>
+              <Text style={{ fontSize: 48, marginBottom: 16 }}>{market === 'watchlist' && watchlist.length === 0 ? '👀' : '🚀'}</Text>
+              <Text style={s.emptyText}>{market === 'watchlist' && watchlist.length === 0 ? 'Sök efter aktier ovan!' : 'Inga aktier matchar filtret!'}</Text>
             </View>
           )}
           contentContainerStyle={s.list}
