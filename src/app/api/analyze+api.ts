@@ -263,7 +263,7 @@ export async function GET(request: Request) {
 
   try {
     const period1 = new Date();
-    period1.setMonth(period1.getMonth() - 12); // 12 months back to ensure 200 trading days
+    period1.setMonth(period1.getMonth() - 18); // 18 months back to ensure enough data for 125-day SMA on the 1Y chart
 
     const results = [];
     const quotes = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false });

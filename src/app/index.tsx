@@ -163,6 +163,13 @@ export default function HomeScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
+  const onMarketChange = (tab: any) => {
+    if (tab !== market) {
+      setData([]); // Clear old data so we don't show Volvo under Tech
+      setMarket(tab);
+    }
+  };
+
   useEffect(() => {
     fetchData(market, watchlist);
     const interval = setInterval(() => fetchData(market, watchlist), 60000);
@@ -212,7 +219,7 @@ export default function HomeScreen() {
         else label = '⭐ Min Lista';
 
         return (
-          <TouchableOpacity key={tab} style={[s.tab, market === tab && s.activeTab]} onPress={() => setMarket(tab)}>
+          <TouchableOpacity key={tab} style={[s.tab, market === tab && s.activeTab]} onPress={() => onMarketChange(tab)}>
             <Text style={[s.tabText, market === tab && s.activeTabText]}>{label}</Text>
           </TouchableOpacity>
         );
@@ -393,7 +400,9 @@ export default function HomeScreen() {
       return { value: d.close, label };
     });
     
-    const smaData = isIntraday ? [] : filteredHistory.filter(d => d.sma125 != null).map(d => ({ value: d.sma125! }));
+    // smaData must have same length as priceData for the chart to align properly.
+    // If a value is missing (should not happen now with 18 months fetch), fallback to 0.
+    const smaData = isIntraday ? [] : filteredHistory.map(d => ({ value: d.sma125 || d.close }));
     const chartWidth = SCREEN_WIDTH - 100;
 
     // Calculate Y-axis range for better detail
@@ -425,6 +434,7 @@ export default function HomeScreen() {
           {smaData.length > 0 && <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: '#FF9500' }]} /><Text style={s.legendText}>SMA 125</Text></View>}
         </View>
         <LineChart
+          key={`${item.ticker}-${chartPeriod}`} // Force remount to fix buggy animation morphing between periods
           data={priceData}
           data2={smaData.length > 0 ? smaData : undefined}
           width={chartWidth}
@@ -566,14 +576,6 @@ export default function HomeScreen() {
         {renderSearch()}
         {renderFilters()}
       </View>
-      {loading && !refreshing ? (
-        <View style={s.loadingWrap}><ActivityIndicator size="large" color="#007AFF" /><Text style={s.loadingText}>Analyserar marknaden...</Text></View>
-      ) : (
-        <FlatList data={filteredData} keyExtractor={i => i.ticker} renderItem={renderItem}
-          ListEmptyComponent={() => (
-            <View style={s.emptyWrap}>
-              <Text style={{ fontSize: 48, marginBottom: 16 }}>{market === 'watchlist' && watchlist.length === 0 ? '👀' : '🚀'}</Text>
-              <Text style={s.emptyText}>{market === 'watchlist' && watchlist.length === 0 ? 'Sök efter aktier ovan!' : 'Inga aktier matchar filtret!'}</Text>
             </View>
           )}
           contentContainerStyle={s.list}
