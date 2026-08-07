@@ -43,6 +43,7 @@ const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
   beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end', hint: 'Hur mycket aktien historiskt rört sig relativt sitt jämförelseindex. 1,0 motsvarar ungefär indexrörelsen.' },
   drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end', hint: 'Största historiska nedgång från en tidigare topp inom det tillgängliga kursunderlaget.' },
   riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end', hint: 'Intern poäng 0 till 100 som väger trend, volatilitet och hälsobetyg. Den är ett filter, inte en prognos.' },
+  relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end', hint: 'Avkastning minus jämförelseindexets de senaste tre månaderna, i procentenheter. Positivt betyder att aktien gått bättre än index.' },
   trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center', hint: 'Mini-graf över de senaste sju dagarnas tillgängliga kursrörelser.' },
 };
 
@@ -74,6 +75,7 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
     case 'beta': return item.beta ?? -1;
     case 'drawdown': return item.maxDrawdown ?? -1;
     case 'riskReward': return item.riskRewardScore ?? -1;
+    case 'relativeStrength': return item.relativeStrength63 ?? -999;
     case 'trend': return item.chartHistory.at(-1)?.close ?? -1;
   }
 }
@@ -124,6 +126,10 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       case 'beta': return <Text style={styles.numeric}>{item.beta != null ? item.beta.toFixed(2) : '-'}</Text>;
       case 'drawdown': return <Text style={[styles.numeric, item.maxDrawdown != null && styles.negative]}>{item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'}</Text>;
       case 'riskReward': return <Text style={[styles.numeric, item.riskRewardScore != null && item.riskRewardScore >= 70 && styles.positive]}>{item.riskRewardScore != null ? item.riskRewardScore.toFixed(0) : '-'}</Text>;
+      case 'relativeStrength': {
+        const relative = item.relativeStrength63;
+        return <Text style={[styles.numeric, relative != null && relative > 0 && styles.positive, relative != null && relative < 0 && styles.negative]}>{relative != null ? `${relative > 0 ? '+' : ''}${relative.toFixed(1)}` : '-'}</Text>;
+      }
       case 'trend': {
         const color = recentHistory.length > 1 && recentHistory.at(-1)! >= recentHistory[0] ? COLORS.positive : COLORS.negative;
         return <Sparkline data={recentHistory} color={color} />;

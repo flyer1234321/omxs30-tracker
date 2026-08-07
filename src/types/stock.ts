@@ -80,6 +80,7 @@ export type TableColumnId =
   | 'beta'
   | 'drawdown'
   | 'riskReward'
+  | 'relativeStrength'
   | 'trend';
 
 export interface Workspace {

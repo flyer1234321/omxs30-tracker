@@ -16,6 +16,7 @@ export const TABLE_COLUMNS: { id: TableColumnId; label: string; description: str
   { id: 'beta', label: 'Beta', description: 'Hur mycket aktien historiskt rört sig relativt sitt jämförelseindex. 1,0 motsvarar ungefär indexrörelsen.' },
   { id: 'drawdown', label: 'Max DD', description: 'Största historiska nedgång från en tidigare topp inom tillgängligt kursunderlag.' },
   { id: 'riskReward', label: 'Risk/Reward', description: 'Intern poäng från 0 till 100 som väger trend, volatilitet och hälsobetyg. Den är inte en prognos.' },
+  { id: 'relativeStrength', label: 'Mot index', description: 'Aktiens avkastning minus jämförelseindexets de senaste tre månaderna. Positivt tal betyder att aktien gått bättre än index.' },
   { id: 'trend', label: '7d trend', description: 'Mini-graf över de senaste sju dagarnas tillgängliga kursrörelser.' },
 ];
 
@@ -23,7 +24,7 @@ const now = new Date().toISOString();
 
 export const DEFAULT_WORKSPACES: Workspace[] = [
   { id: 'overview', name: 'Översikt', columns: ['ticker', 'grade', 'price', 'change', 'rsi', 'volume', 'pe', 'sma', 'trend'], isDefault: true, createdAt: now, updatedAt: now },
-  { id: 'momentum', name: 'Momentum', columns: ['ticker', 'price', 'change', 'rsi', 'volume', 'sma', 'volatility', 'beta', 'trend'], isDefault: true, createdAt: now, updatedAt: now },
+  { id: 'momentum', name: 'Momentum', columns: ['ticker', 'price', 'change', 'rsi', 'volume', 'relativeStrength', 'sma', 'volatility', 'trend'], isDefault: true, createdAt: now, updatedAt: now },
   { id: 'risk', name: 'Risk', columns: ['ticker', 'price', 'change', 'volatility', 'beta', 'drawdown', 'riskReward', 'sma'], isDefault: true, createdAt: now, updatedAt: now },
   { id: 'value', name: 'Värde', columns: ['ticker', 'grade', 'price', 'pe', 'volume', 'riskReward', 'sma'], isDefault: true, createdAt: now, updatedAt: now },
 ];

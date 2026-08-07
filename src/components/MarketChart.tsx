@@ -18,6 +18,7 @@ import {
   type ChartPeriod,
 } from '@/lib/chart-presentation';
 import { authenticatedFetch } from '@/lib/auth-client';
+import { formatNumber, formatPrice } from '@/lib/format';
 
 const colors = {
   surface: '#111118',
@@ -169,14 +170,14 @@ export function MarketChart({ item }: MarketChartProps) {
       <View style={styles.priceSummary}>
         <View>
           <Text style={styles.title}>Kursutveckling</Text>
-          <Text style={styles.price}>{item.currentPrice.toFixed(2)} kr</Text>
+          <Text style={styles.price}>{formatPrice(item.currentPrice, item.currency)}</Text>
         </View>
         <View style={styles.performanceWrap}>
           <Text style={[styles.performance, { color: accent }]}>
-            {performance ? `${performance.absolute >= 0 ? '+' : ''}${performance.absolute.toFixed(2)} kr` : '-'}
+            {performance ? `${performance.absolute >= 0 ? '+' : ''}${formatPrice(performance.absolute, item.currency)}` : '-'}
           </Text>
           <Text style={[styles.performanceSub, { color: accent }]}>
-            {performance ? `${performance.percent >= 0 ? '+' : ''}${performance.percent.toFixed(2)}% ${rangeLabel}` : 'Saknar perioddata'}
+            {performance ? `${performance.percent >= 0 ? '+' : ''}${formatNumber(performance.percent, 2)} % ${rangeLabel}` : 'Saknar perioddata'}
           </Text>
         </View>
       </View>
