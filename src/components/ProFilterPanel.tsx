@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,6 +14,7 @@ import {
   getActiveFilterCount,
   type ProFilter,
 } from '@/lib/pro-filter';
+import { formatNumericInput, parseNumericInput } from '@/lib/numeric-input';
 
 export { applyProFilter, type ProFilter };
 
@@ -98,16 +99,30 @@ const FILTER_HELP = [
 function NumberInput({ label, value, onChange, placeholder }: {
   label: string; value: number | undefined; onChange: (v: number | undefined) => void; placeholder: string;
 }) {
+  // Fältet håller sin egen text så att halvskriven inmatning som "3," inte
+  // skrivs över medan man skriver.
+  const [text, setText] = useState(() => formatNumericInput(value));
+
+  useEffect(() => {
+    setText((current) => (parseNumericInput(current) === value ? current : formatNumericInput(value)));
+  }, [value]);
+
+  const handleChange = (next: string) => {
+    setText(next);
+    onChange(parseNumericInput(next));
+  };
+
   return (
     <View style={st.inputGroup}>
       <Text style={st.inputLabel}>{label}</Text>
       <TextInput
         style={st.numberInput}
-        value={value != null ? String(value) : ''}
-        onChangeText={t => onChange(t ? Number(t) : undefined)}
+        value={text}
+        onChangeText={handleChange}
         placeholder={placeholder}
         placeholderTextColor={C.textMuted}
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
+        inputMode="decimal"
         accessibilityLabel={label}
         accessibilityHint={`Ange ett tal för filtret ${label}. Lämna tomt för att inte använda villkoret.`}
       />

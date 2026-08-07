@@ -13,6 +13,8 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     regularMarketPreviousClose: null, epsTrailingTwelveMonths: null,
     latestVolume: null, avgVolume20: null, volatility: 20, beta: 1,
     maxDrawdown: 15, riskRewardScore: 80, healthCheck: null,
+    currency: 'SEK', atr: 2.2, tradePlan: null, relativeStrength63: null,
+    earningsTimestamp: null, priceToBook: null, bookValue: null,
     ...overrides,
   };
 }

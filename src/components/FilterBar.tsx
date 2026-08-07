@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { colors, fonts, spacing, radius } from '../theme';
+import type { MarketId } from '@/types/stock';
 
 interface FilterBarProps {
-  market: 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
-  onMarketChange: (market: string) => void;
+  market: MarketId;
+  onMarketChange: (market: MarketId) => void;
   filter: string;
   onFilterChange: (filter: string) => void;
   // Search
@@ -21,11 +22,12 @@ interface FilterBarProps {
   filteredCount: number;
   lastUpdated: number | null;
   gradeACount: number;
+  marketOpen: boolean;
   onSignOut: () => void;
   onOpenAlertSettings: () => void;
 }
 
-const MARKETS = [
+const MARKETS: { id: MarketId; label: string; hint: string }[] = [
   { id: 'omxs30', label: 'OMXS30', hint: 'Visar de 30 största och mest omsatta aktierna på Stockholmsbörsen.' },
   { id: 'swe_broad', label: 'Sverige brett', hint: 'Visar ett bredare urval av svenska aktier än OMXS30.' },
   { id: 'dji', label: 'USA', hint: 'Visar de amerikanska aktier som ingår i Dow Jones Industrial Average.' },
@@ -58,6 +60,7 @@ export function FilterBar({
   filteredCount,
   lastUpdated,
   gradeACount,
+  marketOpen,
   onSignOut,
   onOpenAlertSettings,
 }: FilterBarProps) {
@@ -139,7 +142,13 @@ export function FilterBar({
             </HintedTouchable>
           </View>
         </View>
-        <Text style={styles.subtitle}>Uppdaterad: {formattedTime} • {gradeACount} A-betyg</Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, marketOpen ? styles.statusDotOpen : styles.statusDotClosed]} />
+          <Text style={styles.subtitle}>
+            {marketOpen ? 'Börsen öppen' : 'Börsen stängd'} • Uppdaterad {formattedTime} • {gradeACount} A-betyg
+          </Text>
+        </View>
+        <Text style={styles.delayNote}>Kursdata kommer från Yahoo Finance och kan vara fördröjd.</Text>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
@@ -266,6 +275,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     fontFamily: fonts.sans,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusDotOpen: { backgroundColor: colors.positive },
+  statusDotClosed: { backgroundColor: colors.textMuted },
+  delayNote: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontFamily: fonts.sans,
+    marginTop: 2,
   },
   tabScroll: {
     flexGrow: 0,

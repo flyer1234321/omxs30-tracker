@@ -78,7 +78,7 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
     if (stock.volatility <= 25) score += 6;
     if (stock.volatility > 40) {
       score -= 8;
-      risks.push(`30-dagars volatilitet är hög (${percent(stock.volatility)}).`);
+      risks.push(`Volatiliteten (20 handelsdagar) är hög (${percent(stock.volatility)}).`);
     }
   }
 

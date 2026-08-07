@@ -1,6 +1,14 @@
 import type { calculateBollingerBands, calculateMACD } from '@/lib/indicators';
 import type { HealthCheck } from '@/types/stock';
 
+/**
+ * Sex grundkriterier ger en poäng var, och tre tekniska bonusar (mycket lågt
+ * RSI, kurs vid nedre Bollingerbandet, positiv MACD-vändning) ger en till.
+ * Konstanten finns för att gränssnittet ska visa rätt nämnare - tidigare stod
+ * det 10 i detaljvyn och 9 i förklaringsrutan.
+ */
+export const MAX_GRADE_SCORE = 9;
+
 export interface HealthCheckInput {
   currentPrice: number;
   sma125: number | null;
@@ -58,7 +66,7 @@ export function generateHealthCheck(item: HealthCheckInput): HealthCheck {
   const riskLevel: HealthCheck['riskLevel'] = volatility !== null && volatility > 40 ? 'Hög' : volatility !== null && volatility > 25 ? 'Medel' : 'Låg';
   const momentum: HealthCheck['momentum'] = macdData?.trend === 'up' ? 'Uppåt' : macdData?.trend === 'down' ? 'Nedåt' : 'Sidledes';
   const diffPct = sma125 ? Math.abs(((currentPrice - sma125) / sma125) * 100).toFixed(1) : '0.0';
-  const priceAction = sma125 ? `${currentPrice < sma125 ? 'handlas' : 'handlas'} ${diffPct}% ${currentPrice < sma125 ? 'under' : 'över'} sitt 6-månaderssnitt` : 'handlas nära sitt snitt';
+  const priceAction = sma125 ? `handlas ${diffPct}% ${currentPrice < sma125 ? 'under' : 'över'} sitt 6-månaderssnitt` : 'handlas nära sitt snitt';
   const rsiText = rsi !== null && rsi < 30 ? ` och RSI ligger på ${rsi.toFixed(0)} (översåld)` : '';
   const divText = dividendYield ? `. Direktavkastningen är ${(dividendYield * 100).toFixed(1)}%` : '';
   const lowText = fiftyTwoWeekLow && ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10 ? `. ${(((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100).toFixed(1)}% från 52v-lägsta` : '';
