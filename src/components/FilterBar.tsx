@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
 import { colors, fonts, spacing, radius } from '../theme';
 
 interface FilterBarProps {
@@ -55,6 +55,8 @@ export function FilterBar({
   lastUpdated,
   gradeACount,
 }: FilterBarProps) {
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
   const formattedTime = lastUpdated ? new Date(lastUpdated).toLocaleTimeString('sv-SE', {
     hour: '2-digit',
     minute: '2-digit',
@@ -63,6 +65,55 @@ export function FilterBar({
 
   return (
     <View style={styles.container}>
+      <Modal visible={showInfoModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowInfoModal(false)}>
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)}>
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Betygssystemet Förklarat</Text>
+          </View>
+          <ScrollView style={styles.modalBody}>
+            <Text style={styles.modalText}>
+              Betyget (A, B, C, D, F) baseras på en teknisk och fundamental hälsokontroll av varje aktie. Varje aktie kan få max 6 poäng.
+            </Text>
+            
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>1. Långsiktig Trend (SMA 200)</Text>
+              <Text style={styles.criteriaDesc}>Aktien handlas över sitt glidande medelvärde för de senaste 200 dagarna. Indikerar en stabil, långsiktig uppgång.</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>2. Kortsiktig Trend (SMA 50)</Text>
+              <Text style={styles.criteriaDesc}>Aktien handlas över sitt glidande medelvärde för de senaste 50 dagarna. Visar kortsiktig styrka och momentum.</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>3. Avstånd från botten</Text>
+              <Text style={styles.criteriaDesc}>Priset är minst 10 % över sin lägsta nivå de senaste 52 veckorna. Bekräftar att botten troligen är nådd.</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>4. Sund RSI (Relativt Styrkeindex)</Text>
+              <Text style={styles.criteriaDesc}>RSI ligger mellan 40 och 70. Det betyder att aktien har positivt momentum utan att vara "överköpt" (vilket ökar risken för rekyl).</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>5. Rimlig Värdering (P/E)</Text>
+              <Text style={styles.criteriaDesc}>P/E-talet är positivt men under 25. Man betalar alltså ett rimligt pris för bolagets nuvarande vinster.</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>6. Utdelning</Text>
+              <Text style={styles.criteriaDesc}>Bolaget ger positiv direktavkastning (utdelning). Indikerar ofta ett moget och lönsamt bolag.</Text>
+            </View>
+
+            <View style={styles.gradeBox}>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>🏆 Betyg A (5-6 poäng)</Text>
+              <Text style={styles.gradeDesc}>Aktien uppfyller nästan alla tekniska och fundamentala krav. Mycket stark trend och fundamenta.</Text>
+            </View>
+            <View style={styles.gradeBox}>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>✅ Betyg B (3-4 poäng)</Text>
+              <Text style={styles.gradeDesc}>Bra aktie som saknar något, t.ex. att den är tillfälligt överköpt, eller har ett lite för högt P/E-tal, men i grunden hälsosam.</Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>📊 Screener</Text>
@@ -95,6 +146,9 @@ export function FilterBar({
             <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{f.label}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity style={styles.infoBtn} onPress={() => setShowInfoModal(true)}>
+          <Text style={styles.infoBtnText}>❔ Betyg</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {market === 'watchlist' && (
@@ -328,5 +382,95 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 10,
     lineHeight: 12,
+  },
+  infoBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+  },
+  infoBtnText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontFamily: fonts.sans,
+    fontWeight: 'bold',
+  },
+  modalSafe: {
+    flex: 1,
+    backgroundColor: colors.bg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalCloseBtn: {
+    padding: spacing.sm,
+    marginRight: spacing.sm,
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: colors.textPrimary,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontFamily: fonts.sans,
+  },
+  modalBody: {
+    padding: spacing.lg,
+  },
+  modalText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: spacing.xl,
+    lineHeight: 20,
+  },
+  criteriaBox: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  criteriaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  criteriaDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  gradeBox: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+  },
+  gradeBadge: {
+    fontSize: 14,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  gradeDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });

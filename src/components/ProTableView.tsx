@@ -76,7 +76,7 @@ interface ProTableViewProps {
   onRefresh: () => void;
 }
 
-type SortColumn = 'ticker' | 'grade' | 'price' | 'change' | 'rsi' | 'pe' | 'sma' | 'trend';
+type SortColumn = 'ticker' | 'grade' | 'price' | 'change' | 'rsi' | 'pe' | 'sma' | 'volume' | 'trend';
 type SortDirection = 'asc' | 'desc';
 
 const Sparkline = ({
@@ -161,6 +161,10 @@ export default function ProTableView({
           aVal = a.sma125 ? (a.currentPrice > a.sma125 ? 1 : -1) : 0;
           bVal = b.sma125 ? (b.currentPrice > b.sma125 ? 1 : -1) : 0;
           break;
+        case 'volume':
+          aVal = (a.latestVolume && a.avgVolume20) ? a.latestVolume / a.avgVolume20 : 0;
+          bVal = (b.latestVolume && b.avgVolume20) ? b.latestVolume / b.avgVolume20 : 0;
+          break;
         default:
           break;
       }
@@ -220,6 +224,14 @@ export default function ProTableView({
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.headerCell, { flex: 0.8 }]}
+        onPress={() => handleSort('volume')}
+      >
+        <Text style={[styles.headerText, { textAlign: 'right' }]}>
+          Vol {renderSortIcon('volume')}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.headerCell, { flex: 0.7 }]}
         onPress={() => handleSort('pe')}
       >
         <Text style={[styles.headerText, { textAlign: 'right' }]}>
@@ -234,7 +246,7 @@ export default function ProTableView({
           SMA {renderSortIcon('sma')}
         </Text>
       </TouchableOpacity>
-      <View style={[styles.headerCell, { flex: 1 }]}>
+      <View style={[styles.headerCell, { flex: 0.9 }]}>
         <Text style={[styles.headerText, { textAlign: 'center' }]}>7d Trend</Text>
       </View>
     </View>
@@ -268,11 +280,13 @@ export default function ProTableView({
     const isNegativeChange = change < 0;
 
     const rsi = item.rsi;
-    let rsiColor = COLORS.textPrimary;
-    if (rsi !== null) {
-      if (rsi < 30) rsiColor = COLORS.negative;
-      else if (rsi > 70) rsiColor = COLORS.positive;
+    let rsiColor = COLORS.textSecondary;
+    if (rsi) {
+      if (rsi > 70) rsiColor = COLORS.red;
+      else if (rsi < 30) rsiColor = COLORS.green;
     }
+
+    const volRatio = (item.latestVolume && item.avgVolume20) ? (item.latestVolume / item.avgVolume20) * 100 : 0;
 
     let smaStatus = '-';
     let smaColor = COLORS.textSecondary;
@@ -345,6 +359,18 @@ export default function ProTableView({
         </View>
 
         <View style={[styles.cell, { flex: 0.8, alignItems: 'flex-end' }]}>
+          {volRatio > 150 ? (
+            <View style={[styles.badge, { backgroundColor: '#FFD70030', paddingHorizontal: 4 }]}>
+              <Text style={[styles.numericText, { color: '#FFD700' }]}>{Math.round(volRatio)}%</Text>
+            </View>
+          ) : (
+            <Text style={styles.numericText}>
+              {volRatio > 0 ? `${Math.round(volRatio)}%` : '-'}
+            </Text>
+          )}
+        </View>
+
+        <View style={[styles.cell, { flex: 0.7, alignItems: 'flex-end' }]}>
           <Text style={styles.numericText}>
             {item.trailingPE ? item.trailingPE.toFixed(1) : '-'}
           </Text>
@@ -354,7 +380,7 @@ export default function ProTableView({
           <Text style={[styles.smaText, { color: smaColor }]}>{smaStatus}</Text>
         </View>
 
-        <View style={[styles.cell, { flex: 1, alignItems: 'center' }]}>
+        <View style={[styles.cell, { flex: 0.9, alignItems: 'center' }]}>
           {recentHistory.length >= 2 ? (
             <Sparkline data={recentHistory} color={sparklineColor} />
           ) : (
