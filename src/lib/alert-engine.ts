@@ -20,6 +20,8 @@ export interface AlertSnapshot {
   weeklyChangePct: number | null;
   threeDayChangePct: number | null;
   grade: HealthCheck['grade'] | null;
+  /** Dagar till nasta rapport, om Yahoo har ett datum. */
+  earningsInDays?: number | null;
 }
 
 export interface StockAlert {
@@ -36,6 +38,17 @@ function crossedBelow(price: number, previousClose: number | null, average: numb
     && previousClose >= previousAverage && price < average;
 }
 
+function crossedAbove(price: number, previousClose: number | null, average: number | null, previousAverage: number | null) {
+  return previousClose != null && average != null && previousAverage != null
+    && previousClose <= previousAverage && price > average;
+}
+
+/**
+ * En rapport gor tekniska nivaer mindre anvandbara: kursen styrs av innehallet
+ * i rapporten. Larmet skickas anda, men med en tydlig brasklapp.
+ */
+const EARNINGS_CAUTION_DAYS = 3;
+
 export function evaluateAlerts(stock: AlertSnapshot): StockAlert[] {
   const buyReasons: string[] = [];
   const sellReasons: string[] = [];
@@ -51,6 +64,27 @@ export function evaluateAlerts(stock: AlertSnapshot): StockAlert[] {
 
   if (stock.grade === 'A' && (stock.weeklyChangePct ?? 0) <= -5) {
     buyReasons.push(`A-betyg efter tillfällig dipp (${stock.weeklyChangePct!.toFixed(1)} % på 7 dagar)`);
+  }
+
+  // Tre kopvillkor och ett krav pa minst tva av dem gjorde kopsignaler
+  // nastan omojliga i praktiken. Har ar tre villkor till, alla speglingar av
+  // saljlogiken nedan.
+  const shortAverageForBuy = stock.sma50 ?? stock.sma20;
+  const previousShortAverageForBuy = stock.previousSma50 ?? stock.previousSma20;
+  if (crossedAbove(stock.price, stock.previousClose, shortAverageForBuy, previousShortAverageForBuy)) {
+    buyReasons.push('Kursen tog sig upp genom sin korta trend');
+  }
+  if (crossedAbove(stock.price, stock.previousClose, stock.sma200, stock.previousSma200)) {
+    buyReasons.push('Kursen stängde över SMA200 efter att ha legat under');
+  }
+  if (
+    stock.sma50 != null && stock.sma200 != null && stock.previousSma50 != null && stock.previousSma200 != null
+    && stock.sma50 > stock.sma200 && stock.previousSma50 <= stock.previousSma200
+  ) {
+    buyReasons.push('SMA50 korsade upp genom SMA200');
+  }
+  if ((stock.grade === 'A' || stock.grade === 'B') && (stock.rsi ?? 100) < 40) {
+    buyReasons.push(`Betyg ${stock.grade} med RSI ${stock.rsi!.toFixed(0)}`);
   }
 
   const shortAverage = stock.sma50 ?? stock.sma20;
@@ -72,9 +106,16 @@ export function evaluateAlerts(stock: AlertSnapshot): StockAlert[] {
   if (sharpDrop) sellReasons.push('Fall över 7 % från föregående stängning med hög volym');
 
   const common = { ticker: stock.ticker, companyName: stock.companyName, price: stock.price };
+  const earningsNote = stock.earningsInDays != null && stock.earningsInDays >= 0 && stock.earningsInDays <= EARNINGS_CAUTION_DAYS
+    ? stock.earningsInDays === 0
+      ? 'Obs: bolaget rapporterar i dag'
+      : `Obs: rapport om ${stock.earningsInDays} ${stock.earningsInDays === 1 ? 'dag' : 'dagar'}`
+    : null;
+  const withNote = (reasons: string[]) => (earningsNote ? [...reasons, earningsNote] : reasons);
+
   // A warning takes precedence over a simultaneous buy condition to avoid contradictory email.
-  if (sellReasons.length) return [{ ...common, type: 'SELL', urgency: breaksSma200WithVolume || extremeRun || sellReasons.length >= 2 ? 'URGENT' : 'STANDARD', reasons: sellReasons }];
-  if (buyReasons.length >= 2) return [{ ...common, type: 'BUY', urgency: buyReasons.length >= 3 ? 'URGENT' : 'STANDARD', reasons: buyReasons }];
+  if (sellReasons.length) return [{ ...common, type: 'SELL', urgency: breaksSma200WithVolume || extremeRun || sellReasons.length >= 2 ? 'URGENT' : 'STANDARD', reasons: withNote(sellReasons) }];
+  if (buyReasons.length >= 2) return [{ ...common, type: 'BUY', urgency: buyReasons.length >= 3 ? 'URGENT' : 'STANDARD', reasons: withNote(buyReasons) }];
   return [];
 }
 

@@ -2,10 +2,11 @@ import YahooFinance from 'yahoo-finance2';
 import { calculateBollingerBands, calculateMACD, calculateRSI, calculateSMA, calculateVolatility, type PricePoint } from '@/lib/indicators';
 import { generateHealthCheck } from '@/lib/stock-health';
 import { normalizeDividendYield } from '@/lib/market-values';
+import { daysUntilEarnings } from '@/lib/stock-signals';
 import type { AlertSnapshot } from '@/lib/alert-engine';
 
 interface ChartPoint extends PricePoint { date: Date | string; }
-interface Quote { symbol: string; regularMarketPrice?: number; regularMarketVolume?: number; longName?: string; shortName?: string; fiftyTwoWeekLow?: number; fiftyTwoWeekHigh?: number; trailingPE?: number; dividendYield?: number; }
+interface Quote { symbol: string; regularMarketPrice?: number; regularMarketVolume?: number; longName?: string; shortName?: string; fiftyTwoWeekLow?: number; fiftyTwoWeekHigh?: number; trailingPE?: number; dividendYield?: number; earningsTimestamp?: number; }
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'], validation: { logErrors: false } });
 
@@ -60,6 +61,7 @@ async function loadOne(ticker: string): Promise<AlertSnapshot | null> {
       weeklyChangePct: percentChange(price, history.at(-8)?.close),
       threeDayChangePct: percentChange(price, history.at(-4)?.close),
       grade: health.grade,
+      earningsInDays: daysUntilEarnings(quote.earningsTimestamp),
     };
   } catch (error) {
     console.error(`Alert market data failed for ${ticker}:`, error);

@@ -96,26 +96,50 @@ Resend måste ha en verifierad avsändardomän för `RESEND_FROM`.
 
 ## Schemaläggning
 
-Vercel Cron använder UTC. För **Vercel Pro** konfigureras två anrop för sommar- och vintertid; endpointen kör endast när tiden verkligen är 17:35 i `Europe/Stockholm`.
+Vercel Cron använder UTC. Den dagliga sammanfattningen är förkonfigurerad i `vercel.json`:
 
 ```json
 {
   "crons": [
-    { "path": "/api/alerts/daily", "schedule": "35 15 * * 1-5" },
-    { "path": "/api/alerts/daily", "schedule": "35 16 * * 1-5" }
+    { "path": "/api/alerts/daily", "schedule": "0 17 * * 1-5" }
   ]
 }
 ```
 
-På Vercel Hobby är exakthet på minutnivå inte tillgänglig. Använd Vercel Pro eller en extern schemaläggare med tidszonsstöd innan crons-blocket läggs i `vercel.json`.
+17:00 UTC blir 19:00 svensk sommartid och 18:00 vintertid, alltså efter stängning året runt. Endpointen kör så snart klockan passerat 17:30 svensk tid på en vardag, och `claim_alert_log` släpper bara igenom en signal per bolag och riktning per sjudagarsperiod. Att jobbet råkar köra flera gånger samma kväll ger därför inga dubbla mejl.
+
+Vercel skickar automatiskt `Authorization: Bearer $CRON_SECRET` till cron-anrop när miljövariabeln `CRON_SECRET` finns i projektet. Sätt den innan första körningen, annars svarar endpointen 401.
+
+**Gratisnivån:** Vercel Hobby tillåter två cron-jobb som körs högst en gång per dygn, och tiden garanteras bara till timmen. Det räcker för den dagliga sammanfattningen.
 
 ### Snabbvarningar under börsens öppettider
 
-Snabbvarningar kontrolleras var femte minut, endast vardagar och endast mellan 09:05 och 17:35 i svensk tid. Endpointen filtrerar själv bort helg och tid utanför marknadsfönstret. Lägg till denna cron i ett Vercel Pro-projekt eller anropa samma endpoint från en extern schemaläggare med headern `Authorization: Bearer CRON_SECRET`.
+Snabbvarningar kontrolleras var femte minut, endast vardagar och endast mellan 09:05 och 17:35 i svensk tid. Endpointen filtrerar själv bort helg och tid utanför marknadsfönstret.
 
 ```json
 { "path": "/api/alerts/live", "schedule": "*/5 7-17 * * 1-5" }
 ```
+
+Den frekvensen kräver Vercel Pro. På gratisnivån går det i stället att anropa samma endpoint utifrån, till exempel med ett schemalagt GitHub Actions-jobb i samma repo:
+
+```yaml
+# .github/workflows/live-alerts.yml
+name: Live alerts
+on:
+  schedule:
+    - cron: '*/15 7-16 * * 1-5'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sS -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/alerts/live"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+```
+
+GitHub Actions är gratis för publika repon och ingår med 2 000 minuter per månad för privata. Schemalagda jobb kan starta några minuter försenat, vilket inte spelar någon roll här eftersom endpointen ändå kontrollerar marknadsfönstret själv.
 
 En snabbvarning skickas bara för högprioriterade lägen: volymbekräftat brott under SMA200, extrem rusning med RSI över 80, flera samtidiga risksignaler eller ett ovanligt komplett köpläge. Vanliga signaler hamnar i den dagliga sammanfattningen.
 

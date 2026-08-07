@@ -11,13 +11,32 @@ const base: AlertSnapshot = {
 test('requires at least two buy conditions', () => {
   const alerts = evaluateAlerts(base);
   assert.deepEqual(alerts.map((alert) => alert.type), ['BUY']);
-  assert.equal(alerts[0].reasons.length, 3);
+  assert.equal(alerts[0].reasons.length, 4);
   assert.equal(isUrgentLiveAlert(alerts[0]), true);
 });
 
 test('does not create a buy alert from one condition', () => {
-  const alerts = evaluateAlerts({ ...base, sma200: 110, grade: 'B', weeklyChangePct: -2 });
+  // Bara ett villkor kvar: A-betyg efter en veckodipp.
+  const alerts = evaluateAlerts({ ...base, sma200: 110, rsi: 45, previousRsi: 45 });
   assert.deepEqual(alerts, []);
+});
+
+test('reports a stock retaking its long term average as a buy condition', () => {
+  const alerts = evaluateAlerts({
+    ...base, sma200: 99.5, previousSma200: 99.5, previousClose: 99, rsi: 45, previousRsi: 45,
+  });
+  assert.deepEqual(alerts.map((alert) => alert.type), ['BUY']);
+  assert.match(alerts[0].reasons.join(' '), /över SMA200/);
+});
+
+test('adds a caution line when a report is due within days', () => {
+  const alerts = evaluateAlerts({ ...base, earningsInDays: 2 });
+  assert.match(alerts[0].reasons.at(-1)!, /rapport om 2 dagar/i);
+});
+
+test('leaves the reasons untouched when the report is far away', () => {
+  const alerts = evaluateAlerts({ ...base, earningsInDays: 30 });
+  assert.equal(alerts[0].reasons.some((reason) => reason.startsWith('Obs')), false);
 });
 
 test('prioritizes a sell warning over a conflicting buy condition', () => {

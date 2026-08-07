@@ -9,5 +9,8 @@
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/alerts/daily", "schedule": "0 17 * * 1-5" }
   ]
 }

@@ -49,6 +49,11 @@ function localTime(timeZone: string, at: Date): LocalTime {
   };
 }
 
+/** Minuter sedan midnatt i den angivna tidszonen. */
+export function localMinutes(timeZone: string, at = new Date()) {
+  return localTime(timeZone, at).minutes;
+}
+
 export function isWeekend(timeZone: string, at = new Date()) {
   const { weekday } = localTime(timeZone, at);
   return weekday === 'Sat' || weekday === 'Sun';
