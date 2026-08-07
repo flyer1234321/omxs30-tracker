@@ -287,6 +287,7 @@ export async function GET(request: Request) {
           continue;
         }
 
+        const sma50 = calculateSMA(history, 50);
         const sma125 = calculateSMA(history, 125);
         const sma200 = calculateSMA(history, 200);
         const rsi = calculateRSI(history, 14);
@@ -304,11 +305,15 @@ export async function GET(request: Request) {
         
         for (let i = startIndex; i < history.length; i++) {
             const historyUpToI = history.slice(0, i + 1);
+            const sma50AtDay = calculateSMA(historyUpToI, 50);
             const sma125AtDay = calculateSMA(historyUpToI, 125);
+            const sma200AtDay = calculateSMA(historyUpToI, 200);
             chartHistory.push({
                 date: history[i].date,
                 close: history[i].close,
-                sma125: sma125AtDay
+                sma50: sma50AtDay,
+                sma125: sma125AtDay,
+                sma200: sma200AtDay
             });
         }
 
@@ -316,9 +321,11 @@ export async function GET(request: Request) {
           ticker,
           companyName,
           currentPrice,
+          sma50,
           sma125,
           sma200,
           rsi,
+          diffPercent50: sma50 ? ((currentPrice - sma50) / sma50) * 100 : null,
           diffPercent125: sma125 ? ((currentPrice - sma125) / sma125) * 100 : null,
           fiftyTwoWeekLow: quote?.fiftyTwoWeekLow || null,
           fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh || null,
