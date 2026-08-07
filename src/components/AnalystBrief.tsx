@@ -114,7 +114,11 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
         <Text style={styles.actionText}>{report ? 'Uppdatera analys' : 'Skapa analys'}</Text>
       </HintedTouchable>
 
-      {report && !aiAvailable && <Text style={styles.fallback}>Lägg till `OPENAI_API_KEY` för en AI-skriven analyskommentar.</Text>}
+      {report && !aiAvailable && (
+        <Text style={styles.fallback}>
+          Analysen är regelbaserad. AI-skriven kommentar kräver att administratören gett ditt konto behörighet till modulen.
+        </Text>
+      )}
       <Text style={styles.disclaimer}>Beslutsstöd, inte personlig investeringsrådgivning.</Text>
     </View>
   );

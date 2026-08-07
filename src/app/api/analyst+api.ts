@@ -1,5 +1,5 @@
 import { buildQuantAnalystReport, isAnalystReport, type AnalystReport } from '@/lib/analyst-engine';
-import { requireAuthenticatedUser } from '@/lib/app-auth';
+import { getAuthenticatedUser, requireAuthenticatedUser } from '@/lib/app-auth';
 import { roundMarketValue } from '@/lib/market-values';
 import type { StockData } from '@/types/stock';
 
@@ -131,6 +131,13 @@ export async function POST(request: Request) {
   const authenticationError = await requireAuthenticatedUser(request);
   if (authenticationError) return authenticationError;
 
+  // AI-analysen är det enda i appen som kostar pengar per anrop, och därför
+  // det enda som styrs per användare. Saknas behörigheten svarar endpointen
+  // ändå, fast med den regelbaserade analysen: hellre en enklare analys än ett
+  // felmeddelande.
+  const user = await getAuthenticatedUser(request);
+  const aiAllowed = Boolean(user?.canUseAi) && Boolean(process.env.OPENAI_API_KEY);
+
   try {
     const body = await request.json() as { stock?: unknown };
     if (!validStock(body.stock)) return Response.json({ error: 'Invalid stock payload' }, { status: 400 });
@@ -138,18 +145,18 @@ export async function POST(request: Request) {
     const stock = body.stock;
     const key = cacheKey(stock);
     const cached = cache.get(key);
-    if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
-      return Response.json({ report: cached.report, cached: true, aiAvailable: Boolean(process.env.OPENAI_API_KEY) });
+    if (cached && Date.now() - cached.cachedAt < CACHE_TTL && (cached.report.source === 'quant' || aiAllowed)) {
+      return Response.json({ report: cached.report, cached: true, aiAvailable: aiAllowed });
     }
 
     const quantReport = buildQuantAnalystReport(stock);
-    const narrative = await createAiNarrative(stock, quantReport);
+    const narrative = aiAllowed ? await createAiNarrative(stock, quantReport) : null;
     const report: AnalystReport = narrative
       ? { ...narrative, score: quantReport.score, source: 'ai', generatedAt: new Date().toISOString() }
       : quantReport;
 
     cache.set(key, { report, cachedAt: Date.now() });
-    return Response.json({ report, cached: false, aiAvailable: Boolean(process.env.OPENAI_API_KEY) });
+    return Response.json({ report, cached: false, aiAvailable: aiAllowed });
   } catch (error) {
     console.error('Analyst API Error:', error);
     return Response.json({ error: 'Failed to create analyst report' }, { status: 500 });

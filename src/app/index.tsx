@@ -40,7 +40,7 @@ interface SearchResult { symbol: string; shortname: string; exchange: string; }
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function HomeScreen() {
-  const { signOut, isAdmin } = useAppAuth();
+  const { signOut, isAdmin, email: currentEmail } = useAppAuth();
   // ─── STATE ─────────────────────────────────
   const [data, setData] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,7 +304,7 @@ export default function HomeScreen() {
       />
 
       <AlertSettings visible={alertSettingsOpen} onClose={() => setAlertSettingsOpen(false)} />
-      <AdminPanel visible={adminOpen} onClose={() => setAdminOpen(false)} />
+      <AdminPanel visible={adminOpen} onClose={() => setAdminOpen(false)} currentEmail={currentEmail} />
 
       <WorkspaceBar
         workspaces={workspaces}

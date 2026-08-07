@@ -17,10 +17,11 @@ const RESEND_COOLDOWN_SECONDS = 60;
 interface AuthState {
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  canUseAi: boolean;
   email: string | null;
 }
 
-const AuthContext = createContext<AuthState>({ signOut: async () => {}, isAdmin: false, email: null });
+const AuthContext = createContext<AuthState>({ signOut: async () => {}, isAdmin: false, canUseAi: false, email: null });
 
 export function useAppAuth() {
   return useContext(AuthContext);
@@ -33,6 +34,7 @@ interface AuthStatus {
   passwordLoginAvailable: boolean;
   email: string | null;
   isAdmin: boolean;
+  canUseAi: boolean;
 }
 
 interface Notice {
@@ -80,6 +82,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         passwordLoginAvailable: Boolean(data.passwordLoginAvailable),
         email: data.email ?? null,
         isAdmin: Boolean(data.isAdmin),
+        canUseAi: Boolean(data.canUseAi),
       };
     } finally {
       clearTimeout(timeout);
@@ -109,7 +112,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       const aborted = error instanceof Error && error.name === 'AbortError';
       setStatus((current) => current ?? {
         configured: true, authenticated: false, magicLinkAvailable: isSupabaseConfigured,
-        passwordLoginAvailable: !isSupabaseConfigured, email: null, isAdmin: false,
+        passwordLoginAvailable: !isSupabaseConfigured, email: null, isAdmin: false, canUseAi: false,
       });
       setNotice({
         tone: 'error',
@@ -150,6 +153,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           authenticated: true,
           email: null,
           isAdmin: Boolean(data.isAdmin),
+          canUseAi: true,
         }));
       } else {
         setNotice({
@@ -199,7 +203,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut();
     await endSession();
-    setStatus((current) => (current ? { ...current, authenticated: false, isAdmin: false, email: null } : current));
+    setStatus((current) => (current ? { ...current, authenticated: false, isAdmin: false, canUseAi: false, email: null } : current));
     setNotice({ tone: 'info', text: 'Du är utloggad.' });
   };
 
@@ -209,7 +213,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (status.authenticated) {
     return (
-      <AuthContext.Provider value={{ signOut, isAdmin: status.isAdmin, email: status.email }}>
+      <AuthContext.Provider value={{ signOut, isAdmin: status.isAdmin, canUseAi: status.canUseAi, email: status.email }}>
         {children}
       </AuthContext.Provider>
     );

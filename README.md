@@ -50,11 +50,13 @@ Servernycklar får aldrig ligga i variabler som börjar med `EXPO_PUBLIC_`; de s
 
 De två sätten att logga in fungerar parallellt. Är båda konfigurerade visas e-postlänken först, med lösenordet som reservväg under. Det är avsiktligt: ett försenat mejl eller en Supabase som ligger nere ska inte kunna låsa ute dig från din egen app.
 
+Vilka konton som får logga in styrs från administrationsvyn och lagras i tabellen `app_users` — se [docs/supabase-users-setup.md](docs/supabase-users-setup.md). Där sätts också per användare om AI-analysen ska vara tillgänglig, vilket är det enda i appen som kostar pengar per anrop. Är tabellen tom eller oläsbar gäller `APP_ALLOWED_EMAILS` som tidigare.
+
 Administratörer anges i `APP_ADMIN_EMAILS`. Den som loggar in med `APP_ACCESS_PASSWORD` räknas alltid som administratör, eftersom det är en serverhemlighet. Administratörer ser en extra knapp i rubriken som visar vilka miljövariabler som är satta (aldrig deras värden), om börserna är öppna, hur varningsutskicken gått de senaste två veckorna, och en knapp för att köra bevakningsjobbet direkt.
 
 **Viktigt om e-postlänkarna:** Supabase inbyggda utskick ligger på ett par mejl i timmen på gratisnivån. Konfigurera egen SMTP under Project Settings → Authentication → SMTP och peka den mot samma Resend-konto som varningarna använder, annars slutar inloggningslänkarna komma fram efter några försök.
 
-Installationsanvisningar för databasen finns i [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
+Installationsanvisningar för databasen finns i [docs/supabase-users-setup.md](docs/supabase-users-setup.md), [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
 
 ## Datakällor och gränser
 

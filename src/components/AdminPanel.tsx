@@ -4,6 +4,7 @@ import { HintedTouchable } from '@/components/HintedTouchable';
 import { authenticatedFetch } from '@/lib/auth-client';
 import { colors as palette } from '@/theme';
 import { EarningsStudyPanel } from '@/components/EarningsStudyPanel';
+import { UserAdmin } from '@/components/UserAdmin';
 
 interface AdminStatus {
   configured: Record<string, boolean>;
@@ -26,9 +27,10 @@ const LABELS: Record<string, string> = {
 interface AdminPanelProps {
   visible: boolean;
   onClose: () => void;
+  currentEmail: string | null;
 }
 
-export function AdminPanel({ visible, onClose }: AdminPanelProps) {
+export function AdminPanel({ visible, onClose, currentEmail }: AdminPanelProps) {
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -96,15 +98,8 @@ export function AdminPanel({ visible, onClose }: AdminPanelProps) {
                 </View>
               ))}
 
-              <Text style={styles.sectionTitle}>Åtkomst</Text>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>Godkända e-postadresser</Text>
-                <Text style={styles.rowValue}>{status.access.allowedEmails || 'Alla (ingen lista satt)'}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>Administratörer</Text>
-                <Text style={styles.rowValue}>{status.access.adminEmails}</Text>
-              </View>
+              <Text style={styles.sectionTitle}>Användare</Text>
+              <UserAdmin currentEmail={currentEmail} />
 
               <Text style={styles.sectionTitle}>Marknad</Text>
               <View style={styles.row}>

@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { resolveAccess } from '@/lib/app-users';
 
 const COOKIE_NAME = 'omx30_session';
 const SESSION_DURATION_SECONDS = 12 * 60 * 60;
@@ -16,6 +17,8 @@ export interface AuthenticatedUser {
   email: string | null;
   provider: 'supabase' | 'password';
   isAdmin: boolean;
+  /** Får anropa den betalda AI-analysen. Styrs per användare av administratören. */
+  canUseAi: boolean;
 }
 
 function sign(value: string) {
@@ -72,31 +75,6 @@ export function expiredSessionCookie(request: Request) {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecureRequest(request) ? '; Secure' : ''}`;
 }
 
-function emailList(value: string | undefined) {
-  return (value || '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function allowedEmails() {
-  return emailList(process.env.APP_ALLOWED_EMAILS);
-}
-
-/**
- * Administratörer anges separat från de inloggningsberättigade. Den som kan
- * lösenordet räknas alltid som administratör: det är serverhemligheten, och
- * den som har den styr ändå installationen.
- */
-function adminEmails() {
-  return emailList(process.env.APP_ADMIN_EMAILS);
-}
-
-export function isAdminEmail(email: string | null) {
-  if (!email) return false;
-  return adminEmails().includes(email.toLowerCase());
-}
-
 /**
  * Varje API-anrop verifierade tidigare token mot Supabase igen. En sida som
  * pollar marknadsdata gjorde alltså lika många anrop mot Supabase som mot
@@ -126,6 +104,11 @@ function writeTokenCache(token: string, user: AuthenticatedUser | null) {
   tokenCache.set(token, { user, cachedAt: Date.now() });
 }
 
+/** Töms när administratören ändrat behörigheter, så att de slår igenom direkt. */
+export function invalidateAuthCaches() {
+  tokenCache.clear();
+}
+
 async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | null> {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token || !supabaseUrl || !supabaseKey) return null;
@@ -148,12 +131,18 @@ async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | nu
       return null;
     }
     const email = user.email?.toLowerCase() || null;
-    const allowlist = allowedEmails();
-    if (allowlist.length > 0 && (!email || !allowlist.includes(email))) {
+    const access = await resolveAccess(email);
+    if (!access.allowed) {
       writeTokenCache(token, null);
       return null;
     }
-    const authenticatedUser: AuthenticatedUser = { id: user.id, email, provider: 'supabase', isAdmin: isAdminEmail(email) };
+    const authenticatedUser: AuthenticatedUser = {
+      id: user.id,
+      email,
+      provider: 'supabase',
+      isAdmin: access.isAdmin,
+      canUseAi: access.canUseAi,
+    };
     writeTokenCache(token, authenticatedUser);
     return authenticatedUser;
   } catch {
@@ -174,7 +163,8 @@ export async function getAuthenticatedUser(request: Request): Promise<Authentica
     if (user) return user;
   }
   if (isPasswordAuthConfigured && hasValidSession(request)) {
-    return { id: 'password-user', email: null, provider: 'password', isAdmin: true };
+    // Den som kan serverlösenordet äger installationen och får allt.
+    return { id: 'password-user', email: null, provider: 'password', isAdmin: true, canUseAi: true };
   }
   return null;
 }

@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     mode: user?.provider ?? (isSupabaseAuthConfigured ? 'supabase' : 'password'),
     email: user?.email || null,
     isAdmin: Boolean(user?.isAdmin),
+    canUseAi: Boolean(user?.canUseAi),
   });
 }
 

@@ -1,12 +1,6 @@
 import { getClientKey } from '@/lib/app-auth';
+import { resolveAccess } from '@/lib/app-users';
 import { magicLinkClientLimiter, magicLinkEmailLimiter } from '@/lib/login-rate-limit';
-
-function allowedEmails() {
-  return (process.env.APP_ALLOWED_EMAILS || '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 export async function POST(request: Request) {
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -20,8 +14,10 @@ export async function POST(request: Request) {
   } catch {}
 
   if (!email || !email.includes('@')) return Response.json({ error: 'Ange en giltig e-postadress.' }, { status: 400 });
-  const allowlist = allowedEmails();
-  if (allowlist.length > 0 && !allowlist.includes(email)) {
+  // Samma behörighetslista som resten av appen: tabellen app_users, med
+  // miljövariablerna som reservväg.
+  const access = await resolveAccess(email);
+  if (!access.allowed) {
     return Response.json({ error: 'Den här e-postadressen har inte åtkomst.' }, { status: 403 });
   }
 
