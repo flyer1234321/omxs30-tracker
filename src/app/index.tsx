@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FilterBar } from '../components/FilterBar';
 import ProTableView from '../components/ProTableView';
 import type { StockData } from '../components/ProTableView';
-import StockDetailModal from '../components/StockDetailModal';
+import { StockDetailModal } from '../components/StockDetailModal';
 import ProFilterPanel, { applyProFilter, type ProFilter } from '../components/ProFilterPanel';
 import { colors } from '../theme';
 
