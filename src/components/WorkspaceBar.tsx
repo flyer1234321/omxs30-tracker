@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
-import { InfoTooltip } from '@/components/InfoTooltip';
 import { TABLE_COLUMNS } from '@/lib/workspaces';
 import type { TableColumnId, Workspace } from '@/types/stock';
 
@@ -23,6 +22,7 @@ const WORKSPACE_HELP: Record<string, string> = {
 
 export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete }: WorkspaceBarProps) {
   const [editing, setEditing] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const activeWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0],
@@ -31,6 +31,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
 
   if (!activeWorkspace) return null;
   const selectedColumns = activeWorkspace.columns;
+  const explainedColumns = TABLE_COLUMNS.filter((column) => selectedColumns.includes(column.id));
 
   const toggleColumn = (column: TableColumnId) => {
     if (column === 'ticker') return;
@@ -51,7 +52,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+        <ScrollView horizontal style={styles.tabsScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {workspaces.map((workspace) => (
             <View key={workspace.id} style={[styles.tab, workspace.id === activeWorkspace.id && styles.tabActive]}>
               <HintedTouchable
@@ -62,17 +63,34 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
               >
                 <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
               </HintedTouchable>
-              <InfoTooltip
-                label={workspace.name}
-                description={WORKSPACE_HELP[workspace.id] ?? `En egen vy med de kolumner du har valt för ${workspace.name}.`}
-              />
             </View>
           ))}
         </ScrollView>
-        <HintedTouchable style={styles.editButton} onPress={() => setEditing((value) => !value)} accessibilityLabel={editing ? 'Stäng kolumninställningar' : 'Ändra kolumner'} hint={editing ? 'Stänger inställningarna för tabellkolumner.' : 'Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.'}>
-          <Text style={styles.editButtonText}>{editing ? 'Klar' : 'Kolumner'}</Text>
-        </HintedTouchable>
+        <View style={styles.actionButtons}>
+          <HintedTouchable style={[styles.helpButton, showHelp && styles.helpButtonActive]} onPress={() => setShowHelp((value) => !value)} accessibilityLabel={showHelp ? 'Stäng förklaringar' : 'Visa förklaringar'} hint="Visar en kort förklaring av vyn och tabellens synliga rubriker.">
+            <Text style={[styles.helpButtonText, showHelp && styles.helpButtonTextActive]}>{showHelp ? 'Stäng hjälp' : 'Förklaringar'}</Text>
+          </HintedTouchable>
+          <HintedTouchable style={styles.editButton} onPress={() => setEditing((value) => !value)} accessibilityLabel={editing ? 'Stäng kolumninställningar' : 'Ändra kolumner'} hint={editing ? 'Stänger inställningarna för tabellkolumner.' : 'Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.'}>
+            <Text style={styles.editButtonText}>{editing ? 'Klar' : 'Kolumner'}</Text>
+          </HintedTouchable>
+        </View>
       </View>
+
+      {showHelp && (
+        <View style={styles.helpPanel}>
+          <Text style={styles.helpEyebrow}>{activeWorkspace.name}</Text>
+          <Text style={styles.helpTitle}>Så läser du den här vyn</Text>
+          <Text style={styles.helpIntro}>{WORKSPACE_HELP[activeWorkspace.id] ?? `En egen vy med de kolumner du har valt för ${activeWorkspace.name}.`}</Text>
+          <View style={styles.helpGrid}>
+            {explainedColumns.map((column) => (
+              <View key={column.id} style={styles.helpItem}>
+                <Text style={styles.helpItemTitle}>{column.label}</Text>
+                <Text style={styles.helpItemText}>{column.description}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {editing && (
         <View style={styles.panel}>
@@ -125,14 +143,28 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
 const styles = StyleSheet.create({
   container: { backgroundColor: '#111118', borderBottomWidth: 1, borderBottomColor: '#1e1e2e' },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 },
+  tabsScroll: { flex: 1 },
   tabs: { gap: 6, paddingVertical: 8, paddingRight: 8 },
-  tab: { flexDirection: 'row', alignItems: 'center', borderRadius: 5, paddingRight: 7, backgroundColor: '#161620' },
-  tabSelect: { paddingLeft: 9, paddingRight: 6, paddingVertical: 6 },
+  tab: { borderRadius: 5, backgroundColor: '#161620' },
+  tabSelect: { paddingHorizontal: 9, paddingVertical: 6 },
   tabActive: { backgroundColor: 'rgba(59,130,246,0.16)' },
   tabText: { color: '#a0a0b2', fontSize: 12, fontWeight: '600' },
   tabTextActive: { color: '#93c5fd' },
-  editButton: { marginLeft: 'auto', marginRight: 12, paddingVertical: 6, paddingHorizontal: 8 },
+  actionButtons: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingRight: 6 },
+  helpButton: { paddingVertical: 6, paddingHorizontal: 7, borderRadius: 5 },
+  helpButtonActive: { backgroundColor: 'rgba(59,130,246,0.16)' },
+  helpButtonText: { color: '#a0a0b2', fontSize: 12, fontWeight: '600' },
+  helpButtonTextActive: { color: '#93c5fd' },
+  editButton: { paddingVertical: 6, paddingHorizontal: 8 },
   editButtonText: { color: '#93c5fd', fontSize: 12, fontWeight: '600' },
+  helpPanel: { paddingHorizontal: 14, paddingVertical: 13, borderTopWidth: 1, borderTopColor: '#252536', backgroundColor: '#14141e' },
+  helpEyebrow: { color: '#60a5fa', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
+  helpTitle: { color: '#e2e8f0', fontSize: 15, fontWeight: '800', marginTop: 3 },
+  helpIntro: { color: '#9ca9bd', fontSize: 12, lineHeight: 18, marginTop: 4, maxWidth: 760 },
+  helpGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  helpItem: { width: '31.8%', minWidth: 210, flexGrow: 1, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderColor: '#293346', borderRadius: 6, backgroundColor: '#10111a' },
+  helpItemTitle: { color: '#dbeafe', fontSize: 12, fontWeight: '800', marginBottom: 3 },
+  helpItemText: { color: '#9ca9bd', fontSize: 11, lineHeight: 16 },
   panel: { borderTopWidth: 1, borderTopColor: '#1e1e2e', padding: 12, backgroundColor: '#161620' },
   panelTitle: { color: '#a0a0b2', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 },
   columnList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

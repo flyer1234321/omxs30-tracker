@@ -6,7 +6,7 @@ interface HintedTouchableProps extends TouchableOpacityProps {
   hint: string;
 }
 
-/** Accessible touch target. Rich visible help is handled by InfoTooltip where needed. */
+/** Accessible touch target with browser-native hover text where it is available. */
 export function HintedTouchable({ accessibilityLabel, hint, ...props }: HintedTouchableProps) {
   return (
     <TouchableOpacity
