@@ -25,6 +25,7 @@ import { useAppAuth } from '../components/AuthGate';
 import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { AlertSettings } from '../components/AlertSettings';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const [proFilterExpanded, setProFilterExpanded] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>(DEFAULT_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(DEFAULT_WORKSPACES[0].id);
+  const [alertSettingsOpen, setAlertSettingsOpen] = useState(false);
   const searchTimeout = useRef<any>(null);
 
   // ─── WATCHLIST PERSISTENCE ─────────────────
@@ -251,7 +253,10 @@ export default function HomeScreen() {
         lastUpdated={lastUpdated}
         gradeACount={gradeACount}
         onSignOut={() => { void signOut(); }}
+        onOpenAlertSettings={() => setAlertSettingsOpen(true)}
       />
+
+      <AlertSettings visible={alertSettingsOpen} onClose={() => setAlertSettingsOpen(false)} />
 
       <WorkspaceBar
         workspaces={workspaces}

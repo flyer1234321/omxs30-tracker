@@ -22,6 +22,7 @@ interface FilterBarProps {
   lastUpdated: number | null;
   gradeACount: number;
   onSignOut: () => void;
+  onOpenAlertSettings: () => void;
 }
 
 const MARKETS = [
@@ -58,6 +59,7 @@ export function FilterBar({
   lastUpdated,
   gradeACount,
   onSignOut,
+  onOpenAlertSettings,
 }: FilterBarProps) {
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -129,6 +131,9 @@ export function FilterBar({
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
             </View>
+            <HintedTouchable style={styles.signOutButton} onPress={onOpenAlertSettings} accessibilityLabel="Inställningar för e-postvarningar" hint="Aktivera eller stäng av daglig e-postbevakning av din personliga favoritlista.">
+              <Text style={styles.signOutText}>Varningar</Text>
+            </HintedTouchable>
             <HintedTouchable style={styles.signOutButton} onPress={onSignOut} accessibilityLabel="Logga ut" hint="Loggar ut från din användare på den här enheten.">
               <Text style={styles.signOutText}>Logga ut</Text>
             </HintedTouchable>

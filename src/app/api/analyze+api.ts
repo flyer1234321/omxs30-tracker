@@ -10,6 +10,7 @@ import {
   type PricePoint,
 } from '@/lib/indicators';
 import { deriveStockSignals } from '@/lib/stock-signals';
+import { generateHealthCheck } from '@/lib/stock-health';
 import { parseTickerList } from '@/lib/ticker-validation';
 import type { StockData } from '@/types/stock';
 import { requireAuthenticatedUser } from '@/lib/app-auth';
@@ -101,105 +102,6 @@ function benchmarkForTicker(ticker: string, market: string, isCustomRequest: boo
 // In-memory cache keyed by normalized request string.
 let cache: Record<string, { data: unknown, lastUpdated: number }> = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-function generateHealthCheck(item: {
-  currentPrice: number;
-  sma125: number | null;
-  rsi: number | null;
-  fiftyTwoWeekLow: number | null;
-  fiftyTwoWeekHigh: number | null;
-  trailingPE: number | null;
-  dividendYield: number | null;
-  bollingerBands: ReturnType<typeof calculateBollingerBands>;
-  macdData: ReturnType<typeof calculateMACD>;
-  volatility: number | null;
-  companyName: string;
-}) {
-  let gradeScore = 0;
-  const checklist = [];
-  
-  const { currentPrice, sma125, rsi, fiftyTwoWeekLow, fiftyTwoWeekHigh, trailingPE, dividendYield, bollingerBands, macdData, volatility, companyName } = item;
-  
-  const pePassed = trailingPE !== null && trailingPE > 0;
-  checklist.push({ label: 'Tjänar företaget pengar?', passed: pePassed, detail: pePassed ? `P/E: ${trailingPE.toFixed(1)}` : 'Negativt/Saknas' });
-  if (pePassed) gradeScore += 1;
-  
-  const divPassed = dividendYield !== null && dividendYield > 0;
-  checklist.push({ label: 'Betalar utdelning?', passed: divPassed, detail: divPassed ? `Direktavkastning: ${(dividendYield * 100).toFixed(1)}%` : 'Ingen utdelning' });
-  if (divPassed) gradeScore += 1;
-  
-  let dropVal = 0;
-  if (fiftyTwoWeekHigh) {
-    dropVal = ((fiftyTwoWeekHigh - currentPrice) / fiftyTwoWeekHigh) * 100;
-  } else if (sma125) {
-    dropVal = ((sma125 - currentPrice) / sma125) * 100;
-  }
-  const dropPassed = dropVal > 8;
-  checklist.push({ label: 'Har aktien fallit kraftigt?', passed: dropPassed, detail: `Faller ${dropVal.toFixed(1)}%` });
-  if (dropPassed) gradeScore += 1;
-  
-  const nearLowPassed = fiftyTwoWeekLow ? ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10 : false;
-  checklist.push({ label: 'Nära botten?', passed: nearLowPassed, detail: fiftyTwoWeekLow ? `${(((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow)*100).toFixed(1)}% från botten` : 'N/A' });
-  if (nearLowPassed) gradeScore += 1;
-  
-  const rsiPassed = rsi !== null && rsi < 35;
-  checklist.push({ label: 'Översåld (RSI)?', passed: rsiPassed, detail: rsi ? `RSI: ${rsi.toFixed(1)}` : 'N/A' });
-  if (rsiPassed) gradeScore += 1;
-  
-  const smaPassed = sma125 !== null && currentPrice < sma125;
-  const smaDiff = sma125 ? ((sma125 - currentPrice) / sma125) * 100 : 0;
-  checklist.push({ label: 'Under glidande medelvärde?', passed: smaPassed, detail: smaPassed ? `${smaDiff.toFixed(1)}% under` : 'Över SMA' });
-  if (smaPassed) gradeScore += 1;
-  
-  if (rsi !== null && rsi < 20) gradeScore += 1;
-  
-  const nearLowerBB = bollingerBands && currentPrice <= bollingerBands.lower * 1.01;
-  if (nearLowerBB) gradeScore += 1;
-  
-  if (macdData && macdData.trend === 'up') gradeScore += 1;
-  
-  const passedItems = checklist.filter(c => c.passed).length;
-  
-  let grade: 'A'|'B'|'C'|'D'|'F' = 'F';
-  if ((gradeScore >= 7 || (passedItems >= 5 && rsi !== null && rsi < 30)) && pePassed && divPassed) {
-    grade = 'A';
-  } else if (gradeScore >= 5) {
-    grade = 'B';
-  } else if (gradeScore >= 3) {
-    grade = 'C';
-  } else if (gradeScore >= 1) {
-    grade = 'D';
-  } else {
-    grade = 'F';
-  }
-  
-  let riskLevel: 'Låg' | 'Medel' | 'Hög' = 'Låg';
-  if (volatility !== null) {
-    if (volatility > 40) riskLevel = 'Hög';
-    else if (volatility > 25) riskLevel = 'Medel';
-  }
-  
-  const momentum: 'Uppåt' | 'Nedåt' | 'Sidledes' = macdData
-    ? (macdData.trend === 'up' ? 'Uppåt' : (macdData.trend === 'down' ? 'Nedåt' : 'Sidledes'))
-    : 'Sidledes';
-  
-  const diffPct = sma125 ? Math.abs(((currentPrice - sma125) / sma125) * 100).toFixed(1) : '0.0';
-  const priceAction = sma125 ? (currentPrice < sma125 ? `handlas ${diffPct}% under` : `handlas ${diffPct}% över`) + ' sitt 6-månaderssnitt' : 'handlas nära sitt snitt';
-  const rsiText = (rsi !== null && rsi < 30) ? ` och RSI ligger på ${rsi.toFixed(0)} (översåld)` : '';
-  const divText = dividendYield ? `. Direktavkastningen är ${(dividendYield * 100).toFixed(1)}%` : '';
-  const lowText = (fiftyTwoWeekLow && ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10) ? `. ${( ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100 ).toFixed(1)}% från 52v-lägsta` : '';
-
-  let summary = `${companyName} ${priceAction}${rsiText}${divText}${lowText}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
-  if (grade === 'A' || grade === 'B') {
-    summary += ' Övergripande visar aktien flera tecken på köpläge.';
-  } else if (grade === 'C') {
-    summary += ' Övergripande är aktien i ett neutralt läge.';
-  } else {
-    summary += ' Inga tydliga köpsignaler för tillfället.';
-  }
-  
-  return { grade, gradeScore, summary, riskLevel, momentum, checklist };
-}
 
 function calculateRiskRewardScore(item: {
   currentPrice: number;
