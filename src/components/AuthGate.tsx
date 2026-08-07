@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authenticatedFetch, signOut as endSession } from '@/lib/auth-client';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const AuthContext = createContext({ signOut: async () => {} });
 
@@ -12,28 +13,44 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    authenticatedFetch('/api/auth')
-      .then((response) => response.json())
-      .then((data: { configured?: boolean; authenticated?: boolean }) => {
-        setConfigured(Boolean(data.configured));
-        setAuthenticated(Boolean(data.authenticated));
-      })
-      .catch(() => setConfigured(false));
+    if (!isSupabaseConfigured || !supabase) {
+      authenticatedFetch('/api/auth')
+        .then((response) => response.json())
+        .then((data: { configured?: boolean; authenticated?: boolean }) => {
+          setConfigured(Boolean(data.configured));
+          setAuthenticated(Boolean(data.authenticated));
+        })
+        .catch(() => setConfigured(false));
+      return;
+    }
+
+    const supabaseClient = supabase;
+    let active = true;
+    const syncSession = async () => {
+      const response = await authenticatedFetch('/api/auth');
+      const data: { authenticated?: boolean } = await response.json();
+      if (!active) return;
+      setConfigured(true);
+      setAuthenticated(Boolean(data.authenticated));
+      if (!data.authenticated) await supabaseClient.auth.signOut();
+    };
+    void syncSession();
+    const { data: listener } = supabaseClient.auth.onAuthStateChange(() => { void syncSession(); });
+    return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 
-  const submit = async () => {
+  const submitPassword = async () => {
     if (!password || submitting) return;
     setSubmitting(true);
     setMessage(null);
     try {
       const response = await authenticatedFetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }),
       });
       const data: { authenticated?: boolean; error?: string; retryAfterSeconds?: number } = await response.json();
       if (data.authenticated) {
@@ -49,7 +66,27 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const sendMagicLink = async () => {
+    if (!email.trim() || submitting) return;
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const response = await authenticatedFetch('/api/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await response.json() as { sent?: boolean; error?: string };
+      setMessage(data.sent ? 'Kontrollera din e-post och öppna inloggningslänken.' : data.error || 'Kunde inte skicka inloggningslänken.');
+    } catch {
+      setMessage('Kunde inte kontakta inloggningstjänsten.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const signOut = async () => {
+    if (supabase) await supabase.auth.signOut();
     await endSession();
     setAuthenticated(false);
   };
@@ -57,14 +94,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (configured === null) return <View style={styles.loading}><ActivityIndicator color="#60a5fa" /></View>;
   if (authenticated) return <AuthContext.Provider value={{ signOut }}>{children}</AuthContext.Provider>;
 
+  const supabaseMode = isSupabaseConfigured;
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.card}>
         <Text style={styles.title}>OMX30 Screener</Text>
-        {!configured ? <Text style={styles.message}>Inloggning är inte konfigurerad ännu. Lägg till `APP_ACCESS_PASSWORD` och `APP_SESSION_SECRET` i `.env.local`.</Text> : <>
+        {!configured ? <Text style={styles.message}>Inloggning är inte konfigurerad ännu. Lägg till `APP_ACCESS_PASSWORD` och `APP_SESSION_SECRET` i `.env.local`.</Text> : supabaseMode ? <>
+          <Text style={styles.subtitle}>Ange din e-postadress för en säker inloggningslänk.</Text>
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onSubmitEditing={sendMagicLink} placeholder="E-postadress" placeholderTextColor="#6b6b82" />
+          <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={sendMagicLink}><Text style={styles.buttonText}>{submitting ? 'Skickar...' : 'Skicka inloggningslänk'}</Text></TouchableOpacity>
+          {message && <Text style={styles.message}>{message}</Text>}
+        </> : <>
           <Text style={styles.subtitle}>Ange åtkomstlösenordet för att öppna din privata screener.</Text>
-          <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} onSubmitEditing={submit} placeholder="Åtkomstlösenord" placeholderTextColor="#6b6b82" />
-          <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={submit}><Text style={styles.buttonText}>{submitting ? 'Kontrollerar...' : 'Logga in'}</Text></TouchableOpacity>
+          <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} onSubmitEditing={submitPassword} placeholder="Åtkomstlösenord" placeholderTextColor="#6b6b82" />
+          <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={submitPassword}><Text style={styles.buttonText}>{submitting ? 'Kontrollerar...' : 'Logga in'}</Text></TouchableOpacity>
           {message && <Text style={styles.message}>{message}</Text>}
         </>}
       </View>

@@ -22,6 +22,9 @@ import type { TableColumnId, Workspace } from '../types/stock';
 import { colors } from '../theme';
 import { authenticatedFetch } from '../lib/auth-client';
 import { useAppAuth } from '../components/AuthGate';
+import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
+import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
@@ -51,7 +54,18 @@ export default function HomeScreen() {
     (async () => {
       try {
         const stored = await AsyncStorage.getItem('@watchlist');
-        if (stored) setWatchlist(JSON.parse(stored));
+        const localWatchlist = stored ? normalizeFavoriteTickers(JSON.parse(stored)) : [];
+        if (!isSupabaseConfigured) {
+          setWatchlist(localWatchlist);
+          return;
+        }
+        try {
+          const cloudWatchlist = await loadCloudFavorites();
+          setWatchlist(cloudWatchlist ?? localWatchlist);
+        } catch {
+          setWatchlist(localWatchlist);
+          setError('Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.');
+        }
       } catch {}
     })();
   }, []);
@@ -78,7 +92,16 @@ export default function HomeScreen() {
   }, []);
 
   const saveWatchlist = async (list: string[]) => {
-    try { await AsyncStorage.setItem('@watchlist', JSON.stringify(list)); setWatchlist(list); } catch {}
+    const normalized = normalizeFavoriteTickers(list);
+    setWatchlist(normalized);
+    try { await AsyncStorage.setItem('@watchlist', JSON.stringify(normalized)); } catch {}
+    if (isSupabaseConfigured) {
+      try {
+        await saveCloudFavorites(normalized);
+      } catch {
+        setError('Favoriten sparades lokalt men kunde inte synkas till ditt konto.');
+      }
+    }
   };
 
   const saveWorkspaces = async (nextWorkspaces: Workspace[], nextActiveWorkspaceId = activeWorkspaceId) => {

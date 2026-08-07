@@ -3,16 +3,23 @@ import {
   getClientKey,
   hasValidSession,
   isAuthConfigured,
+  isSupabaseAuthConfigured,
+  getAuthenticatedUser,
   passwordMatches,
   sessionCookie,
 } from '@/lib/app-auth';
 import { loginRateLimiter } from '@/lib/login-rate-limit';
 
 export async function GET(request: Request) {
+  if (isSupabaseAuthConfigured) {
+    const user = await getAuthenticatedUser(request);
+    return Response.json({ configured: true, authenticated: Boolean(user), mode: 'supabase', email: user?.email || null });
+  }
   return Response.json({ configured: isAuthConfigured, authenticated: hasValidSession(request) });
 }
 
 export async function POST(request: Request) {
+  if (isSupabaseAuthConfigured) return Response.json({ error: 'Use Supabase magic link authentication.' }, { status: 405 });
   if (!isAuthConfigured) return Response.json({ error: 'Authentication is not configured' }, { status: 503 });
 
   const clientKey = getClientKey(request);
