@@ -18,7 +18,7 @@ import {
   normalizeWorkspace,
   WORKSPACE_STORAGE_KEY,
 } from '../lib/workspaces';
-import type { TableColumnId, Workspace } from '../types/stock';
+import type { MarketId, TableColumnId, Workspace } from '../types/stock';
 import { colors } from '../theme';
 import { authenticatedFetch } from '../lib/auth-client';
 import { useAppAuth } from '../components/AuthGate';
@@ -26,8 +26,17 @@ import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
+import { isJustAfterClose, isMarketOpen, regionForMarket } from '../lib/market-hours';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
+
+/**
+ * Servern cachar marknadsdata i fem minuter när börsen är öppen, så tätare
+ * polling än så ger bara identiska svar. Tidigare hämtades allt var 60:e
+ * sekund dygnet runt, vilket blev omkring 1 400 anrop per dag och öppen flik
+ * helt utan nytt innehåll.
+ */
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function HomeScreen() {
   const { signOut } = useAppAuth();
@@ -37,7 +46,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [market, setMarket] = useState<'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist'>('omxs30');
+  const [market, setMarket] = useState<MarketId>('omxs30');
   const [filter, setFilter] = useState<string>('all');
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,7 +58,7 @@ export default function HomeScreen() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(DEFAULT_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(DEFAULT_WORKSPACES[0].id);
   const [alertSettingsOpen, setAlertSettingsOpen] = useState(false);
-  const searchTimeout = useRef<any>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── WATCHLIST PERSISTENCE ─────────────────
   useEffect(() => {
@@ -167,12 +176,12 @@ export default function HomeScreen() {
   };
 
   // ─── DATA FETCHING ─────────────────────────
-  const fetchData = useCallback(async (m = market, wl = watchlist) => {
+  const fetchData = useCallback(async (m: MarketId, wl: string[]) => {
     setLoading(true);
     try {
       let url = `/api/analyze?t=${Date.now()}`;
       if (m === 'watchlist') {
-        if (wl.length === 0) { setData([]); setLoading(false); return; }
+        if (wl.length === 0) { setData([]); setError(null); return; }
         url += `&tickers=${wl.join(',')}`;
       } else { url += `&market=${m}`; }
       const response = await authenticatedFetch(url);
@@ -181,10 +190,12 @@ export default function HomeScreen() {
       if (json.error) throw new Error(json.error);
       setData(json.data || []); setLastUpdated(json.timestamp); setError(null);
     } catch (err: any) { setError(err.message); }
+    // Både loading och refreshing nollställs här. Tidigare låg de i grenarna
+    // ovan, så en tom favoritlista lämnade pull-to-refresh snurrande.
     finally { setLoading(false); setRefreshing(false); }
-  }, [market, watchlist]);
+  }, []);
 
-  const onMarketChange = (tab: any) => {
+  const onMarketChange = (tab: MarketId) => {
     if (tab !== market) {
       setData([]);
       setMarket(tab);
@@ -192,13 +203,34 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchData(market, watchlist);
-    const interval = setInterval(() => fetchData(market, watchlist), 60000);
-    return () => clearInterval(interval);
-  }, [market, watchlist, fetchData]);
+  // Favoritlistan läses via en ref i pollningen, så att ett tillagt bolag inte
+  // startar om intervallet eller triggar en omhämtning av en marknad som inte
+  // ens visar favoriter.
+  const watchlistRef = useRef(watchlist);
+  useEffect(() => { watchlistRef.current = watchlist; }, [watchlist]);
+  const watchlistKey = market === 'watchlist' ? watchlist.join(',') : '';
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(market, watchlist); }, [market, watchlist, fetchData]);
+  useEffect(() => {
+    fetchData(market, watchlistRef.current);
+  }, [market, watchlistKey, fetchData]);
+
+  const marketRegion = regionForMarket(market);
+  const marketOpen = isMarketOpen(marketRegion);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Stängd börs ger inga nya avslut. Undantaget är strax efter stängning,
+      // då slutkursen fortfarande kan justeras.
+      if (!isMarketOpen(marketRegion) && !isJustAfterClose(marketRegion)) return;
+      fetchData(market, watchlistRef.current);
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [market, marketRegion, fetchData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData(market, watchlistRef.current);
+  }, [market, fetchData]);
 
   // ─── FILTERING (useMemo for performance) ───
   const quickFilteredData = useMemo(() => {
@@ -252,6 +284,7 @@ export default function HomeScreen() {
         filteredCount={filteredData.length}
         lastUpdated={lastUpdated}
         gradeACount={gradeACount}
+        marketOpen={marketOpen}
         onSignOut={() => { void signOut(); }}
         onOpenAlertSettings={() => setAlertSettingsOpen(true)}
       />

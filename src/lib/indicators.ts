@@ -1,6 +1,9 @@
 export interface PricePoint {
   close: number;
   volume?: number | null;
+  high?: number | null;
+  low?: number | null;
+  open?: number | null;
 }
 
 export interface DatedPricePoint extends PricePoint {
@@ -12,6 +15,26 @@ export function calculateSMA(history: PricePoint[], period: number) {
   const recent = history.slice(-period);
   const sum = recent.reduce((acc, curr) => acc + curr.close, 0);
   return sum / period;
+}
+
+/**
+ * Glidande medelvärde för varje dag i serien, med ett rullande fönster.
+ *
+ * Tidigare räknades varje dagsvärde om från början av historiken, vilket gav
+ * O(n²) arbete per aktie och per snitt. För 252 dagar och tre snitt över ett
+ * femtiotal aktier var det den tyngsta delen av API-svaret.
+ */
+export function calculateSmaSeries(history: PricePoint[], period: number): (number | null)[] {
+  const result: (number | null)[] = new Array(history.length).fill(null);
+  if (period <= 0) return result;
+
+  let sum = 0;
+  for (let index = 0; index < history.length; index += 1) {
+    sum += history[index].close;
+    if (index >= period) sum -= history[index - period].close;
+    if (index >= period - 1) result[index] = sum / period;
+  }
+  return result;
 }
 
 export function calculateRSI(history: PricePoint[], period = 14) {
@@ -157,4 +180,64 @@ export function calculateBeta(assetHistory: DatedPricePoint[], benchmarkHistory:
   const benchmarkVariance = returns.reduce((sum, point) => sum + (point.benchmark - benchmarkMean) ** 2, 0) / returns.length;
 
   return benchmarkVariance > 0 ? covariance / benchmarkVariance : null;
+}
+
+/**
+ * Average True Range: genomsnittlig daglig rörelse i kronor, inklusive gap
+ * mellan stängning och nästa dags öppning. ATR används för att sätta stop loss
+ * på ett avstånd som är anpassat till hur mycket aktien faktiskt rör sig,
+ * istället för en godtycklig procentsats.
+ */
+export function calculateATR(history: PricePoint[], period = 14) {
+  if (history.length < period + 1) return null;
+
+  const trueRanges: number[] = [];
+  for (let index = 1; index < history.length; index += 1) {
+    const current = history[index];
+    const previousClose = history[index - 1].close;
+    const high = current.high ?? Math.max(current.close, previousClose);
+    const low = current.low ?? Math.min(current.close, previousClose);
+    trueRanges.push(Math.max(high - low, Math.abs(high - previousClose), Math.abs(low - previousClose)));
+  }
+  if (trueRanges.length < period) return null;
+
+  // Wilders utjämning, samma metod som i RSI ovan.
+  let atr = trueRanges.slice(0, period).reduce((sum, value) => sum + value, 0) / period;
+  for (let index = period; index < trueRanges.length; index += 1) {
+    atr = (atr * (period - 1) + trueRanges[index]) / period;
+  }
+  return Number.isFinite(atr) && atr > 0 ? atr : null;
+}
+
+/**
+ * Relativ styrka: aktiens avkastning minus jämförelseindexets, i procentenheter
+ * över perioden. Positivt tal betyder att aktien gått bättre än index.
+ *
+ * Jämförelseindexets historik hämtas redan för beta-beräkningen, så det här
+ * måttet kostar inga extra anrop.
+ */
+export function calculateRelativeStrength(
+  assetHistory: DatedPricePoint[],
+  benchmarkHistory: DatedPricePoint[],
+  period = 63,
+) {
+  const benchmarkByDate = new Map(
+    benchmarkHistory.map((point) => [new Date(point.date).toISOString().slice(0, 10), point.close]),
+  );
+  const paired = assetHistory
+    .map((point) => ({ date: new Date(point.date).toISOString().slice(0, 10), asset: point.close }))
+    .filter((point) => benchmarkByDate.has(point.date))
+    .slice(-period);
+
+  if (paired.length < Math.min(period, 20)) return null;
+
+  const first = paired[0];
+  const last = paired.at(-1)!;
+  const firstBenchmark = benchmarkByDate.get(first.date)!;
+  const lastBenchmark = benchmarkByDate.get(last.date)!;
+  if (!(first.asset > 0) || !(firstBenchmark > 0)) return null;
+
+  const assetReturn = ((last.asset - first.asset) / first.asset) * 100;
+  const benchmarkReturn = ((lastBenchmark - firstBenchmark) / firstBenchmark) * 100;
+  return assetReturn - benchmarkReturn;
 }

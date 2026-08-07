@@ -78,22 +78,67 @@ function allowedEmails() {
     .filter(Boolean);
 }
 
+/**
+ * Varje API-anrop verifierade tidigare token mot Supabase igen. En sida som
+ * pollar marknadsdata gjorde alltså lika många anrop mot Supabase som mot
+ * Yahoo, vilket äter av gratisnivåns kvot helt i onödan. Resultatet cachas
+ * därför en kort stund per token.
+ */
+const TOKEN_CACHE_TTL = 60 * 1000;
+const TOKEN_CACHE_LIMIT = 200;
+const tokenCache = new Map<string, { user: AuthenticatedUser | null; cachedAt: number }>();
+
+function readTokenCache(token: string) {
+  const entry = tokenCache.get(token);
+  if (!entry) return undefined;
+  if (Date.now() - entry.cachedAt > TOKEN_CACHE_TTL) {
+    tokenCache.delete(token);
+    return undefined;
+  }
+  return entry.user;
+}
+
+function writeTokenCache(token: string, user: AuthenticatedUser | null) {
+  // Enkel storleksgräns så att cachen inte växer obegränsat i en långlivad instans.
+  if (tokenCache.size >= TOKEN_CACHE_LIMIT) {
+    const oldest = tokenCache.keys().next().value;
+    if (oldest) tokenCache.delete(oldest);
+  }
+  tokenCache.set(token, { user, cachedAt: Date.now() });
+}
+
 async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | null> {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token || !supabaseUrl || !supabaseKey) return null;
+
+  const cached = readTokenCache(token);
+  if (cached !== undefined) return cached;
 
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${token}` },
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      // Avvisade token cachas också, annars kan en trasig klient hamra på.
+      writeTokenCache(token, null);
+      return null;
+    }
     const user = await response.json() as { id?: string; email?: string | null };
-    if (!user.id) return null;
+    if (!user.id) {
+      writeTokenCache(token, null);
+      return null;
+    }
     const email = user.email?.toLowerCase() || null;
     const allowlist = allowedEmails();
-    if (allowlist.length > 0 && (!email || !allowlist.includes(email))) return null;
-    return { id: user.id, email, provider: 'supabase' };
+    if (allowlist.length > 0 && (!email || !allowlist.includes(email))) {
+      writeTokenCache(token, null);
+      return null;
+    }
+    const authenticatedUser: AuthenticatedUser = { id: user.id, email, provider: 'supabase' };
+    writeTokenCache(token, authenticatedUser);
+    return authenticatedUser;
   } catch {
+    // Nätverksfel cachas inte: nästa försök ska få gå igenom.
     return null;
   }
 }

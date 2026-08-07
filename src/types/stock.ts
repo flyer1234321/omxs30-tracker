@@ -25,7 +25,7 @@ export interface HealthCheck {
   checklist: ChecklistItem[];
 }
 
-export type SignalKind = 'goldenCross' | 'volumeSpike' | 'valueDiscount';
+export type SignalKind = 'goldenCross' | 'volumeSpike' | 'valueDiscount' | 'earningsSoon';
 export type SignalTone = 'positive' | 'attention' | 'value';
 
 export interface StockSignal {
@@ -37,9 +37,35 @@ export interface StockSignal {
 }
 
 export interface ValuationSnapshot {
-  trailingPE5yMedian: number | null;
+  /**
+   * Medianvärdering under de senaste tolv månaderna, beräknad som
+   * medianstängningskurs delat med nuvarande vinst per aktie. Vinsten hålls
+   * alltså konstant - måttet fångar var kursen legat i förhållande till dagens
+   * intjäning, inte hur vinsten utvecklats. Det räknas fram ur kurshistoriken
+   * som redan hämtas och kostar därför inga extra anrop.
+   */
+  trailingPEMedian: number | null;
   trailingPESectorMedian: number | null;
 }
+
+/**
+ * Konkreta nivåer att agera på, härledda ur ATR och närliggande stöd/motstånd.
+ */
+export interface TradePlan {
+  atr: number;
+  atrPercent: number;
+  stopLoss: number;
+  stopBasis: string;
+  target: number;
+  targetBasis: string;
+  riskPerShare: number;
+  riskPercent: number;
+  rewardPercent: number;
+  rMultiple: number;
+}
+
+/** De marknadsurval som screenern kan visa. */
+export type MarketId = 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
 
 export type TableColumnId =
   | 'ticker'
@@ -69,6 +95,8 @@ export interface StockData {
   ticker: string;
   companyName: string;
   currentPrice: number;
+  /** Handelsvaluta enligt Yahoo, t.ex. SEK eller USD. */
+  currency: string | null;
   sma50: number | null;
   sma125: number | null;
   sma200: number | null;
@@ -96,4 +124,13 @@ export interface StockData {
   valuation?: ValuationSnapshot;
   signals?: StockSignal[];
   macdData?: { trend: 'up' | 'down' | 'neutral' } | null;
+  /** Genomsnittlig daglig rörelse (ATR 14) i handelsvalutan. */
+  atr: number | null;
+  tradePlan: TradePlan | null;
+  /** Avkastning minus index de senaste 63 handelsdagarna, i procentenheter. */
+  relativeStrength63: number | null;
+  /** Nästa rapportdatum enligt Yahoo, i millisekunder. */
+  earningsTimestamp: number | null;
+  priceToBook: number | null;
+  bookValue: number | null;
 }

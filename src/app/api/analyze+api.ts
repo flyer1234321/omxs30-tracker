@@ -1,22 +1,27 @@
 import YahooFinance from 'yahoo-finance2';
 import {
+  calculateATR,
   calculateBollingerBands,
   calculateMACD,
   calculateBeta,
   calculateMaxDrawdown,
+  calculateRelativeStrength,
   calculateRSI,
   calculateSMA,
+  calculateSmaSeries,
   calculateVolatility,
   type PricePoint,
 } from '@/lib/indicators';
 import { deriveStockSignals } from '@/lib/stock-signals';
 import { generateHealthCheck } from '@/lib/stock-health';
 import { normalizeDividendYield } from '@/lib/market-values';
+import { cacheTtlForRegion, regionForMarket } from '@/lib/market-hours';
 import { parseTickerList } from '@/lib/ticker-validation';
+import { buildTradePlan } from '@/lib/trade-plan';
 import type { StockData } from '@/types/stock';
 import { requireAuthenticatedUser } from '@/lib/app-auth';
 
-const yahooFinance = new YahooFinance({ 
+const yahooFinance = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
   validation: { logErrors: false }
 });
@@ -31,6 +36,7 @@ interface ChartResponse {
 
 interface YahooQuote {
   symbol: string;
+  currency?: string;
   regularMarketPrice?: number;
   longName?: string;
   shortName?: string;
@@ -71,8 +77,8 @@ const MARKETS: Record<string, string[]> = {
     "TEL2-B.ST", "TELIA.ST", "TREL-B.ST", "TRUE-B.ST", "VOLV-A.ST", "VOLV-B.ST", "WIHL.ST", "XANO-B.ST"
   ],
   dji: [
-    "AAPL", "MSFT", "UNH", "JNJ", "V", "PG", "HD", "CVX", "JPM", "MRK", 
-    "MCD", "CRM", "CSCO", "KO", "DIS", "WMT", "VZ", "INTC", "NKE", "BA", 
+    "AAPL", "MSFT", "UNH", "JNJ", "V", "PG", "HD", "CVX", "JPM", "MRK",
+    "MCD", "CRM", "CSCO", "KO", "DIS", "WMT", "VZ", "INTC", "NKE", "BA",
     "IBM", "AMGN", "CAT", "HON", "AXP", "GS", "MMM", "TRV", "DOW", "WBA"
   ],
   tech: [
@@ -95,14 +101,50 @@ const BENCHMARKS: Record<string, string> = {
   watchlist: '^OMX',
 };
 
+/**
+ * Hur många aktier som hämtas samtidigt. Yahoo Finance är ett inofficiellt
+ * gratis-API som stryper trafik per IP. Sex parallella anrop är snabbt nog för
+ * att hela listan ska hinna klart inom en serverless-timeout, men lågt nog att
+ * inte se ut som en skrapare.
+ */
+const FETCH_CONCURRENCY = 6;
+
 function benchmarkForTicker(ticker: string, market: string, isCustomRequest: boolean) {
   if (isCustomRequest) return ticker.endsWith('.ST') ? '^OMX' : '^GSPC';
   return BENCHMARKS[market] || BENCHMARKS.omxs30;
 }
 
-// In-memory cache keyed by normalized request string.
+/** Kör uppgifterna med ett tak för hur många som pågår samtidigt. */
+async function mapWithConcurrency<Input, Output>(
+  items: Input[],
+  limit: number,
+  worker: (item: Input) => Promise<Output>,
+): Promise<Output[]> {
+  const results: Output[] = new Array(items.length);
+  let cursor = 0;
+
+  async function runNext(): Promise<void> {
+    const index = cursor;
+    cursor += 1;
+    if (index >= items.length) return;
+    results[index] = await worker(items[index]);
+    return runNext();
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runNext));
+  return results;
+}
+
+// Cache i minnet, per instans. Överlever inte en kall serverless-start, men
+// fångar de upprepade anropen från en öppen flik.
 let cache: Record<string, { data: unknown, lastUpdated: number }> = {};
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
 
 function calculateRiskRewardScore(item: {
   currentPrice: number;
@@ -152,15 +194,17 @@ export async function GET(request: Request) {
     tickersToFetch = MARKETS[market] || MARKETS['omxs30'];
   }
 
-  if (cache[cacheKey] && Date.now() - cache[cacheKey].lastUpdated < CACHE_TTL) {
-    return Response.json({ data: cache[cacheKey].data, cached: true, timestamp: cache[cacheKey].lastUpdated });
+  // Stängd börs ger inga nya avslut, så cachen får leva betydligt längre då.
+  const cacheTtl = cacheTtlForRegion(regionForMarket(customTickers ? 'watchlist' : market));
+  const cached = cache[cacheKey];
+  if (cached && Date.now() - cached.lastUpdated < cacheTtl) {
+    return Response.json({ data: cached.data, cached: true, timestamp: cached.lastUpdated });
   }
 
   try {
     const period1 = new Date();
-    period1.setMonth(period1.getMonth() - 18); // 18 months back to ensure enough data for 125-day SMA on the 1Y chart
+    period1.setMonth(period1.getMonth() - 18); // 18 månader bakåt ger underlag för SMA 125 på ettårsgrafen
 
-    const results = [];
     const benchmarkTickers = Array.from(new Set(tickersToFetch.map((ticker) => benchmarkForTicker(ticker, market, Boolean(customTickers)))));
     const benchmarkHistories = new Map<string, ChartQuote[]>();
     await Promise.all(benchmarkTickers.map(async (benchmarkTicker) => {
@@ -180,7 +224,7 @@ export async function GET(request: Request) {
     const quotesMap = new Map<string, YahooQuote>();
     quotes.forEach((q) => quotesMap.set(q.symbol, q));
 
-    for (const ticker of tickersToFetch) {
+    const settled = await mapWithConcurrency(tickersToFetch, FETCH_CONCURRENCY, async (ticker): Promise<StockData | null> => {
       try {
         const chartData = await yahooFinance.chart(ticker, {
           period1,
@@ -194,7 +238,7 @@ export async function GET(request: Request) {
         const history = (chartData.quotes || []).filter((q): q is ChartQuote => q.close != null);
 
         if (!history || history.length === 0 || !currentPrice) {
-          continue;
+          return null;
         }
 
         const sma50 = calculateSMA(history, 50);
@@ -204,33 +248,42 @@ export async function GET(request: Request) {
         const bollingerBands = calculateBollingerBands(history, 20, 2);
         const macdData = calculateMACD(history);
         const volatility = calculateVolatility(history, 20);
-        
+        const atr = calculateATR(history, 14);
+
         const latestVolume = history[history.length - 1].volume || 0;
         const previous20Sessions = history.slice(-21, -1);
         const avgVolume20 = previous20Sessions.reduce((acc, curr) => acc + (curr.volume || 0), 0) / (previous20Sessions.length || 1);
 
-        const chartHistory = [];
-        const chartHistoryLength = 252; // Return 1 year of trading data for timeframe selector
+        // Snitten beräknas en gång för hela serien och plockas sedan ut per dag.
+        const sma50Series = calculateSmaSeries(history, 50);
+        const sma125Series = calculateSmaSeries(history, 125);
+        const sma200Series = calculateSmaSeries(history, 200);
+
+        const chartHistoryLength = 252; // ett års handelsdata till periodväljaren
         const startIndex = Math.max(0, history.length - chartHistoryLength);
-        
+        const chartHistory = [];
         for (let i = startIndex; i < history.length; i++) {
-            const historyUpToI = history.slice(0, i + 1);
-            const sma50AtDay = calculateSMA(historyUpToI, 50);
-            const sma125AtDay = calculateSMA(historyUpToI, 125);
-            const sma200AtDay = calculateSMA(historyUpToI, 200);
-            chartHistory.push({
-                date: new Date(history[i].date).toISOString(),
-                close: history[i].close,
-                volume: history[i].volume || null,
-                sma50: sma50AtDay,
-                sma125: sma125AtDay,
-                sma200: sma200AtDay
-            });
+          chartHistory.push({
+            date: new Date(history[i].date).toISOString(),
+            close: history[i].close,
+            volume: history[i].volume || null,
+            sma50: sma50Series[i],
+            sma125: sma125Series[i],
+            sma200: sma200Series[i],
+          });
         }
+
+        const benchmarkHistory = benchmarkHistories.get(benchmarkForTicker(ticker, market, Boolean(customTickers))) || [];
+
+        // Medianvärdering det senaste året, med nuvarande vinst per aktie.
+        const eps = quote?.epsTrailingTwelveMonths ?? null;
+        const medianClose = median(history.slice(-252).map((point) => point.close));
+        const trailingPEMedian = eps != null && eps > 0 && medianClose != null ? medianClose / eps : null;
 
         const itemData = {
           ticker,
           companyName,
+          currency: quote?.currency ?? null,
           currentPrice,
           sma50,
           sma125,
@@ -248,14 +301,16 @@ export async function GET(request: Request) {
           regularMarketDayHigh: quote?.regularMarketDayHigh ?? null,
           regularMarketDayLow: quote?.regularMarketDayLow ?? null,
           regularMarketPreviousClose: quote?.regularMarketPreviousClose ?? null,
-          epsTrailingTwelveMonths: quote?.epsTrailingTwelveMonths ?? null,
+          epsTrailingTwelveMonths: eps,
           latestVolume,
           avgVolume20,
           chartHistory,
           bollingerBands,
           macdData,
           volatility,
-          beta: calculateBeta(history, benchmarkHistories.get(benchmarkForTicker(ticker, market, Boolean(customTickers))) || [], 252),
+          atr,
+          beta: calculateBeta(history, benchmarkHistory, 252),
+          relativeStrength63: calculateRelativeStrength(history, benchmarkHistory, 63),
           maxDrawdown: calculateMaxDrawdown(history, 252),
           earningsTimestamp: quote?.earningsTimestamp || null,
           priceToBook: quote?.priceToBook || null,
@@ -263,23 +318,35 @@ export async function GET(request: Request) {
           fiftyDayAverage: quote?.fiftyDayAverage || null,
           twoHundredDayAverage: quote?.twoHundredDayAverage || null
         };
-        
+
         const healthCheck = generateHealthCheck(itemData);
         const stock: StockData = {
           ...itemData,
           healthCheck,
           riskRewardScore: calculateRiskRewardScore({ ...itemData, healthCheck }),
+          tradePlan: buildTradePlan({
+            currentPrice,
+            atr,
+            sma50,
+            sma125,
+            sma200,
+            fiftyTwoWeekHigh: itemData.fiftyTwoWeekHigh,
+            fiftyTwoWeekLow: itemData.fiftyTwoWeekLow,
+          }),
           valuation: {
-            trailingPE5yMedian: null,
+            trailingPEMedian,
             trailingPESectorMedian: null,
           },
         };
 
-        results.push({ ...stock, signals: deriveStockSignals(stock) });
+        return { ...stock, signals: deriveStockSignals(stock) };
       } catch (err) {
         console.error(`Failed to fetch data for ${ticker}:`, err);
+        return null;
       }
-    }
+    });
+
+    const results = settled.filter((stock): stock is StockData => stock !== null);
 
     cache[cacheKey] = {
       data: results,
@@ -290,6 +357,11 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("API Error:", error);
+    // Hellre gammal data än ett tomt fel: klienten slipper då försöka igen
+    // direkt, vilket bara skulle belasta Yahoo ytterligare.
+    if (cached) {
+      return Response.json({ data: cached.data, cached: true, stale: true, timestamp: cached.lastUpdated });
+    }
     return Response.json({ error: 'Failed to fetch data' }, { status: 500 });
   }
 }
