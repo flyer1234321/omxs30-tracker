@@ -1,11 +1,21 @@
-# Dagliga bevakningsvarningar
+# Dagliga och snabba bevakningsvarningar
 
 Den här installationen använder användarens personliga `user_favorites` och Supabase Auth. Kör följande SQL i **Supabase SQL Editor** efter att `user_favorites` är skapad.
+
+## Uppgradering för snabba varningar
+
+Om du redan har kört SQL-blocket nedan tidigare, kör först denna lilla migration i SQL Editor. Den lägger till det separata valet för snabba varningar utan att ändra dina befintliga inställningar.
+
+```sql
+alter table public.alert_preferences
+add column if not exists instant_alerts_enabled boolean not null default false;
+```
 
 ```sql
 create table public.alert_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email_alerts_enabled boolean not null default false,
+  instant_alerts_enabled boolean not null default false,
   alert_frequency text not null default 'DAILY_DIGEST'
     check (alert_frequency in ('DAILY_DIGEST', 'INSTANT')),
   updated_at timestamptz not null default now()
@@ -99,6 +109,16 @@ Vercel Cron använder UTC. För **Vercel Pro** konfigureras två anrop för somm
 
 På Vercel Hobby är exakthet på minutnivå inte tillgänglig. Använd Vercel Pro eller en extern schemaläggare med tidszonsstöd innan crons-blocket läggs i `vercel.json`.
 
+### Snabbvarningar under börsens öppettider
+
+Snabbvarningar kontrolleras var femte minut, endast vardagar och endast mellan 09:05 och 17:35 i svensk tid. Endpointen filtrerar själv bort helg och tid utanför marknadsfönstret. Lägg till denna cron i ett Vercel Pro-projekt eller anropa samma endpoint från en extern schemaläggare med headern `Authorization: Bearer CRON_SECRET`.
+
+```json
+{ "path": "/api/alerts/live", "schedule": "*/5 7-17 * * 1-5" }
+```
+
+En snabbvarning skickas bara för högprioriterade lägen: volymbekräftat brott under SMA200, extrem rusning med RSI över 80, flera samtidiga risksignaler eller ett ovanligt komplett köpläge. Vanliga signaler hamnar i den dagliga sammanfattningen.
+
 ## Test
 
 Efter att servervariablerna och SQL är på plats kan endpointen testas manuellt med cron-hemligheten:
@@ -108,3 +128,9 @@ curl -H "Authorization: Bearer $CRON_SECRET" "https://omx30-appen.vercel.app/api
 ```
 
 Slå på **Varningar** i appen för ditt eget konto innan testet. `force=1` används endast vid manuellt test och kringgår klockslagskontrollen.
+
+Testa snabbvarnings-endpointen på samma sätt:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://omx30-appen.vercel.app/api/alerts/live?force=1"
+```

@@ -18,4 +18,7 @@ test('builds a printable report and escapes market data text', () => {
   assert.match(html, /Test &amp; Co &lt;AB&gt;/);
   assert.match(html, /Nyckeltal/);
   assert.match(html, /Kursutveckling/);
+  assert.match(html, /Trendbedömning/);
+  assert.match(html, /Styrkor och svagheter/);
+  assert.match(html, /SMA 200/);
 });

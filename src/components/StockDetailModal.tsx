@@ -13,6 +13,7 @@ import { MarketChart } from '@/components/MarketChart';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import type { AnalystReport } from '@/lib/analyst-engine';
 import { openPrintReport } from '@/lib/print-report';
+import { getBearPoints, getBullPoints, getTrendInsight } from '@/lib/stock-insights';
 
 export type { StockData } from '@/types/stock';
 
@@ -79,31 +80,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     }
   };
 
-  const getBullPoints = (stock: StockData): string[] => {
-    const points: string[] = [];
-    if (stock.sma125 && stock.currentPrice > stock.sma125) points.push('Handlas över 6-månadersnittet');
-    if (stock.sma200 && stock.currentPrice > stock.sma200) points.push('Handlas över årsgenomsnittet');
-    if (stock.rsi && stock.rsi < 40 && stock.rsi > 20) points.push('RSI indikerar potentiell vändning');
-    if (stock.dividendYield && stock.dividendYield > 0.03) points.push(`Stark direktavkastning (${(stock.dividendYield * 100).toFixed(1)}%)`);
-    if (stock.trailingPE && stock.trailingPE < 15 && stock.trailingPE > 0) points.push(`Låg värdering (P/E ${stock.trailingPE.toFixed(1)})`);
-    if (stock.macdData?.trend === 'up') points.push('Positiv momentumvändning (MACD)');
-    if (stock.latestVolume && stock.avgVolume20 && stock.latestVolume > stock.avgVolume20 * 1.3) points.push('Ökande handelsvolym');
-    return points;
-  };
-
-  const getBearPoints = (stock: StockData): string[] => {
-    const points: string[] = [];
-    if (stock.sma125 && stock.currentPrice < stock.sma125) points.push('Handlas under 6-månadersnittet');
-    if (stock.sma200 && stock.currentPrice < stock.sma200) points.push('Handlas under årsgenomsnittet');
-    if (stock.rsi && stock.rsi > 70) points.push(`Överköpt (RSI ${stock.rsi.toFixed(1)})`);
-    if (stock.rsi && stock.rsi < 20) points.push('Extremt översåld - risk för ytterligare fall');
-    if (stock.trailingPE && stock.trailingPE > 30) points.push(`Hög värdering (P/E ${stock.trailingPE.toFixed(1)})`);
-    if (stock.volatility && stock.volatility > 40) points.push(`Hög volatilitet (${stock.volatility.toFixed(1)}%)`);
-    if (stock.macdData?.trend === 'down') points.push('Negativt momentum (MACD)');
-    if (stock.currentPrice && stock.fiftyTwoWeekLow && stock.currentPrice < stock.fiftyTwoWeekLow * 1.05) points.push('Nära 52-veckors lägsta');
-    return points;
-  };
-
   const renderHealthCard = () => {
     const hc = item.healthCheck;
     if (!hc) return null;
@@ -164,40 +140,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
   };
 
   const renderTrendAnalysis = () => {
-    if (!item.sma125 || !item.currentPrice) return null;
-    
-    const diffPercent = ((item.currentPrice - item.sma125) / item.sma125) * 100;
-    const isTesting = Math.abs(diffPercent) <= 2.0;
-    
-    let title = '';
-    let text = '';
-    let color = '';
-    let icon = '';
-
-    if (isTesting) {
-      title = 'Testar Brytpunkt (SMA 125)';
-      text = `Aktien handlas just nu på ${item.currentPrice.toFixed(2)} kr, vilket är mycket nära halvårstrenden på ${item.sma125.toFixed(2)} kr. Ett utbrott uppåt under hög volym kan vara en köpsignal, medan ett brott nedåt kan ses som en varningssignal.`;
-      color = '#FFCC00';
-      icon = '⚠️';
-    } else if (item.currentPrice > item.sma125) {
-      title = 'Positiv Trend (Bullish)';
-      text = `Aktien befinner sig i en positiv trend eftersom kursen (${item.currentPrice.toFixed(2)} kr) handlas över sitt 125-dagars snitt (${item.sma125.toFixed(2)} kr). SMA 125 fungerar just nu som ett dynamiskt "golv" (stöd) vid eventuella nedgångar.`;
-      color = '#34C759';
-      icon = '📈';
-    } else {
-      title = 'Negativ Trend (Bearish)';
-      text = `Aktien befinner sig i en negativ trend eftersom kursen (${item.currentPrice.toFixed(2)} kr) handlas under sitt 125-dagars snitt (${item.sma125.toFixed(2)} kr). SMA 125 fungerar just nu som ett dynamiskt "tak" (motstånd) som är svårt att bryta igenom.`;
-      color = '#FF3B30';
-      icon = '📉';
-    }
+    const trend = getTrendInsight(item);
+    if (!trend) return null;
+    const color = trend.color === 'positive' ? colors.green : trend.color === 'negative' ? colors.red : colors.yellow;
 
     return (
       <View style={[s.trendBox, { borderLeftColor: color }]}>
         <View style={s.trendHeader}>
-          <Text style={s.trendIcon}>{icon}</Text>
-          <Text style={[s.trendTitle, { color }]}>{title}</Text>
+          <Text style={s.trendIcon}>{trend.icon}</Text>
+          <Text style={[s.trendTitle, { color }]}>{trend.title}</Text>
         </View>
-        <Text style={s.trendText}>{text}</Text>
+        <Text style={s.trendText}>{trend.text}</Text>
       </View>
     );
   };

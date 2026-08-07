@@ -30,7 +30,7 @@ export function buildAlertEmailHtml(alerts: StockAlert[], appUrl: string, unsubs
     </main></body></html>`;
 }
 
-export async function sendAlertDigest(input: { to: string; alerts: StockAlert[]; appUrl: string; unsubscribeUrl: string; idempotencyKey: string }) {
+export async function sendAlertDigest(input: { to: string; alerts: StockAlert[]; appUrl: string; unsubscribeUrl: string; idempotencyKey: string; subject?: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM;
   if (!apiKey || !from) throw new Error('Resend is not configured.');
@@ -46,7 +46,7 @@ export async function sendAlertDigest(input: { to: string; alerts: StockAlert[];
     body: JSON.stringify({
       from,
       to: [input.to],
-      subject: `OMX30 Screener: ${input.alerts.length} signal${input.alerts.length === 1 ? '' : 'er'} i din bevakning`,
+      subject: input.subject || `OMX30 Screener: ${input.alerts.length} signal${input.alerts.length === 1 ? '' : 'er'} i din bevakning`,
       html: buildAlertEmailHtml(input.alerts, input.appUrl, input.unsubscribeUrl),
     }),
   });

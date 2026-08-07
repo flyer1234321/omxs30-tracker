@@ -2,13 +2,13 @@ import { supabase } from '@/lib/supabase';
 
 export interface AlertPreferences {
   email_alerts_enabled: boolean;
-  alert_frequency: 'DAILY_DIGEST' | 'INSTANT';
+  instant_alerts_enabled: boolean;
 }
 
 export async function loadAlertPreferences(): Promise<AlertPreferences | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.from('alert_preferences')
-    .select('email_alerts_enabled, alert_frequency')
+    .select('email_alerts_enabled, instant_alerts_enabled')
     .maybeSingle();
   if (error) throw error;
   return data as AlertPreferences | null;
@@ -22,6 +22,7 @@ export async function saveAlertPreferences(preferences: AlertPreferences) {
   const { error } = await supabase.from('alert_preferences').upsert({
     user_id: userId,
     ...preferences,
+    alert_frequency: 'DAILY_DIGEST',
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;

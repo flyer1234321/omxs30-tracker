@@ -4,7 +4,7 @@ import { generateHealthCheck } from '@/lib/stock-health';
 import type { AlertSnapshot } from '@/lib/alert-engine';
 
 interface ChartPoint extends PricePoint { date: Date | string; }
-interface Quote { symbol: string; regularMarketPrice?: number; longName?: string; shortName?: string; fiftyTwoWeekLow?: number; fiftyTwoWeekHigh?: number; trailingPE?: number; dividendYield?: number; }
+interface Quote { symbol: string; regularMarketPrice?: number; regularMarketVolume?: number; longName?: string; shortName?: string; fiftyTwoWeekLow?: number; fiftyTwoWeekHigh?: number; trailingPE?: number; dividendYield?: number; }
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'], validation: { logErrors: false } });
 
@@ -55,7 +55,7 @@ async function loadOne(ticker: string): Promise<AlertSnapshot | null> {
       previousSma50: calculateSMA(previousHistory, 50),
       sma200: calculateSMA(history, 200),
       previousSma200: calculateSMA(previousHistory, 200),
-      volumeRatio: averageVolume > 0 ? (latest.volume || 0) / averageVolume : null,
+      volumeRatio: averageVolume > 0 ? (quote.regularMarketVolume || latest.volume || 0) / averageVolume : null,
       weeklyChangePct: percentChange(price, history.at(-8)?.close),
       threeDayChangePct: percentChange(price, history.at(-4)?.close),
       grade: health.grade,

@@ -14,6 +14,7 @@ async function unsubscribe(request: Request) {
   const { error } = await admin.from('alert_preferences').upsert({
     user_id: userId,
     email_alerts_enabled: false,
+    instant_alerts_enabled: false,
     alert_frequency: 'DAILY_DIGEST',
     updated_at: new Date().toISOString(),
   });
