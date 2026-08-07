@@ -40,10 +40,19 @@ Se `.env.example` för fullständig lista. Kort sammanfattning:
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Inloggning med e-post och favoriter i molnet |
 | `APP_ACCESS_PASSWORD`, `APP_SESSION_SECRET` | Alternativ inloggning med enbart lösenord |
 | `APP_ALLOWED_EMAILS` | Begränsar vilka konton som får logga in |
+| `APP_ADMIN_EMAILS` | Vilka konton som ser administrationsvyn |
 | `OPENAI_API_KEY` | AI-skriven analystext (frivilligt) |
 | `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET`, `APP_URL` | E-postvarningar |
 
 Servernycklar får aldrig ligga i variabler som börjar med `EXPO_PUBLIC_`; de skickas till klienten.
+
+### Inloggning
+
+De två sätten att logga in fungerar parallellt. Är båda konfigurerade visas e-postlänken först, med lösenordet som reservväg under. Det är avsiktligt: ett försenat mejl eller en Supabase som ligger nere ska inte kunna låsa ute dig från din egen app.
+
+Administratörer anges i `APP_ADMIN_EMAILS`. Den som loggar in med `APP_ACCESS_PASSWORD` räknas alltid som administratör, eftersom det är en serverhemlighet. Administratörer ser en extra knapp i rubriken som visar vilka miljövariabler som är satta (aldrig deras värden), om börserna är öppna, hur varningsutskicken gått de senaste två veckorna, och en knapp för att köra bevakningsjobbet direkt.
+
+**Viktigt om e-postlänkarna:** Supabase inbyggda utskick ligger på ett par mejl i timmen på gratisnivån. Konfigurera egen SMTP under Project Settings → Authentication → SMTP och peka den mot samma Resend-konto som varningarna använder, annars slutar inloggningslänkarna komma fram efter några försök.
 
 Installationsanvisningar för databasen finns i [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
 

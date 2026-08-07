@@ -1,8 +1,8 @@
 import {
   expiredSessionCookie,
   getClientKey,
-  hasValidSession,
   isAuthConfigured,
+  isPasswordAuthConfigured,
   isSupabaseAuthConfigured,
   getAuthenticatedUser,
   passwordMatches,
@@ -11,16 +11,26 @@ import {
 import { loginRateLimiter } from '@/lib/login-rate-limit';
 
 export async function GET(request: Request) {
-  if (isSupabaseAuthConfigured) {
-    const user = await getAuthenticatedUser(request);
-    return Response.json({ configured: true, authenticated: Boolean(user), mode: 'supabase', email: user?.email || null });
-  }
-  return Response.json({ configured: isAuthConfigured, authenticated: hasValidSession(request) });
+  const user = await getAuthenticatedUser(request);
+  return Response.json({
+    configured: isAuthConfigured,
+    authenticated: Boolean(user),
+    // Klienten behöver veta vilka vägar in som finns, eftersom båda kan vara
+    // aktiva samtidigt.
+    magicLinkAvailable: isSupabaseAuthConfigured,
+    passwordLoginAvailable: isPasswordAuthConfigured,
+    mode: user?.provider ?? (isSupabaseAuthConfigured ? 'supabase' : 'password'),
+    email: user?.email || null,
+    isAdmin: Boolean(user?.isAdmin),
+  });
 }
 
 export async function POST(request: Request) {
-  if (isSupabaseAuthConfigured) return Response.json({ error: 'Use Supabase magic link authentication.' }, { status: 405 });
-  if (!isAuthConfigured) return Response.json({ error: 'Authentication is not configured' }, { status: 503 });
+  // Lösenordsinloggningen finns kvar även när Supabase är konfigurerat, som
+  // reservväg när en magisk länk inte kommer fram.
+  if (!isPasswordAuthConfigured) {
+    return Response.json({ error: 'Lösenordsinloggning är inte konfigurerad.' }, { status: 503 });
+  }
 
   const clientKey = getClientKey(request);
   const limit = loginRateLimiter.check(clientKey);
@@ -44,7 +54,10 @@ export async function POST(request: Request) {
   }
 
   loginRateLimiter.reset(clientKey);
-  return Response.json({ authenticated: true }, { headers: { 'Set-Cookie': sessionCookie(request) } });
+  return Response.json(
+    { authenticated: true, isAdmin: true, mode: 'password' },
+    { headers: { 'Set-Cookie': sessionCookie(request) } },
+  );
 }
 
 export async function DELETE(request: Request) {

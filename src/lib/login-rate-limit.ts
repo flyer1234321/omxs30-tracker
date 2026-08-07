@@ -38,3 +38,49 @@ export class LoginRateLimiter {
 }
 
 export const loginRateLimiter = new LoginRateLimiter();
+
+/**
+ * Utskick av inloggningslänkar hade ingen spärr alls. Supabase inbyggda
+ * e-postutskick ligger på ett par mejl i timmen på gratisnivån, så några
+ * snabba klick på "Skicka" räckte för att bränna kvoten och göra inloggningen
+ * omöjlig en stund framåt.
+ *
+ * Observera att räknaren lever i minnet per serverinstans. Den stoppar
+ * oavsiktlig upprepning och enkel spam, men är inte ett skydd mot en angripare
+ * med många IP-adresser. För det krävs en delad räknare i databasen.
+ */
+export class CooldownLimiter {
+  private readonly records = new Map<string, number[]>();
+
+  constructor(
+    private readonly cooldownMs: number,
+    private readonly maxPerWindow: number,
+    private readonly windowMs: number,
+  ) {}
+
+  check(key: string, now = Date.now()) {
+    const timestamps = (this.records.get(key) || []).filter((at) => now - at < this.windowMs);
+
+    const last = timestamps.at(-1);
+    if (last != null && now - last < this.cooldownMs) {
+      return { allowed: false as const, retryAfterSeconds: Math.ceil((this.cooldownMs - (now - last)) / 1000) };
+    }
+    if (timestamps.length >= this.maxPerWindow) {
+      const oldest = timestamps[0];
+      return { allowed: false as const, retryAfterSeconds: Math.ceil((this.windowMs - (now - oldest)) / 1000) };
+    }
+    return { allowed: true as const };
+  }
+
+  record(key: string, now = Date.now()) {
+    const timestamps = (this.records.get(key) || []).filter((at) => now - at < this.windowMs);
+    timestamps.push(now);
+    this.records.set(key, timestamps);
+  }
+}
+
+/** Per e-postadress: en länk i minuten, högst fem i timmen. */
+export const magicLinkEmailLimiter = new CooldownLimiter(60 * 1000, 5, 60 * 60 * 1000);
+
+/** Per IP-adress: högst tio utskick i timmen, oavsett adress. */
+export const magicLinkClientLimiter = new CooldownLimiter(0, 10, 60 * 60 * 1000);

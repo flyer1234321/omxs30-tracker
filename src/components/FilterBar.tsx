@@ -23,8 +23,10 @@ interface FilterBarProps {
   lastUpdated: number | null;
   gradeACount: number;
   marketOpen: boolean;
+  isAdmin: boolean;
   onSignOut: () => void;
   onOpenAlertSettings: () => void;
+  onOpenAdmin: () => void;
 }
 
 const MARKETS: { id: MarketId; label: string; hint: string }[] = [
@@ -61,8 +63,10 @@ export function FilterBar({
   lastUpdated,
   gradeACount,
   marketOpen,
+  isAdmin,
   onSignOut,
   onOpenAlertSettings,
+  onOpenAdmin,
 }: FilterBarProps) {
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -137,6 +141,11 @@ export function FilterBar({
             <HintedTouchable style={styles.signOutButton} onPress={onOpenAlertSettings} accessibilityLabel="Inställningar för e-postvarningar" hint="Aktivera eller stäng av daglig e-postbevakning av din personliga favoritlista.">
               <Text style={styles.signOutText}>Varningar</Text>
             </HintedTouchable>
+            {isAdmin && (
+              <HintedTouchable style={styles.adminButton} onPress={onOpenAdmin} accessibilityLabel="Administration" hint="Visar konfigurationsstatus och låter dig köra bevakningsjobbet manuellt.">
+                <Text style={styles.adminText}>Admin</Text>
+              </HintedTouchable>
+            )}
             <HintedTouchable style={styles.signOutButton} onPress={onSignOut} accessibilityLabel="Logga ut" hint="Loggar ut från din användare på den här enheten.">
               <Text style={styles.signOutText}>Logga ut</Text>
             </HintedTouchable>
@@ -270,6 +279,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono,
   },
   signOutButton: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  adminButton: {
+    paddingVertical: spacing.xs, paddingHorizontal: spacing.sm,
+    borderWidth: 1, borderColor: colors.accentBorder, borderRadius: radius.sm, backgroundColor: colors.accentBg,
+  },
+  adminText: { color: colors.accent, fontSize: 12, fontFamily: fonts.sans, fontWeight: '700' },
   signOutText: { color: colors.textSecondary, fontSize: 12, fontFamily: fonts.sans, fontWeight: '600' },
   subtitle: {
     fontSize: 12,

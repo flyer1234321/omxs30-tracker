@@ -15,6 +15,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string | null;
   provider: 'supabase' | 'password';
+  isAdmin: boolean;
 }
 
 function sign(value: string) {
@@ -71,11 +72,29 @@ export function expiredSessionCookie(request: Request) {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecureRequest(request) ? '; Secure' : ''}`;
 }
 
-function allowedEmails() {
-  return (process.env.APP_ALLOWED_EMAILS || '')
+function emailList(value: string | undefined) {
+  return (value || '')
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function allowedEmails() {
+  return emailList(process.env.APP_ALLOWED_EMAILS);
+}
+
+/**
+ * Administratörer anges separat från de inloggningsberättigade. Den som kan
+ * lösenordet räknas alltid som administratör: det är serverhemligheten, och
+ * den som har den styr ändå installationen.
+ */
+function adminEmails() {
+  return emailList(process.env.APP_ADMIN_EMAILS);
+}
+
+export function isAdminEmail(email: string | null) {
+  if (!email) return false;
+  return adminEmails().includes(email.toLowerCase());
 }
 
 /**
@@ -134,7 +153,7 @@ async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | nu
       writeTokenCache(token, null);
       return null;
     }
-    const authenticatedUser: AuthenticatedUser = { id: user.id, email, provider: 'supabase' };
+    const authenticatedUser: AuthenticatedUser = { id: user.id, email, provider: 'supabase', isAdmin: isAdminEmail(email) };
     writeTokenCache(token, authenticatedUser);
     return authenticatedUser;
   } catch {
@@ -143,10 +162,29 @@ async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | nu
   }
 }
 
+/**
+ * Lägena är alternativ, inte varandras motsatser. Tidigare stängde ett
+ * konfigurerat Supabase av lösenordsvägen helt, vilket innebar att ett
+ * försenat mejl eller en nere-liggande Supabase låste ut ägaren från sin egen
+ * app. Nu provas token först, och lösenordssessionen fungerar som reservväg.
+ */
 export async function getAuthenticatedUser(request: Request): Promise<AuthenticatedUser | null> {
-  if (isSupabaseAuthConfigured) return getSupabaseUser(request);
-  if (!hasValidSession(request)) return null;
-  return { id: 'password-user', email: null, provider: 'password' };
+  if (isSupabaseAuthConfigured) {
+    const user = await getSupabaseUser(request);
+    if (user) return user;
+  }
+  if (isPasswordAuthConfigured && hasValidSession(request)) {
+    return { id: 'password-user', email: null, provider: 'password', isAdmin: true };
+  }
+  return null;
+}
+
+export async function requireAdminUser(request: Request) {
+  if (!isAuthConfigured) return { error: Response.json({ error: 'Authentication is not configured' }, { status: 503 }), user: null };
+  const user = await getAuthenticatedUser(request);
+  if (!user) return { error: Response.json({ error: 'Authentication required' }, { status: 401 }), user: null };
+  if (!user.isAdmin) return { error: Response.json({ error: 'Administrator access required' }, { status: 403 }), user: null };
+  return { error: null, user };
 }
 
 export async function requireAuthenticatedUser(request: Request) {

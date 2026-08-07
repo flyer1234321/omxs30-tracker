@@ -1,3 +1,6 @@
+import { getClientKey } from '@/lib/app-auth';
+import { magicLinkClientLimiter, magicLinkEmailLimiter } from '@/lib/login-rate-limit';
+
 function allowedEmails() {
   return (process.env.APP_ALLOWED_EMAILS || '')
     .split(',')
@@ -22,6 +25,21 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Den här e-postadressen har inte åtkomst.' }, { status: 403 });
   }
 
+  const emailLimit = magicLinkEmailLimiter.check(email);
+  if (!emailLimit.allowed) {
+    return Response.json(
+      { error: 'En länk har precis skickats till den adressen.', retryAfterSeconds: emailLimit.retryAfterSeconds },
+      { status: 429 },
+    );
+  }
+  const clientLimit = magicLinkClientLimiter.check(getClientKey(request));
+  if (!clientLimit.allowed) {
+    return Response.json(
+      { error: 'För många utskick från den här enheten. Försök igen senare.', retryAfterSeconds: clientLimit.retryAfterSeconds },
+      { status: 429 },
+    );
+  }
+
   const redirectTo = new URL(request.url).origin;
   try {
     const response = await fetch(`${supabaseUrl}/auth/v1/otp`, {
@@ -37,6 +55,8 @@ export async function POST(request: Request) {
       const payload = await response.json().catch(() => null) as { msg?: string; message?: string } | null;
       return Response.json({ error: payload?.msg || payload?.message || 'Kunde inte skicka inloggningslänken.' }, { status: response.status });
     }
+    magicLinkEmailLimiter.record(email);
+    magicLinkClientLimiter.record(getClientKey(request));
     return Response.json({ sent: true });
   } catch (error) {
     console.error('Supabase magic-link request failed', error);

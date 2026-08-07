@@ -80,6 +80,17 @@ revoke all on function public.claim_alert_log(uuid, text, text, jsonb) from publ
 grant execute on function public.claim_alert_log(uuid, text, text, jsonb) to service_role;
 ```
 
+## E-post för inloggningslänkar
+
+Supabase inbyggda SMTP är begränsad till ett par utskick i timmen på gratisnivån, vilket gör inloggningen opålitlig så snart man provar mer än någon enstaka gång. Eftersom Resend redan är konfigurerat för varningarna kan samma konto återanvändas:
+
+1. Gå till **Project Settings → Authentication → SMTP Settings** i Supabase.
+2. Slå på **Enable Custom SMTP**.
+3. Värd `smtp.resend.com`, port `465`, användarnamn `resend`, lösenord = din Resend-API-nyckel.
+4. Sätt avsändaradressen till samma verifierade domän som `RESEND_FROM` använder.
+
+Utan detta steg får du felet "email rate limit exceeded" från Supabase efter några inloggningsförsök.
+
 ## Vercel-variabler
 
 Lägg följande i **Vercel > Settings > Environment Variables** för Production. Lägg aldrig servernycklar i `EXPO_PUBLIC_*`.

@@ -4,6 +4,7 @@ import { sendAlertDigest } from '@/lib/alert-email';
 import { loadAlertSnapshots } from '@/lib/alert-market-data';
 import { createSupabaseAdminClient } from '@/lib/supabase-admin';
 import { createUnsubscribeToken } from '@/lib/alert-unsubscribe';
+import { getAuthenticatedUser } from '@/lib/app-auth';
 
 type Delivery = 'daily' | 'live';
 interface AlertPreferenceRow { user_id: string; }
@@ -17,8 +18,20 @@ function emailIdempotencyKey(delivery: Delivery, userId: string, logIds: string[
   return createHash('sha256').update(`${delivery}:${userId}:${logIds.sort().join(':')}`).digest('hex');
 }
 
+/**
+ * Jobbet körs normalt av schemaläggaren med CRON_SECRET. En administratör ska
+ * också kunna utlösa det manuellt från appen för att se att kedjan fungerar,
+ * utan att behöva ha hemligheten till hands.
+ */
+async function isAuthorizedJobRequest(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (secret && request.headers.get('authorization') === `Bearer ${secret}`) return true;
+  const user = await getAuthenticatedUser(request);
+  return Boolean(user?.isAdmin);
+}
+
 export async function runAlertJob(request: Request, delivery: Delivery) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!await isAuthorizedJobRequest(request)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

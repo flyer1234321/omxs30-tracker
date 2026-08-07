@@ -26,6 +26,7 @@ import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
+import { AdminPanel } from '../components/AdminPanel';
 import { anyMarketOpen, anyMarketWorthPolling, regionForMarket, regionsForTickers } from '../lib/market-hours';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
@@ -39,7 +40,7 @@ interface SearchResult { symbol: string; shortname: string; exchange: string; }
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function HomeScreen() {
-  const { signOut } = useAppAuth();
+  const { signOut, isAdmin } = useAppAuth();
   // ─── STATE ─────────────────────────────────
   const [data, setData] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,7 @@ export default function HomeScreen() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(DEFAULT_WORKSPACES);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(DEFAULT_WORKSPACES[0].id);
   const [alertSettingsOpen, setAlertSettingsOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── WATCHLIST PERSISTENCE ─────────────────
@@ -295,11 +297,14 @@ export default function HomeScreen() {
         lastUpdated={lastUpdated}
         gradeACount={gradeACount}
         marketOpen={marketOpen}
+        isAdmin={isAdmin}
         onSignOut={() => { void signOut(); }}
         onOpenAlertSettings={() => setAlertSettingsOpen(true)}
+        onOpenAdmin={() => setAdminOpen(true)}
       />
 
       <AlertSettings visible={alertSettingsOpen} onClose={() => setAlertSettingsOpen(false)} />
+      <AdminPanel visible={adminOpen} onClose={() => setAdminOpen(false)} />
 
       <WorkspaceBar
         workspaces={workspaces}
