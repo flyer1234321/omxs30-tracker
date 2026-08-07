@@ -16,7 +16,9 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     regularMarketDayHigh: null, regularMarketDayLow: null, regularMarketPreviousClose: null,
     epsTrailingTwelveMonths: null, latestVolume: 2_000, avgVolume20: 900,
     volatility: 20, beta: 1, maxDrawdown: 15, riskRewardScore: 80, healthCheck: null,
-    valuation: { trailingPE5yMedian: 16, trailingPESectorMedian: null },
+    currency: 'SEK', atr: 2, tradePlan: null, relativeStrength63: null,
+    earningsTimestamp: null, priceToBook: null, bookValue: null,
+    valuation: { trailingPEMedian: 16, trailingPESectorMedian: null },
     ...overrides,
   };
 }
@@ -27,6 +29,34 @@ test('derives golden cross, volume spike and historical value discount signals',
 });
 
 test('does not label a stock as discounted without historical valuation data', () => {
-  const signals = deriveStockSignals(stock({ valuation: { trailingPE5yMedian: null, trailingPESectorMedian: null } }));
+  const signals = deriveStockSignals(stock({ valuation: { trailingPEMedian: null, trailingPESectorMedian: null } }));
   assert.equal(signals.some((signal) => signal.kind === 'valueDiscount'), false);
+});
+
+test('still reports a golden cross that happened a few days ago', () => {
+  const chartHistory = [
+    { date: '2026-01-01T00:00:00.000Z', close: 98, sma50: 98, sma200: 99 },
+    { date: '2026-01-02T00:00:00.000Z', close: 100, sma50: 101, sma200: 99 },
+    { date: '2026-01-05T00:00:00.000Z', close: 101, sma50: 102, sma200: 99 },
+    { date: '2026-01-06T00:00:00.000Z', close: 102, sma50: 103, sma200: 99 },
+  ];
+  const signals = deriveStockSignals(stock({ chartHistory }));
+  const goldenCross = signals.find((signal) => signal.kind === 'goldenCross');
+  assert.equal(goldenCross?.label, 'GC 2d');
+});
+
+test('flags an upcoming earnings report as a reason for caution', () => {
+  const now = Date.UTC(2026, 0, 10);
+  const signals = deriveStockSignals(
+    stock({ earningsTimestamp: Date.UTC(2026, 0, 13) }),
+    now,
+  );
+  const earnings = signals.find((signal) => signal.kind === 'earningsSoon');
+  assert.equal(earnings?.label, 'RAPPORT 3d');
+});
+
+test('ignores earnings dates that are far away', () => {
+  const now = Date.UTC(2026, 0, 10);
+  const signals = deriveStockSignals(stock({ earningsTimestamp: Date.UTC(2026, 2, 13) }), now);
+  assert.equal(signals.some((signal) => signal.kind === 'earningsSoon'), false);
 });
