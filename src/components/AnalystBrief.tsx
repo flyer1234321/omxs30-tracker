@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { HintedTouchable } from '@/components/HintedTouchable';
 import type { AnalystReport } from '@/lib/analyst-engine';
 import { authenticatedFetch } from '@/lib/auth-client';
 import type { StockData } from '@/types/stock';
@@ -99,14 +100,16 @@ export function AnalystBrief({ item }: AnalystBriefProps) {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity
+      <HintedTouchable
         accessibilityRole="button"
+        accessibilityLabel={report ? 'Uppdatera AI-analys' : 'Skapa AI-analys'}
+        hint="Skapar en sammanfattning av styrkor, risker, katalysatorer och motargument från aktuell tillgänglig data. Den är beslutsstöd, inte personlig investeringsrådgivning."
         style={[styles.action, loading && styles.actionDisabled]}
         disabled={loading}
         onPress={generateReport}
       >
         <Text style={styles.actionText}>{report ? 'Uppdatera analys' : 'Skapa analys'}</Text>
-      </TouchableOpacity>
+      </HintedTouchable>
 
       {report && !aiAvailable && <Text style={styles.fallback}>Lägg till `OPENAI_API_KEY` för en AI-skriven analyskommentar.</Text>}
       <Text style={styles.disclaimer}>Beslutsstöd, inte personlig investeringsrådgivning.</Text>

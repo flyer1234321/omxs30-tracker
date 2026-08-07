@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
+import { HintedTouchable } from '@/components/HintedTouchable';
 import { colors, fonts, spacing, radius } from '../theme';
 
 interface FilterBarProps {
@@ -24,20 +25,20 @@ interface FilterBarProps {
 }
 
 const MARKETS = [
-  { id: 'omxs30', label: 'OMXS30' },
-  { id: 'swe_broad', label: 'Sverige brett' },
-  { id: 'dji', label: 'USA' },
-  { id: 'tech', label: 'Tech' },
-  { id: 'swe_fastigheter', label: 'Fastigheter' },
-  { id: 'watchlist', label: 'Min Lista' },
+  { id: 'omxs30', label: 'OMXS30', hint: 'Visar de 30 största och mest omsatta aktierna på Stockholmsbörsen.' },
+  { id: 'swe_broad', label: 'Sverige brett', hint: 'Visar ett bredare urval av svenska aktier än OMXS30.' },
+  { id: 'dji', label: 'USA', hint: 'Visar de amerikanska aktier som ingår i Dow Jones Industrial Average.' },
+  { id: 'tech', label: 'Tech', hint: 'Visar ett urval av stora teknikaktier.' },
+  { id: 'swe_fastigheter', label: 'Fastigheter', hint: 'Visar svenska fastighetsbolag.' },
+  { id: 'watchlist', label: 'Min Lista', hint: 'Visar dina personliga favoriter. Varje inloggad användare har sin egen lista.' },
 ];
 
 const FILTERS = [
-  { id: 'all', label: 'Alla' },
-  { id: 'gradeA', label: 'Betyg A' },
-  { id: 'gradeAB', label: 'A + B' },
-  { id: 'underSMA', label: 'Under SMA' },
-  { id: 'oversold', label: 'RSI < 30' },
+  { id: 'all', label: 'Alla', hint: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.' },
+  { id: 'gradeA', label: 'Betyg A', hint: 'Visar endast aktier med appens högsta samlade hälsobetyg.' },
+  { id: 'gradeAB', label: 'A + B', hint: 'Visar aktier med antingen A- eller B-betyg.' },
+  { id: 'underSMA', label: 'Under SMA', hint: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.' },
+  { id: 'oversold', label: 'RSI < 30', hint: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.' },
 ];
 
 export function FilterBar({
@@ -71,9 +72,9 @@ export function FilterBar({
       <Modal visible={showInfoModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowInfoModal(false)}>
         <SafeAreaView style={styles.modalSafe}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)}>
+            <HintedTouchable style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)} accessibilityLabel="Stäng betygsförklaringen" hint="Stänger förklaringen av betygssystemet.">
               <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
             <Text style={styles.modalTitle}>Betygssystemet Förklarat</Text>
           </View>
           <ScrollView style={styles.modalBody}>
@@ -128,9 +129,9 @@ export function FilterBar({
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
             </View>
-            <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
+            <HintedTouchable style={styles.signOutButton} onPress={onSignOut} accessibilityLabel="Logga ut" hint="Loggar ut från din användare på den här enheten.">
               <Text style={styles.signOutText}>Logga ut</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
           </View>
         </View>
         <Text style={styles.subtitle}>Uppdaterad: {formattedTime} • {gradeACount} A-betyg</Text>
@@ -138,29 +139,33 @@ export function FilterBar({
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
         {MARKETS.map((m) => (
-          <TouchableOpacity
+          <HintedTouchable
             key={m.id}
             style={[styles.tab, market === m.id && styles.activeTab]}
             onPress={() => onMarketChange(m.id)}
+            accessibilityLabel={`Välj marknad: ${m.label}`}
+            hint={m.hint}
           >
             <Text style={[styles.tabText, market === m.id && styles.activeTabText]}>{m.label}</Text>
-          </TouchableOpacity>
+          </HintedTouchable>
         ))}
       </ScrollView>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
         {FILTERS.map((f) => (
-          <TouchableOpacity
+          <HintedTouchable
             key={f.id}
             style={[styles.chip, filter === f.id && styles.activeChip]}
             onPress={() => onFilterChange(f.id)}
+            accessibilityLabel={`Snabbfilter: ${f.label}`}
+            hint={f.hint}
           >
             <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{f.label}</Text>
-          </TouchableOpacity>
+          </HintedTouchable>
         ))}
-        <TouchableOpacity style={styles.infoBtn} onPress={() => setShowInfoModal(true)}>
+        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel="Förklaring av betyg" hint="Öppnar en förklaring av hur A till F-betygen räknas fram.">
           <Text style={styles.infoBtnText}>❔ Betyg</Text>
-        </TouchableOpacity>
+        </HintedTouchable>
       </ScrollView>
 
       {market === 'watchlist' && (
@@ -171,6 +176,8 @@ export function FilterBar({
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={onSearchChange}
+            accessibilityLabel="Sök efter aktie att lägga till i Min Lista"
+            accessibilityHint="Skriv bolagsnamn eller ticker. Välj sedan en träff för att lägga till den i dina favoriter."
           />
           
           {isSearching && <ActivityIndicator style={styles.searchLoading} color={colors.accent} />}
@@ -178,15 +185,17 @@ export function FilterBar({
           {searchResults.length > 0 && (
             <View style={styles.dropdown}>
               {searchResults.map((result, i) => (
-                <TouchableOpacity
+                <HintedTouchable
                   key={result.symbol}
                   style={[styles.dropdownItem, i < searchResults.length - 1 && styles.dropdownItemBorder]}
                   onPress={() => onAddFromSearch(result.symbol)}
+                  accessibilityLabel={`Lägg till ${result.shortname} i Min Lista`}
+                  hint={`Lägger till ${result.symbol} i din personliga favoritlista.`}
                 >
                   <Text style={styles.dropdownSymbol}>{result.symbol}</Text>
                   <Text style={styles.dropdownName} numberOfLines={1}>{result.shortname}</Text>
                   <Text style={styles.dropdownExchange}>{result.exchange}</Text>
-                </TouchableOpacity>
+                </HintedTouchable>
               ))}
             </View>
           )}
@@ -196,9 +205,9 @@ export function FilterBar({
               {watchlist.map((ticker) => (
                 <View key={ticker} style={styles.watchlistItem}>
                   <Text style={styles.watchlistItemText}>{ticker}</Text>
-                  <TouchableOpacity onPress={() => onRemoveFromWatchlist(ticker)} style={styles.removeBtn}>
+                  <HintedTouchable onPress={() => onRemoveFromWatchlist(ticker)} style={styles.removeBtn} accessibilityLabel={`Ta bort ${ticker} från Min Lista`} hint={`Tar bort ${ticker} från din personliga favoritlista.`}>
                     <Text style={styles.removeBtnText}>×</Text>
-                  </TouchableOpacity>
+                  </HintedTouchable>
                 </View>
               ))}
             </View>

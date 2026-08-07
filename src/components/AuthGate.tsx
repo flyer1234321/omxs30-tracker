@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { authenticatedFetch, signOut as endSession } from '@/lib/auth-client';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { HintedTouchable } from '@/components/HintedTouchable';
 
 const AuthContext = createContext({ signOut: async () => {} });
 
@@ -117,13 +118,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <Text style={styles.title}>OMX30 Screener</Text>
         {!configured ? <Text style={styles.message}>Inloggning är inte konfigurerad ännu. Lägg till `APP_ACCESS_PASSWORD` och `APP_SESSION_SECRET` i `.env.local`.</Text> : supabaseMode ? <>
           <Text style={styles.subtitle}>Ange din e-postadress för en säker inloggningslänk.</Text>
-          <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onSubmitEditing={sendMagicLink} placeholder="E-postadress" placeholderTextColor="#6b6b82" />
-          <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={sendMagicLink}><Text style={styles.buttonText}>{submitting ? 'Skickar...' : 'Skicka inloggningslänk'}</Text></TouchableOpacity>
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onSubmitEditing={sendMagicLink} placeholder="E-postadress" placeholderTextColor="#6b6b82" accessibilityLabel="E-postadress för inloggning" accessibilityHint="En säker engångslänk skickas till en godkänd e-postadress." />
+          <HintedTouchable style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={sendMagicLink} accessibilityLabel="Skicka inloggningslänk" hint="Skickar en säker engångslänk till den angivna godkända e-postadressen."><Text style={styles.buttonText}>{submitting ? 'Skickar...' : 'Skicka inloggningslänk'}</Text></HintedTouchable>
           {message && <Text style={styles.message}>{message}</Text>}
         </> : <>
           <Text style={styles.subtitle}>Ange åtkomstlösenordet för att öppna din privata screener.</Text>
-          <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} onSubmitEditing={submitPassword} placeholder="Åtkomstlösenord" placeholderTextColor="#6b6b82" />
-          <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={submitPassword}><Text style={styles.buttonText}>{submitting ? 'Kontrollerar...' : 'Logga in'}</Text></TouchableOpacity>
+          <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} onSubmitEditing={submitPassword} placeholder="Åtkomstlösenord" placeholderTextColor="#6b6b82" accessibilityLabel="Åtkomstlösenord" accessibilityHint="Ange lösenordet som administratören har valt för den privata screenen." />
+          <HintedTouchable style={[styles.button, submitting && styles.buttonDisabled]} disabled={submitting} onPress={submitPassword} accessibilityLabel="Logga in" hint="Kontrollerar åtkomstlösenordet och öppnar screenen."><Text style={styles.buttonText}>{submitting ? 'Kontrollerar...' : 'Logga in'}</Text></HintedTouchable>
           {message && <Text style={styles.message}>{message}</Text>}
         </>}
       </View>

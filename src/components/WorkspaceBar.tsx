@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { HintedTouchable } from '@/components/HintedTouchable';
 import { TABLE_COLUMNS } from '@/lib/workspaces';
 import type { TableColumnId, Workspace } from '@/types/stock';
 
@@ -44,18 +45,20 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
       <View style={styles.topRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {workspaces.map((workspace) => (
-            <TouchableOpacity
+            <HintedTouchable
               key={workspace.id}
               style={[styles.tab, workspace.id === activeWorkspace.id && styles.tabActive]}
               onPress={() => onSelect(workspace.id)}
+              accessibilityLabel={`Välj vyn ${workspace.name}`}
+              hint={`Väljer vyn ${workspace.name}. En vy ändrar bara vilka kolumner som visas i tabellen.`}
             >
               <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
           ))}
         </ScrollView>
-        <TouchableOpacity style={styles.editButton} onPress={() => setEditing((value) => !value)}>
+        <HintedTouchable style={styles.editButton} onPress={() => setEditing((value) => !value)} accessibilityLabel={editing ? 'Stäng kolumninställningar' : 'Ändra kolumner'} hint={editing ? 'Stänger inställningarna för tabellkolumner.' : 'Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.'}>
           <Text style={styles.editButtonText}>{editing ? 'Klar' : 'Kolumner'}</Text>
-        </TouchableOpacity>
+        </HintedTouchable>
       </View>
 
       {editing && (
@@ -65,16 +68,18 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
             {TABLE_COLUMNS.map((column) => {
               const selected = selectedColumns.includes(column.id);
               return (
-                <TouchableOpacity
+                <HintedTouchable
                   key={column.id}
                   disabled={column.id === 'ticker'}
                   style={[styles.columnToggle, selected && styles.columnToggleSelected]}
                   onPress={() => toggleColumn(column.id)}
+                  accessibilityLabel={`${selected ? 'Dölj' : 'Visa'} kolumnen ${column.label}`}
+                  hint={column.id === 'ticker' ? 'Ticker är alltid synlig så att varje aktie går att identifiera.' : `${selected ? 'Döljer' : 'Visar'} kolumnen ${column.label} i den aktuella tabellvyn.`}
                 >
                   <Text style={[styles.columnToggleText, selected && styles.columnToggleTextSelected]}>
                     {selected ? '✓ ' : ''}{column.label}
                   </Text>
-                </TouchableOpacity>
+                </HintedTouchable>
               );
             })}
           </View>
@@ -86,14 +91,16 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
               placeholderTextColor="#6b6b82"
               style={styles.nameInput}
               maxLength={32}
+              accessibilityLabel="Namn på ny tabellvy"
+              accessibilityHint="Skriv ett namn för en sparad vy med de kolumner du valt."
             />
-            <TouchableOpacity style={styles.saveButton} onPress={createWorkspace}>
+            <HintedTouchable style={styles.saveButton} onPress={createWorkspace} accessibilityLabel="Spara som ny vy" hint="Skapar en ny sparad tabellvy med det angivna namnet och de valda kolumnerna.">
               <Text style={styles.saveButtonText}>Spara som ny</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
             {!activeWorkspace.isDefault && (
-              <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(activeWorkspace.id)}>
+              <HintedTouchable style={styles.deleteButton} onPress={() => onDelete(activeWorkspace.id)} accessibilityLabel={`Ta bort vyn ${activeWorkspace.name}`} hint="Tar bort den aktuella egna vyn. Standardvyer kan inte tas bort.">
                 <Text style={styles.deleteButtonText}>Ta bort</Text>
-              </TouchableOpacity>
+              </HintedTouchable>
             )}
           </View>
         </View>

@@ -3,12 +3,12 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
   ScrollView,
   TextInput,
   Modal,
   SafeAreaView,
 } from 'react-native';
+import { HintedTouchable } from '@/components/HintedTouchable';
 import {
   applyProFilter,
   getActiveFilterCount,
@@ -79,6 +79,7 @@ interface ProFilterPanelProps {
   onFilterChange: (filter: ProFilter) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  onShowResults: () => void;
   candidateCount: number;
   matchCount: number;
 }
@@ -107,28 +108,48 @@ function NumberInput({ label, value, onChange, placeholder }: {
         placeholder={placeholder}
         placeholderTextColor={C.textMuted}
         keyboardType="numeric"
+        accessibilityLabel={label}
+        accessibilityHint={`Ange ett tal för filtret ${label}. Lämna tomt för att inte använda villkoret.`}
       />
     </View>
   );
 }
 
-function ToggleChip({ label, active, onToggle }: {
-  label: string; active: boolean; onToggle: () => void;
+function ToggleChip({ label, hint, active, onToggle }: {
+  label: string; hint: string; active: boolean; onToggle: () => void;
 }) {
   return (
-    <TouchableOpacity
+    <HintedTouchable
       style={[st.toggleChip, active && st.toggleChipActive]}
       onPress={onToggle}
+      accessibilityLabel={`${active ? 'Ta bort' : 'Aktivera'} trendfilter: ${label}`}
+      hint={hint}
     >
       <Text style={[st.toggleChipText, active && st.toggleChipTextActive]}>{label}</Text>
-    </TouchableOpacity>
+    </HintedTouchable>
   );
 }
 
-export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand, candidateCount, matchCount }: ProFilterPanelProps) {
+export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand, onShowResults, candidateCount, matchCount }: ProFilterPanelProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const filterCount = getActiveFilterCount(activeFilter);
+  const activeFilterLabels = [
+    activeFilter.rsiMax != null ? `RSI <= ${activeFilter.rsiMax}` : null,
+    activeFilter.rsiMin != null ? `RSI >= ${activeFilter.rsiMin}` : null,
+    activeFilter.peMax != null ? `P/E <= ${activeFilter.peMax}` : null,
+    activeFilter.peMin != null ? `P/E >= ${activeFilter.peMin}` : null,
+    activeFilter.divYieldMin != null ? `Utdelning >= ${activeFilter.divYieldMin}%` : null,
+    activeFilter.volatilityMax != null ? `Volatilitet <= ${activeFilter.volatilityMax}%` : null,
+    activeFilter.riskRewardMin != null ? `Risk/Reward >= ${activeFilter.riskRewardMin}` : null,
+    activeFilter.aboveSMA50 ? 'Över SMA 50' : null,
+    activeFilter.aboveSMA125 ? 'Över SMA 125' : null,
+    activeFilter.aboveSMA200 ? 'Över SMA 200' : null,
+    activeFilter.belowSMA125 ? 'Under SMA 125' : null,
+    activeFilter.volAboveAvg ? 'Hög volym' : null,
+    activeFilter.near52wHigh ? 'Nära 52v High' : null,
+    activeFilter.near52wLow ? 'Nära 52v Low' : null,
+  ].filter((label): label is string => Boolean(label));
 
   const applyPreset = (preset: PresetStrategy) => {
     if (activePreset === preset.id) {
@@ -153,7 +174,7 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
   return (
     <View style={st.container}>
       {/* Toggle button */}
-      <TouchableOpacity style={st.toggleBar} onPress={onToggleExpand}>
+      <HintedTouchable style={st.toggleBar} onPress={onToggleExpand} accessibilityLabel={isExpanded ? 'Fäll ihop Pro Filter' : 'Öppna Pro Filter'} hint={isExpanded ? 'Fäller ihop de avancerade filtren.' : 'Öppnar avancerade filter och färdiga strategier. Alla aktiva villkor måste vara uppfyllda.'}>
         <View style={st.toggleLeft}>
           <Text style={st.toggleIcon}>⚡</Text>
           <Text style={st.toggleLabel}>Pro Filter</Text>
@@ -164,7 +185,7 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
           )}
         </View>
         <Text style={st.toggleArrow}>{isExpanded ? '▲' : '▼'}</Text>
-      </TouchableOpacity>
+      </HintedTouchable>
 
       {isExpanded && (
         <View style={st.panel}>
@@ -172,15 +193,17 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
           <Text style={st.sectionTitle}>STRATEGIER</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.presetScroll}>
             {PRESET_STRATEGIES.map(p => (
-              <TouchableOpacity
+              <HintedTouchable
                 key={p.id}
                 style={[st.presetCard, activePreset === p.id && st.presetCardActive]}
                 onPress={() => applyPreset(p)}
+                accessibilityLabel={`${activePreset === p.id ? 'Ta bort strategi' : 'Aktivera strategi'}: ${p.name}`}
+                hint={`${p.description}. ${activePreset === p.id ? 'Tryck för att ta bort strategins villkor.' : 'Tryck för att använda dessa villkor.'}`}
               >
                 <Text style={st.presetIcon}>{p.icon}</Text>
                 <Text style={[st.presetName, activePreset === p.id && st.presetNameActive]}>{p.name}</Text>
                 <Text style={st.presetDesc}>{p.description}</Text>
-              </TouchableOpacity>
+              </HintedTouchable>
             ))}
           </ScrollView>
 
@@ -206,30 +229,44 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
           {/* Toggle filters */}
           <Text style={st.sectionTitle}>TRENDFILTER</Text>
           <View style={st.chipWrap}>
-            <ToggleChip label="Över SMA 50" active={!!activeFilter.aboveSMA50} onToggle={() => updateFilter({ aboveSMA50: !activeFilter.aboveSMA50 })} />
-            <ToggleChip label="Över SMA 125" active={!!activeFilter.aboveSMA125} onToggle={() => updateFilter({ aboveSMA125: !activeFilter.aboveSMA125 })} />
-            <ToggleChip label="Över SMA 200" active={!!activeFilter.aboveSMA200} onToggle={() => updateFilter({ aboveSMA200: !activeFilter.aboveSMA200 })} />
-            <ToggleChip label="Under SMA 125" active={!!activeFilter.belowSMA125} onToggle={() => updateFilter({ belowSMA125: !activeFilter.belowSMA125 })} />
-            <ToggleChip label="Hög volym" active={!!activeFilter.volAboveAvg} onToggle={() => updateFilter({ volAboveAvg: !activeFilter.volAboveAvg })} />
-            <ToggleChip label="Nära 52v High" active={!!activeFilter.near52wHigh} onToggle={() => updateFilter({ near52wHigh: !activeFilter.near52wHigh })} />
-            <ToggleChip label="Nära 52v Low" active={!!activeFilter.near52wLow} onToggle={() => updateFilter({ near52wLow: !activeFilter.near52wLow })} />
+            <ToggleChip label="Över SMA 50" hint="Visar bara aktier med kurs över sitt 50-dagars glidande medelvärde, en kortare trendindikator." active={!!activeFilter.aboveSMA50} onToggle={() => updateFilter({ aboveSMA50: !activeFilter.aboveSMA50 })} />
+            <ToggleChip label="Över SMA 125" hint="Visar bara aktier med kurs över sitt 125-dagars glidande medelvärde, ungefär ett halvårssnitt." active={!!activeFilter.aboveSMA125} onToggle={() => updateFilter({ aboveSMA125: !activeFilter.aboveSMA125 })} />
+            <ToggleChip label="Över SMA 200" hint="Visar bara aktier med kurs över sitt 200-dagars glidande medelvärde, ungefär ett årssnitt." active={!!activeFilter.aboveSMA200} onToggle={() => updateFilter({ aboveSMA200: !activeFilter.aboveSMA200 })} />
+            <ToggleChip label="Under SMA 125" hint="Visar bara aktier med kurs under sitt 125-dagars glidande medelvärde." active={!!activeFilter.belowSMA125} onToggle={() => updateFilter({ belowSMA125: !activeFilter.belowSMA125 })} />
+            <ToggleChip label="Hög volym" hint="Visar bara aktier där senaste volymen är minst 150 % av snittet för de senaste 20 handelsdagarna." active={!!activeFilter.volAboveAvg} onToggle={() => updateFilter({ volAboveAvg: !activeFilter.volAboveAvg })} />
+            <ToggleChip label="Nära 52v High" hint="Visar bara aktier inom 5 % från sin 52-veckorshögsta." active={!!activeFilter.near52wHigh} onToggle={() => updateFilter({ near52wHigh: !activeFilter.near52wHigh })} />
+            <ToggleChip label="Nära 52v Low" hint="Visar bara aktier inom 5 % från sin 52-veckorslägsta." active={!!activeFilter.near52wLow} onToggle={() => updateFilter({ near52wLow: !activeFilter.near52wLow })} />
           </View>
 
           <View style={st.resultRow}>
             <Text style={st.resultText}>{filterCount > 0 ? `${matchCount} träffar av ${candidateCount}` : `${candidateCount} aktier i urvalet`}</Text>
-            <TouchableOpacity style={st.helpButton} onPress={() => setShowHelp(true)} accessibilityLabel="Förklaring av Pro Filter">
+            <HintedTouchable style={st.helpButton} onPress={() => setShowHelp(true)} accessibilityLabel="Förklaring av Pro Filter" hint="Öppnar en detaljerad förklaring av alla strategier och filter.">
               <Text style={st.helpButtonText}>ⓘ</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
           </View>
           {filterCount > 0 && matchCount === 0 && (
             <Text style={st.noMatchesText}>Alla aktiva villkor måste vara uppfyllda. Prova Sverige brett eller ta bort ett villkor.</Text>
           )}
 
+          {activeFilterLabels.length > 0 && (
+            <View style={st.activeSummary}>
+              <Text style={st.activeSummaryLabel}>AKTIVA VILLKOR</Text>
+              <View style={st.activeSummaryChips}>
+                {activeFilterLabels.map((label) => <View key={label} style={st.activeSummaryChip}><Text style={st.activeSummaryText}>{label}</Text></View>)}
+              </View>
+            </View>
+          )}
+
           {/* Active filters summary */}
           {filterCount > 0 && (
-            <TouchableOpacity style={st.clearBtn} onPress={clearAll}>
-              <Text style={st.clearBtnText}>✕ Rensa alla filter ({filterCount})</Text>
-            </TouchableOpacity>
+            <View style={st.filterActions}>
+              <HintedTouchable style={st.showResultsBtn} onPress={onShowResults} accessibilityLabel={`Visa ${matchCount} filterträffar`} hint="Fäller ihop Pro Filter så att aktierna som matchar villkoren syns i tabellen.">
+                <Text style={st.showResultsText}>Visa {matchCount} träffar</Text>
+              </HintedTouchable>
+              <HintedTouchable style={st.clearBtn} onPress={clearAll} accessibilityLabel="Rensa alla Pro Filter" hint="Tar bort samtliga avancerade filter och visar hela urvalet igen.">
+                <Text style={st.clearBtnText}>✕ Rensa alla filter ({filterCount})</Text>
+              </HintedTouchable>
+            </View>
           )}
         </View>
       )}
@@ -238,9 +275,9 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
         <SafeAreaView style={st.helpSafe}>
           <View style={st.helpHeader}>
             <Text style={st.helpTitle}>Pro Filter</Text>
-            <TouchableOpacity style={st.helpClose} onPress={() => setShowHelp(false)} accessibilityLabel="Stäng förklaringen">
+            <HintedTouchable style={st.helpClose} onPress={() => setShowHelp(false)} accessibilityLabel="Stäng förklaringen" hint="Stänger förklaringen av Pro Filter.">
               <Text style={st.helpCloseText}>✕</Text>
-            </TouchableOpacity>
+            </HintedTouchable>
           </View>
           <ScrollView contentContainerStyle={st.helpBody}>
             <Text style={st.helpIntro}>Varje aktivt villkor kombineras med OCH. Saknar en aktie data för ett aktivt villkor exkluderas den, vilket gör att strikta strategier ibland kan ge noll träffar.</Text>
@@ -329,6 +366,14 @@ const st = StyleSheet.create({
   helpButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   helpButtonText: { color: C.accent, fontSize: 19 },
   noMatchesText: { color: C.warning, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  activeSummary: { marginTop: 12 },
+  activeSummaryLabel: { color: C.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.1, marginBottom: 6 },
+  activeSummaryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  activeSummaryChip: { backgroundColor: C.accentBg, borderWidth: 1, borderColor: C.accentBorder, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 5 },
+  activeSummaryText: { color: '#93c5fd', fontSize: 11, fontWeight: '600' },
+  filterActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  showResultsBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 40, borderRadius: 6, backgroundColor: C.accent },
+  showResultsText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   helpSafe: { flex: 1, backgroundColor: C.bg },
   helpHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border },
   helpTitle: { color: C.textPrimary, fontSize: 20, fontWeight: '700' },

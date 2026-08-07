@@ -4,13 +4,13 @@ import {
   Text,
   View,
   Modal,
-  TouchableOpacity,
   ScrollView,
   SafeAreaView,
 } from 'react-native';
 import type { StockData } from '@/types/stock';
 import { AnalystBrief } from '@/components/AnalystBrief';
 import { MarketChart } from '@/components/MarketChart';
+import { HintedTouchable } from '@/components/HintedTouchable';
 
 export type { StockData } from '@/types/stock';
 
@@ -130,7 +130,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             const isOpen = expandedCheck === checkKey;
             const explanation = getExplanation(ci.label, item);
             return (
-              <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)}>
+              <HintedTouchable key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)} accessibilityLabel={`${isOpen ? 'Dölj' : 'Visa'} förklaring: ${ci.label}`} hint={`${isOpen ? 'Döljer' : 'Visar'} hur kontrollpunkten ${ci.label.toLowerCase()} påverkar analysen.`}>
                 <View style={[s.checkRow, isOpen && { backgroundColor: '#1a2332', borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
                   <Text style={s.checkIcon}>{ci.passed ? '✅' : '❌'}</Text>
                   <Text style={[s.checkLabel, !ci.passed && { color: '#666' }]}>{ci.label}</Text>
@@ -141,7 +141,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
                     <Text style={s.checkExplainText}>{explanation}</Text>
                   </View>
                 ) : null}
-              </TouchableOpacity>
+              </HintedTouchable>
             );
           })}
           <View style={s.checkResult}>
@@ -202,18 +202,18 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     <Modal visible={!!item} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={s.safeArea}>
         <View style={s.header}>
-          <TouchableOpacity style={s.headerBtn} onPress={onClose}>
+          <HintedTouchable style={s.headerBtn} onPress={onClose} accessibilityLabel="Tillbaka till screenern" hint="Stänger detaljvyn och återgår till aktietabellen.">
             <Text style={s.headerBtnText}>←</Text>
-          </TouchableOpacity>
+          </HintedTouchable>
           <View style={s.headerTitleWrap}>
             <Text style={s.headerTicker}>{item.ticker.replace('.ST', '')}</Text>
             <Text style={s.headerName} numberOfLines={1}>{item.companyName}</Text>
           </View>
-          <TouchableOpacity style={s.headerBtn} onPress={onToggleWatchlist}>
+          <HintedTouchable style={s.headerBtn} onPress={onToggleWatchlist} accessibilityLabel={isWatchlisted ? `Ta bort ${item.ticker.replace('.ST', '')} från favoriter` : `Lägg till ${item.ticker.replace('.ST', '')} i favoriter`} hint={isWatchlisted ? 'Tar bort aktien från din personliga favoritlista.' : 'Lägger till aktien i din personliga favoritlista.'}>
             <Text style={[s.starIcon, isWatchlisted && s.starIconActive]}>
               {isWatchlisted ? '★' : '☆'}
             </Text>
-          </TouchableOpacity>
+          </HintedTouchable>
         </View>
 
         <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>

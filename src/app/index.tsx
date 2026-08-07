@@ -267,6 +267,7 @@ export default function HomeScreen() {
         onFilterChange={setProFilter}
         isExpanded={proFilterExpanded}
         onToggleExpand={() => setProFilterExpanded(!proFilterExpanded)}
+        onShowResults={() => setProFilterExpanded(false)}
         candidateCount={quickFilteredData.length}
         matchCount={filteredData.length}
       />

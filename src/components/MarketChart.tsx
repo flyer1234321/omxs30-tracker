@@ -4,10 +4,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { HintedTouchable } from '@/components/HintedTouchable';
 import { LineChart } from 'react-native-gifted-charts';
 import type { ChartDataPoint, StockData } from '@/types/stock';
 import {
@@ -183,16 +183,17 @@ export function MarketChart({ item }: MarketChartProps) {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodTabs}>
         {chartPeriods.map((candidate) => (
-          <TouchableOpacity
+          <HintedTouchable
             key={candidate.id}
             accessibilityRole="button"
             accessibilityState={{ selected: period === candidate.id }}
             accessibilityLabel={`Visa ${candidate.label}`}
+            hint={`Visar kursutvecklingen för perioden ${candidate.label}.`}
             style={[styles.periodButton, period === candidate.id && styles.periodButtonActive]}
             onPress={() => setPeriod(candidate.id)}
           >
             <Text style={[styles.periodText, period === candidate.id && styles.periodTextActive]}>{candidate.label}</Text>
-          </TouchableOpacity>
+          </HintedTouchable>
         ))}
       </ScrollView>
 
@@ -280,14 +281,16 @@ interface IndicatorToggleProps {
 
 function IndicatorToggle({ active, color, label, onPress }: IndicatorToggleProps) {
   return (
-    <TouchableOpacity
+    <HintedTouchable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: active }}
+      accessibilityLabel={`${active ? 'Dölj' : 'Visa'} ${label}`}
+      hint={`${active ? 'Döljer' : 'Visar'} ${label}, ett enkelt glidande medelvärde för de senaste ${label.replace('SMA ', '')} handelsdagarna.`}
       style={[styles.indicator, { borderColor: color }, active && styles.indicatorActive]}
       onPress={onPress}
     >
       <Text style={[styles.indicatorText, { color }]}>{label}</Text>
-    </TouchableOpacity>
+    </HintedTouchable>
   );
 }
 
