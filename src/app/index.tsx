@@ -75,11 +75,11 @@ export default function HomeScreen() {
   const fetchData = async (m = market, wl = watchlist) => {
     setLoading(true);
     try {
-      let url = `/api/analyze`;
+      let url = `/api/analyze?t=${Date.now()}`;
       if (m === 'watchlist') {
         if (wl.length === 0) { setData([]); setLoading(false); return; }
-        url += `?tickers=${wl.join(',')}`;
-      } else { url += `?market=${m}`; }
+        url += `&tickers=${wl.join(',')}`;
+      } else { url += `&market=${m}`; }
       const response = await fetch(url);
       if (!response.ok) throw new Error('Nätverksfel');
       const json = await response.json();
