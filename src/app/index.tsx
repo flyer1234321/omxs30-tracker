@@ -36,7 +36,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [market, setMarket] = useState<'omxs30' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist'>('omxs30');
+  const [market, setMarket] = useState<'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist'>('omxs30');
   const [filter, setFilter] = useState<string>('all');
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,7 +199,7 @@ export default function HomeScreen() {
   const onRefresh = useCallback(() => { setRefreshing(true); fetchData(market, watchlist); }, [market, watchlist, fetchData]);
 
   // ─── FILTERING (useMemo for performance) ───
-  const filteredData = useMemo(() => {
+  const quickFilteredData = useMemo(() => {
     let f = data;
 
     // Basic quick-filter
@@ -208,11 +208,9 @@ export default function HomeScreen() {
     else if (filter === 'underSMA') f = f.filter(d => d.sma125 && d.currentPrice < d.sma125);
     else if (filter === 'oversold') f = f.filter(d => d.rsi != null && d.rsi < 30);
 
-    // Pro filter (AND logic)
-    f = applyProFilter(f, proFilter);
-
     return f;
-  }, [data, filter, proFilter]);
+  }, [data, filter]);
+  const filteredData = useMemo(() => applyProFilter(quickFilteredData, proFilter), [quickFilteredData, proFilter]);
 
   const gradeACount = useMemo(() => data.filter(d => d.healthCheck?.grade === 'A').length, [data]);
   const activeWorkspace = useMemo(
@@ -269,6 +267,8 @@ export default function HomeScreen() {
         onFilterChange={setProFilter}
         isExpanded={proFilterExpanded}
         onToggleExpand={() => setProFilterExpanded(!proFilterExpanded)}
+        candidateCount={quickFilteredData.length}
+        matchCount={filteredData.length}
       />
 
       {error && (

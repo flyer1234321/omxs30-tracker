@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { colors, fonts, spacing, radius } from '../theme';
 
 interface FilterBarProps {
-  market: 'omxs30' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
+  market: 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
   onMarketChange: (market: string) => void;
   filter: string;
   onFilterChange: (filter: string) => void;
@@ -24,7 +24,8 @@ interface FilterBarProps {
 }
 
 const MARKETS = [
-  { id: 'omxs30', label: 'Sverige' },
+  { id: 'omxs30', label: 'OMXS30' },
+  { id: 'swe_broad', label: 'Sverige brett' },
   { id: 'dji', label: 'USA' },
   { id: 'tech', label: 'Tech' },
   { id: 'swe_fastigheter', label: 'Fastigheter' },

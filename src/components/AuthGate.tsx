@@ -31,16 +31,32 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
     const supabaseClient = supabase;
     let active = true;
-    const syncSession = async () => {
-      const response = await authenticatedFetch('/api/auth');
-      const data: { authenticated?: boolean } = await response.json();
+    const syncSession = async (providedSession?: { access_token: string } | null) => {
+      const session = providedSession === undefined
+        ? (await supabaseClient.auth.getSession()).data.session
+        : providedSession;
       if (!active) return;
       setConfigured(true);
-      setAuthenticated(Boolean(data.authenticated));
-      if (!data.authenticated) await supabaseClient.auth.signOut();
+      if (!session) {
+        setAuthenticated(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          credentials: 'same-origin',
+        });
+        const data: { authenticated?: boolean } = await response.json();
+        if (!active) return;
+        setAuthenticated(Boolean(data.authenticated));
+        if (!data.authenticated) await supabaseClient.auth.signOut();
+      } catch {
+        if (active) setAuthenticated(false);
+      }
     };
     void syncSession();
-    const { data: listener } = supabaseClient.auth.onAuthStateChange(() => { void syncSession(); });
+    const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, session) => { void syncSession(session); });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 

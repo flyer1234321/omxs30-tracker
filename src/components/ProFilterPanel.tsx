@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Modal,
+  SafeAreaView,
 } from 'react-native';
 import {
   applyProFilter,
@@ -77,7 +79,20 @@ interface ProFilterPanelProps {
   onFilterChange: (filter: ProFilter) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  candidateCount: number;
+  matchCount: number;
 }
+
+const FILTER_HELP = [
+  ['RSI min/max', 'RSI (14 dagar) mäter styrkan i de senaste kursrörelserna på skalan 0-100. Lågt RSI kan indikera översålt, högt RSI starkt momentum. Min och max kan kombineras till ett intervall.'],
+  ['P/E max', 'Visar bara bolag med positivt trailing P/E på eller under gränsen. Bolag med negativ vinst eller saknat P/E utesluts.'],
+  ['Utdelning min', 'Minsta direktavkastning i procent. Exempel: 4 visar bara aktier med minst 4 % direktavkastning enligt tillgänglig marknadsdata.'],
+  ['Volatilitet max', 'Årsomräknad volatilitet baserad på de senaste 20 handelsdagarnas logavkastning. Lägre tal betyder historiskt mindre kursrörelser, inte lägre framtida risk.'],
+  ['Risk/Reward min', 'Appens interna poäng 0-100. Den väger låg volatilitet, kurs över SMA 50 och SMA 125 samt hälsokontrollens poäng. Det är en urvalssignal, inte en prognos.'],
+  ['SMA 50 / 125 / 200', 'Kurs över respektive enkelt glidande medelvärde. SMA 50 fångar kortare trend, SMA 125 cirka ett halvår och SMA 200 cirka ett år.'],
+  ['Hög volym', 'Senaste handelsvolymen måste överstiga 150 % av snittet för de föregående 20 handelsdagarna.'],
+  ['Nära 52v High / Low', 'Inom 5 % från 52-veckorshögsta respektive lägsta. High används ofta för trendstyrka, Low för möjliga vändnings- eller värdecases.'],
+];
 
 function NumberInput({ label, value, onChange, placeholder }: {
   label: string; value: number | undefined; onChange: (v: number | undefined) => void; placeholder: string;
@@ -110,8 +125,9 @@ function ToggleChip({ label, active, onToggle }: {
   );
 }
 
-export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand }: ProFilterPanelProps) {
+export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand, candidateCount, matchCount }: ProFilterPanelProps) {
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const filterCount = getActiveFilterCount(activeFilter);
 
   const applyPreset = (preset: PresetStrategy) => {
@@ -199,6 +215,16 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
             <ToggleChip label="Nära 52v Low" active={!!activeFilter.near52wLow} onToggle={() => updateFilter({ near52wLow: !activeFilter.near52wLow })} />
           </View>
 
+          <View style={st.resultRow}>
+            <Text style={st.resultText}>{filterCount > 0 ? `${matchCount} träffar av ${candidateCount}` : `${candidateCount} aktier i urvalet`}</Text>
+            <TouchableOpacity style={st.helpButton} onPress={() => setShowHelp(true)} accessibilityLabel="Förklaring av Pro Filter">
+              <Text style={st.helpButtonText}>ⓘ</Text>
+            </TouchableOpacity>
+          </View>
+          {filterCount > 0 && matchCount === 0 && (
+            <Text style={st.noMatchesText}>Alla aktiva villkor måste vara uppfyllda. Prova Sverige brett eller ta bort ett villkor.</Text>
+          )}
+
           {/* Active filters summary */}
           {filterCount > 0 && (
             <TouchableOpacity style={st.clearBtn} onPress={clearAll}>
@@ -207,6 +233,34 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
           )}
         </View>
       )}
+
+      <Modal visible={showHelp} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowHelp(false)}>
+        <SafeAreaView style={st.helpSafe}>
+          <View style={st.helpHeader}>
+            <Text style={st.helpTitle}>Pro Filter</Text>
+            <TouchableOpacity style={st.helpClose} onPress={() => setShowHelp(false)} accessibilityLabel="Stäng förklaringen">
+              <Text style={st.helpCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={st.helpBody}>
+            <Text style={st.helpIntro}>Varje aktivt villkor kombineras med OCH. Saknar en aktie data för ett aktivt villkor exkluderas den, vilket gör att strikta strategier ibland kan ge noll träffar.</Text>
+            <Text style={st.helpSection}>STRATEGIER</Text>
+            {PRESET_STRATEGIES.map((strategy) => (
+              <View key={strategy.id} style={st.helpItem}>
+                <Text style={st.helpItemTitle}>{strategy.icon} {strategy.name}</Text>
+                <Text style={st.helpItemText}>{strategy.description}. Det är ett färdigt urval, inte ett köpråd.</Text>
+              </View>
+            ))}
+            <Text style={st.helpSection}>FILTER</Text>
+            {FILTER_HELP.map(([title, detail]) => (
+              <View key={title} style={st.helpItem}>
+                <Text style={st.helpItemTitle}>{title}</Text>
+                <Text style={st.helpItemText}>{detail}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -270,4 +324,20 @@ const st = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.05)',
   },
   clearBtnText: { color: C.negative, fontSize: 13, fontWeight: '600' },
+  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  resultText: { color: C.textSecondary, fontSize: 12, fontVariant: ['tabular-nums'] },
+  helpButton: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  helpButtonText: { color: C.accent, fontSize: 19 },
+  noMatchesText: { color: C.warning, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  helpSafe: { flex: 1, backgroundColor: C.bg },
+  helpHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border },
+  helpTitle: { color: C.textPrimary, fontSize: 20, fontWeight: '700' },
+  helpClose: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  helpCloseText: { color: C.textPrimary, fontSize: 20 },
+  helpBody: { padding: 20, paddingBottom: 48 },
+  helpIntro: { color: C.textSecondary, fontSize: 14, lineHeight: 21, marginBottom: 20 },
+  helpSection: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8, marginTop: 12 },
+  helpItem: { borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 12 },
+  helpItemTitle: { color: C.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  helpItemText: { color: C.textSecondary, fontSize: 13, lineHeight: 19 },
 });

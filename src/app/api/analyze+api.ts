@@ -59,6 +59,15 @@ const MARKETS: Record<string, string[]> = {
     "SCA-B.ST", "SEB-A.ST", "SKA-B.ST", "SKF-B.ST", "SSAB-A.ST",
     "SSAB-B.ST", "SWED-A.ST", "TEL2-B.ST", "TELIA.ST", "VOLV-B.ST"
   ],
+  swe_broad: [
+    "ABB.ST", "ADDT-B.ST", "ALFA.ST", "ARPL.ST", "ASSA-B.ST", "ATCO-A.ST", "ATCO-B.ST", "ATRLJ-B.ST",
+    "AXFO.ST", "AZN.ST", "BALD-B.ST", "BOL.ST", "CASTE.ST", "CIBUS.ST", "DIOS.ST", "ELUX-B.ST",
+    "EPI-A.ST", "EQT.ST", "ERIC-B.ST", "ESSITY-B.ST", "EVO.ST", "FABG.ST", "GETI-B.ST", "HEXA-B.ST",
+    "HM-B.ST", "HUFV-A.ST", "INDU-C.ST", "INVE-A.ST", "INVE-B.ST", "KINV-B.ST", "LIFCO-B.ST", "LUND-B.ST",
+    "NDA-SE.ST", "NIBE-B.ST", "NP3.ST", "OEM-B.ST", "PEAB-B.ST", "SAAB-B.ST", "SAND.ST", "SBB-B.ST",
+    "SCA-B.ST", "SEB-A.ST", "SECU-B.ST", "SKA-B.ST", "SKF-B.ST", "SSAB-A.ST", "SSAB-B.ST", "SWED-A.ST",
+    "TEL2-B.ST", "TELIA.ST", "TREL-B.ST", "TRUE-B.ST", "VOLV-A.ST", "VOLV-B.ST", "WIHL.ST", "XANO-B.ST"
+  ],
   dji: [
     "AAPL", "MSFT", "UNH", "JNJ", "V", "PG", "HD", "CVX", "JPM", "MRK", 
     "MCD", "CRM", "CSCO", "KO", "DIS", "WMT", "VZ", "INTC", "NKE", "BA", 
@@ -77,6 +86,7 @@ const MARKETS: Record<string, string[]> = {
 
 const BENCHMARKS: Record<string, string> = {
   omxs30: '^OMX',
+  swe_broad: '^OMX',
   swe_fastigheter: '^OMX',
   dji: '^DJI',
   tech: '^IXIC',
@@ -228,7 +238,7 @@ export async function GET(request: Request) {
       return Response.json({ error: `Invalid ticker symbol: ${parsed.invalid[0]}` }, { status: 400 });
     }
     if (parsed.tooMany) {
-      return Response.json({ error: 'Too many tickers. Maximum is 30.' }, { status: 400 });
+      return Response.json({ error: 'Too many tickers. Maximum is 60.' }, { status: 400 });
     }
     if (parsed.tickers.length === 0) {
       return Response.json({ error: 'At least one ticker is required' }, { status: 400 });

@@ -1,4 +1,4 @@
-export const MAX_CUSTOM_TICKERS = 30;
+export const MAX_CUSTOM_TICKERS = 60;
 
 const TICKER_PATTERN = /^[A-Z0-9^][A-Z0-9._=^-]{0,19}$/;
 
