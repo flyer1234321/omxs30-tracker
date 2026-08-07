@@ -9,11 +9,23 @@ interface HintedTouchableProps extends TouchableOpacityProps {
 /** A pressable control with a browser hover explanation and native accessibility hint. */
 export function HintedTouchable({ accessibilityLabel, hint, ...props }: HintedTouchableProps) {
   const [showHint, setShowHint] = useState(false);
-  const { activeOpacity: _activeOpacity, onFocus, onBlur, ...pressableProps } = props;
+  const { activeOpacity: _activeOpacity, onFocus, onBlur, style, ...pressableProps } = props;
+  const flattenedStyle = StyleSheet.flatten(style);
+  const layoutStyle = {
+    flex: flattenedStyle?.flex,
+    flexGrow: flattenedStyle?.flexGrow,
+    flexShrink: flattenedStyle?.flexShrink,
+    flexBasis: flattenedStyle?.flexBasis,
+    alignSelf: flattenedStyle?.alignSelf,
+    width: flattenedStyle?.width,
+    minWidth: flattenedStyle?.minWidth,
+    maxWidth: flattenedStyle?.maxWidth,
+  };
   return (
-    <View style={styles.anchor} collapsable={false}>
+    <View style={[styles.anchor, layoutStyle]} collapsable={false}>
       <Pressable
         {...(pressableProps as PressableProps)}
+        style={style}
         accessibilityRole={props.accessibilityRole ?? (props.onPress ? 'button' : 'text')}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={hint}
