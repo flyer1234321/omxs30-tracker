@@ -11,6 +11,7 @@ import {
 } from '@/lib/indicators';
 import { deriveStockSignals } from '@/lib/stock-signals';
 import { generateHealthCheck } from '@/lib/stock-health';
+import { normalizeDividendYield } from '@/lib/market-values';
 import { parseTickerList } from '@/lib/ticker-validation';
 import type { StockData } from '@/types/stock';
 import { requireAuthenticatedUser } from '@/lib/app-auth';
@@ -240,7 +241,7 @@ export async function GET(request: Request) {
           fiftyTwoWeekLow: quote?.fiftyTwoWeekLow ?? null,
           fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh ?? null,
           trailingPE: quote?.trailingPE ?? null,
-          dividendYield: quote?.dividendYield ?? null,
+          dividendYield: normalizeDividendYield(quote?.dividendYield),
           marketCap: quote?.marketCap ?? null,
           regularMarketChangePercent: quote?.regularMarketChangePercent ?? null,
           regularMarketOpen: quote?.regularMarketOpen ?? null,

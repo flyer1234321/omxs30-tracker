@@ -1,5 +1,6 @@
 import { buildQuantAnalystReport, isAnalystReport, type AnalystReport } from '@/lib/analyst-engine';
 import { requireAuthenticatedUser } from '@/lib/app-auth';
+import { roundMarketValue } from '@/lib/market-values';
 import type { StockData } from '@/types/stock';
 
 const CACHE_TTL = 10 * 60 * 1000;
@@ -68,26 +69,28 @@ async function createAiNarrative(stock: StockData, quantReport: AnalystReport) {
           'Ge generell bolagsanalys, aldrig personlig placeringsradgivning.',
           'Hitta inte pa nyheter, konsensus, riktkurser eller data som saknas.',
           'Var tydlig med osakerhet och lat risker vaga tungt nar data ar blandad.',
+          'Anvand avrundade tal: pris och glidande medelvarden med tva decimaler, P/E med en decimal och procent med en decimal.',
+          'Faltet dividendYieldPercent ar redan en procent, sa skriv exempelvis 2,2 % och multiplicera aldrig det igen.',
           'Anvand inte ordet kop som uppmaning. Välj endast en av de givna slutsatserna.',
         ].join(' '),
         input: JSON.stringify({
           stock: {
             ticker: stock.ticker,
             companyName: stock.companyName,
-            currentPrice: stock.currentPrice,
-            changePercent: stock.regularMarketChangePercent,
-            trailingPE: stock.trailingPE,
-            dividendYield: stock.dividendYield,
-            beta: stock.beta,
-            volatility: stock.volatility,
-            maxDrawdown: stock.maxDrawdown,
-            riskRewardScore: stock.riskRewardScore,
-            rsi: stock.rsi,
-            sma50: stock.sma50,
-            sma125: stock.sma125,
-            sma200: stock.sma200,
-            fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
-            fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
+            currentPrice: roundMarketValue(stock.currentPrice),
+            changePercent: roundMarketValue(stock.regularMarketChangePercent, 1),
+            trailingPE: roundMarketValue(stock.trailingPE, 1),
+            dividendYieldPercent: stock.dividendYield == null ? null : roundMarketValue(stock.dividendYield * 100, 1),
+            beta: roundMarketValue(stock.beta, 2),
+            volatility: roundMarketValue(stock.volatility, 1),
+            maxDrawdown: roundMarketValue(stock.maxDrawdown, 1),
+            riskRewardScore: roundMarketValue(stock.riskRewardScore, 0),
+            rsi: roundMarketValue(stock.rsi, 1),
+            sma50: roundMarketValue(stock.sma50),
+            sma125: roundMarketValue(stock.sma125),
+            sma200: roundMarketValue(stock.sma200),
+            fiftyTwoWeekHigh: roundMarketValue(stock.fiftyTwoWeekHigh),
+            fiftyTwoWeekLow: roundMarketValue(stock.fiftyTwoWeekLow),
             signals: stock.signals?.map((signal) => signal.label) || [],
           },
           quantReport,

@@ -1,6 +1,7 @@
 import YahooFinance from 'yahoo-finance2';
 import { calculateBollingerBands, calculateMACD, calculateRSI, calculateSMA, calculateVolatility, type PricePoint } from '@/lib/indicators';
 import { generateHealthCheck } from '@/lib/stock-health';
+import { normalizeDividendYield } from '@/lib/market-values';
 import type { AlertSnapshot } from '@/lib/alert-engine';
 
 interface ChartPoint extends PricePoint { date: Date | string; }
@@ -35,7 +36,7 @@ async function loadOne(ticker: string): Promise<AlertSnapshot | null> {
       fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
       fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
       trailingPE: quote.trailingPE ?? null,
-      dividendYield: quote.dividendYield ?? null,
+      dividendYield: normalizeDividendYield(quote.dividendYield),
       bollingerBands: calculateBollingerBands(history, 20, 2),
       macdData: calculateMACD(history),
       volatility: calculateVolatility(history, 20),

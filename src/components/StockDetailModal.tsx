@@ -46,6 +46,17 @@ const gradeColors: Record<string, { bg: string; text: string; border: string }> 
 const riskColors: Record<string, string> = { 'Låg': '#34C759', 'Medel': '#FF9500', 'Hög': '#FF3B30' };
 const momentumIcons: Record<string, string> = { 'Uppåt': '↗️', 'Nedåt': '↘️', 'Sidledes': '→' };
 
+interface DetailStatProps { label: string; value: string; hint: string; valueColor?: string; }
+
+function DetailStat({ label, value, hint, valueColor }: DetailStatProps) {
+  return (
+    <HintedTouchable style={s.statBox} accessibilityLabel={`Förklaring: ${label}`} hint={hint}>
+      <Text style={s.statLabel}>{label}</Text>
+      <Text style={[s.statVal, valueColor ? { color: valueColor } : null]}>{value}</Text>
+    </HintedTouchable>
+  );
+}
+
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
   const [analystReport, setAnalystReport] = useState<AnalystReport | null>(null);
@@ -115,7 +126,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             const isOpen = expandedCheck === checkKey;
             const explanation = getExplanation(ci.label, item);
             return (
-              <HintedTouchable key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)} accessibilityLabel={`${isOpen ? 'Dölj' : 'Visa'} förklaring: ${ci.label}`} hint={`${isOpen ? 'Döljer' : 'Visar'} hur kontrollpunkten ${ci.label.toLowerCase()} påverkar analysen.`}>
+              <HintedTouchable key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)} accessibilityLabel={`${isOpen ? 'Dölj' : 'Visa'} förklaring: ${ci.label}`} hint={explanation || `${isOpen ? 'Döljer' : 'Visar'} hur kontrollpunkten ${ci.label.toLowerCase()} påverkar analysen.`}>
                 <View style={[s.checkRow, isOpen && { backgroundColor: '#1a2332', borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
                   <Text style={s.checkIcon}>{ci.passed ? '✅' : '❌'}</Text>
                   <Text style={[s.checkLabel, !ci.passed && { color: '#666' }]}>{ci.label}</Text>
@@ -205,21 +216,21 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
           {/* Market data mirrors the compact quote block in Apple Stocks. */}
           <View style={s.statsGrid}>
-            <View style={s.statBox}><Text style={s.statLabel}>Öppning</Text><Text style={s.statVal}>{item.regularMarketOpen?.toFixed(2) ?? '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Högsta</Text><Text style={s.statVal}>{item.regularMarketDayHigh?.toFixed(2) ?? '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Lägsta</Text><Text style={s.statVal}>{item.regularMarketDayLow?.toFixed(2) ?? '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Volym</Text><Text style={s.statVal}>{formatVol(item.latestVolume)}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>P/E</Text><Text style={s.statVal}>{item.trailingPE?.toFixed(1) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Börsvärde</Text><Text style={s.statVal}>{formatMCap(item.marketCap)}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>52v Hög</Text><Text style={s.statVal}>{item.fiftyTwoWeekHigh?.toFixed(2) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>52v Låg</Text><Text style={s.statVal}>{item.fiftyTwoWeekLow?.toFixed(2) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Snittvolym</Text><Text style={s.statVal}>{formatVol(item.avgVolume20)}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Direktavk.</Text><Text style={s.statVal}>{item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Beta</Text><Text style={s.statVal}>{item.beta?.toFixed(2) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>VPA</Text><Text style={s.statVal}>{item.epsTrailingTwelveMonths?.toFixed(2) ?? '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Volatilitet</Text><Text style={s.statVal}>{item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Max drawdown</Text><Text style={[s.statVal, { color: colors.red }]}>{item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Risk/Reward</Text><Text style={[s.statVal, item.riskRewardScore != null && item.riskRewardScore >= 70 && { color: colors.green }]}>{item.riskRewardScore?.toFixed(0) || '-'}</Text></View>
+            <DetailStat label="Öppning" value={item.regularMarketOpen?.toFixed(2) ?? '-'} hint="Första betalkursen för dagens handel. Jämför den med gårdagens stängning för att se om aktien öppnade med ett gap." />
+            <DetailStat label="Högsta" value={item.regularMarketDayHigh?.toFixed(2) ?? '-'} hint="Högsta kurs som handlats i dag. Visar var dagens motstånd hittills har funnits." />
+            <DetailStat label="Lägsta" value={item.regularMarketDayLow?.toFixed(2) ?? '-'} hint="Lägsta kurs som handlats i dag. Visar var dagens stöd hittills har funnits." />
+            <DetailStat label="Volym" value={formatVol(item.latestVolume)} hint="Antal omsatta aktier i den senaste handelsdagen. Högre volym gör ofta en kursrörelse mer trovärdig." />
+            <DetailStat label="P/E" value={item.trailingPE?.toFixed(1) || '-'} hint="Pris/vinst-tal: hur mycket marknaden betalar för en krona av bolagets vinst. Jämför helst med bolagets historik och sektorn." />
+            <DetailStat label="Börsvärde" value={formatMCap(item.marketCap)} hint="Bolagets totala marknadsvärde: aktiekurs multiplicerat med antal aktier. Det säger inget ensamt om värderingen." />
+            <DetailStat label="52v Hög" value={item.fiftyTwoWeekHigh?.toFixed(2) || '-'} hint="Högsta priset under de senaste 52 veckorna. Ett återtest kan fungera som motstånd." />
+            <DetailStat label="52v Låg" value={item.fiftyTwoWeekLow?.toFixed(2) || '-'} hint="Lägsta priset under de senaste 52 veckorna. Ett återtest kan fungera som stöd, men också signalera fortsatt svaghet." />
+            <DetailStat label="Snittvolym" value={formatVol(item.avgVolume20)} hint="Genomsnittlig dagsvolym över 20 handelsdagar. Jämför med dagens volym för att bedöma om rörelsen är bekräftad." />
+            <DetailStat label="Direktavk." value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} hint="Årlig utdelning som andel av aktuell aktiekurs. En mycket hög siffra kan bero på ett kraftigt kursfall eller osäker utdelning." />
+            <DetailStat label="Beta" value={item.beta?.toFixed(2) || '-'} hint="Känslighet mot jämförelseindex. Beta 1 innebär ungefär samma rörelse; över 1 innebär normalt större svängningar." />
+            <DetailStat label="VPA" value={item.epsTrailingTwelveMonths?.toFixed(2) ?? '-'} hint="Vinst per aktie de senaste tolv månaderna. Tillsammans med priset ligger den till grund för P/E-talet." />
+            <DetailStat label="Volatilitet" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} hint="Historisk 30-dagars volatilitet. Högre värde betyder större typiska kurssvängningar och normalt högre risk." />
+            <DetailStat label="Max drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} hint="Största historiska fall från en tidigare topp i den studerade perioden. Visar hur djup en nedgång har varit." valueColor={colors.red} />
+            <DetailStat label="Risk/Reward" value={item.riskRewardScore?.toFixed(0) || '-'} hint="Intern sammanvägd skala 0-100 som väger trend, volatilitet, drawdown och kvalitet. Den är beslutsstöd, inte ett prisprognos." valueColor={item.riskRewardScore != null && item.riskRewardScore >= 70 ? colors.green : undefined} />
           </View>
 
           {/* Chart */}

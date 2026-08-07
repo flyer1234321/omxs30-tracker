@@ -30,21 +30,27 @@ function marketCap(value: number | null | undefined) {
 }
 
 function chartSvg(stock: StockData) {
-  const data = stock.chartHistory.slice(-160);
+  const data = stock.chartHistory.slice(-126);
   if (data.length < 2) return '<p class="muted">Kurshistorik saknas i rapporten.</p>';
-  const values = data.map((point) => point.close);
+  const values = data.flatMap((point) => [point.close, point.sma50, point.sma125, point.sma200].filter((value): value is number => value != null));
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(max - min, 0.01);
   const width = 720;
   const height = 170;
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * width;
+  const pointsFor = (key: 'close' | 'sma50' | 'sma125' | 'sma200') => data.flatMap((point, index) => {
+    const value = point[key];
+    if (value == null) return [];
+    const x = (index / (data.length - 1)) * width;
     const y = height - ((value - min) / range) * height;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
-  const positive = values.at(-1)! >= values[0] ? '#14804a' : '#c84040';
-  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Kursutveckling"><line x1="0" y1="42" x2="${width}" y2="42" class="grid"/><line x1="0" y1="85" x2="${width}" y2="85" class="grid"/><line x1="0" y1="128" x2="${width}" y2="128" class="grid"/><polyline points="${points}" fill="none" stroke="${positive}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const closingPrices = data.map((point) => point.close);
+  const positive = closingPrices.at(-1)! >= closingPrices[0] ? '#14804a' : '#c84040';
+  const firstDate = new Date(data[0].date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+  const lastDate = new Date(data.at(-1)!.date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+  const returnPct = ((closingPrices.at(-1)! - closingPrices[0]) / closingPrices[0]) * 100;
+  return `<div class="chart-meta"><span>Senaste sex månaderna: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}</span><strong class="${returnPct >= 0 ? 'positive' : 'negative'}">${returnPct >= 0 ? '+' : ''}${number(returnPct, 1)} %</strong></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Kursutveckling med SMA 50, SMA 125 och SMA 200"><line x1="0" y1="42" x2="${width}" y2="42" class="grid"/><line x1="0" y1="85" x2="${width}" y2="85" class="grid"/><line x1="0" y1="128" x2="${width}" y2="128" class="grid"/><polyline points="${pointsFor('sma50')}" fill="none" stroke="#7c3aed" stroke-width="1.8"/><polyline points="${pointsFor('sma125')}" fill="none" stroke="#d97706" stroke-width="1.8"/><polyline points="${pointsFor('sma200')}" fill="none" stroke="#e11d48" stroke-width="1.8"/><polyline points="${pointsFor('close')}" fill="none" stroke="${positive}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="chart-legend"><span><i class="price-line"></i>Kurs</span><span><i class="sma50-line"></i>SMA 50</span><span><i class="sma125-line"></i>SMA 125</span><span><i class="sma200-line"></i>SMA 200</span></div>`;
 }
 
 function list(items: string[]) {
@@ -91,7 +97,7 @@ export function buildPrintReportHtml(stock: StockData, report: AnalystReport | n
   .muted { color: #65758b; } .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid #1677c8; padding-bottom: 16px; } .ticker { color: #65758b; font-size: 13pt; font-weight: 600; }
   .quote { text-align: right; white-space: nowrap; } .price { font-size: 25pt; font-weight: 750; } .positive { color: #14804a; } .negative { color: #c84040; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #d9e1ea; border-radius: 6px; overflow: hidden; } .stat { border-right: 1px solid #d9e1ea; border-bottom: 1px solid #d9e1ea; min-height: 59px; padding: 9px; } .stat:nth-child(4n) { border-right: 0; } .stat:nth-last-child(-n+4) { border-bottom: 0; } .label { color: #65758b; display: block; font-size: 9pt; margin-bottom: 3px; } .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
-  svg { display: block; height: auto; width: 100%; } .grid { stroke: #e4ebf2; stroke-width: 1; } .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; } .panel { border: 1px solid #d9e1ea; border-radius: 6px; padding: 12px; } .panel-positive { border-left: 4px solid #14804a; } .panel-negative { border-left: 4px solid #c84040; } .panel-attention { border-left: 4px solid #c57b00; } ul { margin: 6px 0 0; padding-left: 18px; } li { margin-bottom: 4px; } .signals { display: flex; flex-wrap: wrap; gap: 6px; } .signal { background: #e8f1fb; border-radius: 12px; color: #135b95; font-size: 9pt; padding: 3px 8px; } .grade { background: #edf7ef; border-radius: 5px; color: #16703a; display: inline-block; font-weight: 700; padding: 4px 8px; } .footer { border-top: 1px solid #d9e1ea; color: #65758b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
+  svg { display: block; height: auto; width: 100%; } .grid { stroke: #e4ebf2; stroke-width: 1; } .chart-meta { color: #65758b; display: flex; font-size: 9pt; justify-content: space-between; margin: 0 0 8px; } .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 8.5pt; margin-top: 8px; } .chart-legend span { align-items: center; display: inline-flex; gap: 5px; } .chart-legend i { display: inline-block; height: 2px; width: 15px; } .price-line { background: #14804a; } .sma50-line { background: #7c3aed; } .sma125-line { background: #d97706; } .sma200-line { background: #e11d48; } .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; } .panel { border: 1px solid #d9e1ea; border-radius: 6px; padding: 12px; } .panel-positive { border-left: 4px solid #14804a; } .panel-negative { border-left: 4px solid #c84040; } .panel-attention { border-left: 4px solid #c57b00; } ul { margin: 6px 0 0; padding-left: 18px; } li { margin-bottom: 4px; } .signals { display: flex; flex-wrap: wrap; gap: 6px; } .signal { background: #e8f1fb; border-radius: 12px; color: #135b95; font-size: 9pt; padding: 3px 8px; } .grade { background: #edf7ef; border-radius: 5px; color: #16703a; display: inline-block; font-weight: 700; padding: 4px 8px; } .footer { border-top: 1px solid #d9e1ea; color: #65758b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
   @media print { .page-break-avoid { break-inside: avoid; } .long-section { break-inside: auto; } }
 </style></head><body>
 <header class="header"><div><h1>${escapeHtml(stock.ticker.replace('.ST', ''))}</h1><p class="ticker">${escapeHtml(stock.companyName)} · Analysrapport</p><p class="muted">Skapad ${escapeHtml(generatedAt)}</p></div><div class="quote"><div class="price">${number(stock.currentPrice, 2)} kr</div><div class="${changeClass}">${change == null ? '-' : `${change >= 0 ? '+' : ''}${number(change, 2)} % idag`}</div>${health ? `<p class="grade">Betyg ${health.grade} · ${health.gradeScore}/10</p>` : ''}</div></header>
