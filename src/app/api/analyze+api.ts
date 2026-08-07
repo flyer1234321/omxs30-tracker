@@ -15,7 +15,7 @@ import {
 import { deriveStockSignals } from '@/lib/stock-signals';
 import { generateHealthCheck } from '@/lib/stock-health';
 import { normalizeDividendYield } from '@/lib/market-values';
-import { cacheTtlForRegion, regionForMarket } from '@/lib/market-hours';
+import { cacheTtlForRegions, regionForMarket, regionsForTickers } from '@/lib/market-hours';
 import { parseTickerList } from '@/lib/ticker-validation';
 import { buildTradePlan } from '@/lib/trade-plan';
 import type { StockData } from '@/types/stock';
@@ -195,7 +195,10 @@ export async function GET(request: Request) {
   }
 
   // Stängd börs ger inga nya avslut, så cachen får leva betydligt längre då.
-  const cacheTtl = cacheTtlForRegion(regionForMarket(customTickers ? 'watchlist' : market));
+  // En egen bevakningslista kan innehålla bolag från båda börserna.
+  const cacheTtl = cacheTtlForRegions(
+    customTickers ? regionsForTickers(tickersToFetch) : [regionForMarket(market)],
+  );
   const cached = cache[cacheKey];
   if (cached && Date.now() - cached.lastUpdated < cacheTtl) {
     return Response.json({ data: cached.data, cached: true, timestamp: cached.lastUpdated });

@@ -26,7 +26,7 @@ import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
-import { isJustAfterClose, isMarketOpen, regionForMarket } from '../lib/market-hours';
+import { anyMarketOpen, anyMarketWorthPolling, regionForMarket, regionsForTickers } from '../lib/market-hours';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
@@ -214,18 +214,25 @@ export default function HomeScreen() {
     fetchData(market, watchlistRef.current);
   }, [market, watchlistKey, fetchData]);
 
-  const marketRegion = regionForMarket(market);
-  const marketOpen = isMarketOpen(marketRegion);
+  // Favoritlistan kan blanda svenska och amerikanska bolag, och då styr den
+  // börs som fortfarande handlar.
+  const activeRegions = useMemo(
+    () => (market === 'watchlist' ? regionsForTickers(watchlist) : [regionForMarket(market)]),
+    [market, watchlist],
+  );
+  const regionKey = activeRegions.join(',');
+  const marketOpen = anyMarketOpen(activeRegions);
 
   useEffect(() => {
+    const regions = regionKey ? (regionKey.split(',') as ReturnType<typeof regionsForTickers>) : [];
     const interval = setInterval(() => {
       // Stängd börs ger inga nya avslut. Undantaget är strax efter stängning,
       // då slutkursen fortfarande kan justeras.
-      if (!isMarketOpen(marketRegion) && !isJustAfterClose(marketRegion)) return;
+      if (!anyMarketWorthPolling(regions)) return;
       fetchData(market, watchlistRef.current);
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [market, marketRegion, fetchData]);
+  }, [market, regionKey, fetchData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

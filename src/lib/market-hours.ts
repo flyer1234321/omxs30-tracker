@@ -101,3 +101,27 @@ export function cacheTtlForRegion(region: MarketRegion, at = new Date()) {
   if (isJustAfterClose(region, at)) return 5 * 60 * 1000;
   return 60 * 60 * 1000;
 }
+
+/**
+ * En favoritlista kan blanda svenska och amerikanska bolag. Så länge någon av
+ * börserna handlar behöver datan vara färsk, så den kortaste livslängden
+ * vinner. Utan det här skulle en lista med enbart USA-bolag ha behandlats som
+ * stängd hela den amerikanska handelsdagen, eftersom Stockholm redan stängt.
+ */
+export function cacheTtlForRegions(regions: MarketRegion[], at = new Date()) {
+  if (!regions.length) return cacheTtlForRegion('stockholm', at);
+  return Math.min(...regions.map((region) => cacheTtlForRegion(region, at)));
+}
+
+export function anyMarketOpen(regions: MarketRegion[], at = new Date()) {
+  return regions.some((region) => isMarketOpen(region, at));
+}
+
+export function anyMarketWorthPolling(regions: MarketRegion[], at = new Date()) {
+  return regions.some((region) => isMarketOpen(region, at) || isJustAfterClose(region, at));
+}
+
+/** De börser som en uppsättning tickers berör. */
+export function regionsForTickers(tickers: string[]): MarketRegion[] {
+  return Array.from(new Set(tickers.map(regionForTicker)));
+}
