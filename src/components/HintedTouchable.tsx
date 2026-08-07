@@ -1,46 +1,20 @@
-import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, type PressableProps, type TouchableOpacityProps } from 'react-native';
+import React from 'react';
+import { Platform, TouchableOpacity, type TouchableOpacityProps } from 'react-native';
 
 interface HintedTouchableProps extends TouchableOpacityProps {
   accessibilityLabel: string;
   hint: string;
 }
 
-/** A pressable control with a browser hover explanation and native accessibility hint. */
+/** Accessible touch target. Rich visible help is handled by InfoTooltip where needed. */
 export function HintedTouchable({ accessibilityLabel, hint, ...props }: HintedTouchableProps) {
-  const [showHint, setShowHint] = useState(false);
-  const { activeOpacity: _activeOpacity, onFocus, onBlur, style, ...pressableProps } = props;
-  const flattenedStyle = StyleSheet.flatten(style);
-  const layoutStyle = {
-    flex: flattenedStyle?.flex,
-    flexGrow: flattenedStyle?.flexGrow,
-    flexShrink: flattenedStyle?.flexShrink,
-    flexBasis: flattenedStyle?.flexBasis,
-    alignSelf: flattenedStyle?.alignSelf,
-    width: flattenedStyle?.width,
-    minWidth: flattenedStyle?.minWidth,
-    maxWidth: flattenedStyle?.maxWidth,
-  };
   return (
-    <View style={[styles.anchor, layoutStyle]} collapsable={false}>
-      <Pressable
-        {...(pressableProps as PressableProps)}
-        style={style}
-        accessibilityRole={props.accessibilityRole ?? (props.onPress ? 'button' : 'text')}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={hint}
-        onHoverIn={() => setShowHint(true)}
-        onHoverOut={() => setShowHint(false)}
-        onFocus={(event) => { setShowHint(true); onFocus?.(event); }}
-        onBlur={(event) => { setShowHint(false); onBlur?.(event); }}
-      />
-      {Platform.OS === 'web' && showHint ? <View pointerEvents="none" style={styles.tooltip}><Text style={styles.tooltipText}>{hint}</Text></View> : null}
-    </View>
+    <TouchableOpacity
+      {...props}
+      accessibilityRole={props.accessibilityRole ?? (props.onPress ? 'button' : 'text')}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={hint}
+      {...(Platform.OS === 'web' ? ({ title: hint } as Record<string, string>) : {})}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  anchor: { position: 'relative', zIndex: 1 },
-  tooltip: { position: 'absolute', top: '100%', left: 0, marginTop: 6, maxWidth: 330, minWidth: 190, backgroundColor: '#eaf2ff', borderColor: '#60a5fa', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, zIndex: 1000, elevation: 12, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
-  tooltipText: { color: '#10213b', fontSize: 12, lineHeight: 17 },
-});

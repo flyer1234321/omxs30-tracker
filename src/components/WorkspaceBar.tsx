@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { TABLE_COLUMNS } from '@/lib/workspaces';
 import type { TableColumnId, Workspace } from '@/types/stock';
 
@@ -12,6 +13,13 @@ interface WorkspaceBarProps {
   onCreate: (name: string, columns: TableColumnId[]) => void;
   onDelete: (id: string) => void;
 }
+
+const WORKSPACE_HELP: Record<string, string> = {
+  overview: 'Balanserad grundvy med betyg, prisrörelse, RSI, volym, värdering och trend i samma tabell.',
+  momentum: 'Fokuserar på styrkan i den pågående rörelsen: dagsförändring, RSI, relativ volym, trend och volatilitet.',
+  risk: 'Fokuserar på nedsiderisk och svängningar: volatilitet, beta, största nedgång och intern risk/reward-poäng.',
+  value: 'Fokuserar på värdering och kvalitet: hälsobetyg, P/E, volym, SMA och intern risk/reward-poäng.',
+};
 
 export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete }: WorkspaceBarProps) {
   const [editing, setEditing] = useState(false);
@@ -45,15 +53,20 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
       <View style={styles.topRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {workspaces.map((workspace) => (
-            <HintedTouchable
-              key={workspace.id}
-              style={[styles.tab, workspace.id === activeWorkspace.id && styles.tabActive]}
-              onPress={() => onSelect(workspace.id)}
-              accessibilityLabel={`Välj vyn ${workspace.name}`}
-              hint={`Väljer vyn ${workspace.name}. En vy ändrar bara vilka kolumner som visas i tabellen.`}
-            >
-              <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
-            </HintedTouchable>
+            <View key={workspace.id} style={[styles.tab, workspace.id === activeWorkspace.id && styles.tabActive]}>
+              <HintedTouchable
+                style={styles.tabSelect}
+                onPress={() => onSelect(workspace.id)}
+                accessibilityLabel={`Välj vyn ${workspace.name}`}
+                hint={WORKSPACE_HELP[workspace.id] ?? `En egen vy med de kolumner du har valt för ${workspace.name}.`}
+              >
+                <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
+              </HintedTouchable>
+              <InfoTooltip
+                label={workspace.name}
+                description={WORKSPACE_HELP[workspace.id] ?? `En egen vy med de kolumner du har valt för ${workspace.name}.`}
+              />
+            </View>
           ))}
         </ScrollView>
         <HintedTouchable style={styles.editButton} onPress={() => setEditing((value) => !value)} accessibilityLabel={editing ? 'Stäng kolumninställningar' : 'Ändra kolumner'} hint={editing ? 'Stänger inställningarna för tabellkolumner.' : 'Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.'}>
@@ -113,7 +126,8 @@ const styles = StyleSheet.create({
   container: { backgroundColor: '#111118', borderBottomWidth: 1, borderBottomColor: '#1e1e2e' },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 },
   tabs: { gap: 6, paddingVertical: 8, paddingRight: 8 },
-  tab: { borderRadius: 5, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: '#161620' },
+  tab: { flexDirection: 'row', alignItems: 'center', borderRadius: 5, paddingRight: 7, backgroundColor: '#161620' },
+  tabSelect: { paddingLeft: 9, paddingRight: 6, paddingVertical: 6 },
   tabActive: { backgroundColor: 'rgba(59,130,246,0.16)' },
   tabText: { color: '#a0a0b2', fontSize: 12, fontWeight: '600' },
   tabTextActive: { color: '#93c5fd' },

@@ -3,6 +3,7 @@ import { FlatList, Platform, RefreshControl, ScrollView, StyleSheet, Text, useWi
 import Svg, { Polyline } from 'react-native-svg';
 import { SignalBadges } from '@/components/SignalBadges';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import type { StockData, TableColumnId } from '@/types/stock';
 
 export type { StockData } from '@/types/stock';
@@ -136,7 +137,23 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       <ScrollView horizontal style={styles.horizontalScroll} contentContainerStyle={styles.horizontalScrollContent} showsHorizontalScrollIndicator={false}>
         <View style={[styles.table, { width: tableWidth }]}>
           <View style={styles.headerRow}>
-            {columns.map((column) => <HintedTouchable key={column.id} style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]} onPress={() => handleSort(column.id)} accessibilityLabel={`Sortera efter ${column.label}`} hint={`${column.hint} Tryck för att sortera tabellen efter denna kolumn.`}><Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>{column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}</Text></HintedTouchable>)}
+            {columns.map((column) => (
+              <View key={column.id} style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]}>
+                <HintedTouchable
+                  style={styles.headerSortButton}
+                  onPress={() => handleSort(column.id)}
+                  accessibilityLabel={`Sortera efter ${column.label}`}
+                  hint={`Sortera tabellen efter ${column.label}. ${column.hint}`}
+                >
+                  <Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>
+                    {column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}
+                  </Text>
+                </HintedTouchable>
+                <View style={styles.headerInfo}>
+                  <InfoTooltip label={column.label} description={`${column.hint} Klicka på rubriken för att sortera.`} align={column.align === 'flex-start' ? 'left' : 'right'} />
+                </View>
+              </View>
+            ))}
           </View>
           <FlatList
             data={sortedData}
@@ -155,7 +172,10 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg }, horizontalScroll: { flex: 1 }, horizontalScrollContent: { flexGrow: 1 }, table: { flex: 1 }, listContent: { paddingBottom: 20 },
   headerRow: { flexDirection: 'row', backgroundColor: COLORS.surfaceHover, paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.surfaceAlt },
-  headerCell: { justifyContent: 'center' }, headerText: { color: COLORS.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  headerCell: { justifyContent: 'center', position: 'relative', minHeight: 18 },
+  headerSortButton: { width: '100%', paddingRight: 18 },
+  headerInfo: { position: 'absolute', right: 0, top: 1 },
+  headerText: { color: COLORS.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   row: { flexDirection: 'row', minHeight: 54, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.surfaceAlt, alignItems: 'center' },
   rowEven: { backgroundColor: COLORS.surface }, rowOdd: { backgroundColor: COLORS.surfaceAlt }, cell: { justifyContent: 'center' },
   tickerText: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
