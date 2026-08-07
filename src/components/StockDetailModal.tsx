@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import type { StockData } from '@/types/stock';
+import { AnalystBrief } from '@/components/AnalystBrief';
 import { MarketChart } from '@/components/MarketChart';
 
 export type { StockData } from '@/types/stock';
@@ -251,6 +252,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           </View>
 
           {/* Chart */}
+          <AnalystBrief item={item} />
+
           <MarketChart item={item} />
 
           {/* Bull vs Bear */}
