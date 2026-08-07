@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import type { DimensionValue } from 'react-native';
 import type { StockData } from '@/types/stock';
+import { colors as palette, gradeColorMap } from '@/theme';
 import { AnalystBrief } from '@/components/AnalystBrief';
 import { MarketChart } from '@/components/MarketChart';
 import { HintedTouchable } from '@/components/HintedTouchable';
@@ -31,25 +32,19 @@ interface StockDetailModalProps {
 }
 
 const colors = {
-  bg: '#08080f',
-  surface: '#111118',
-  text: '#ffffff',
-  textMuted: '#8E8E93',
-  green: '#34C759',
-  red: '#FF3B30',
-  yellow: '#FFCC00',
-  border: '#2a2a35'
+  bg: palette.bg,
+  surface: palette.surface,
+  text: palette.textStrong,
+  textMuted: palette.textSecondary,
+  green: palette.positive,
+  red: palette.negative,
+  yellow: palette.warning,
+  border: palette.borderStrong,
 };
 
-const gradeColors: Record<string, { bg: string; text: string; border: string }> = {
-  A: { bg: '#0A3D1A', text: '#34C759', border: '#34C759' },
-  B: { bg: '#1A3D0A', text: '#A8D86B', border: '#A8D86B' },
-  C: { bg: '#3D3A0A', text: '#FFD60A', border: '#FFD60A' },
-  D: { bg: '#3D1A0A', text: '#FF9500', border: '#FF9500' },
-  F: { bg: '#3D0A0A', text: '#FF3B30', border: '#FF3B30' },
-};
+const gradeColors = gradeColorMap;
 
-const riskColors: Record<string, string> = { 'Låg': '#34C759', 'Medel': '#FF9500', 'Hög': '#FF3B30' };
+const riskColors: Record<string, string> = { 'Låg': palette.positive, 'Medel': palette.warning, 'Hög': palette.negative };
 const momentumIcons: Record<string, string> = { 'Uppåt': '↗️', 'Nedåt': '↘️', 'Sidledes': '→' };
 
 interface DetailStatProps { label: string; value: string; hint: string; valueColor?: string; width: DimensionValue; }

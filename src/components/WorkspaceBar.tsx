@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { TABLE_COLUMNS } from '@/lib/workspaces';
 import type { TableColumnId, Workspace } from '@/types/stock';
+import { colors as palette } from '@/theme';
 
 interface WorkspaceBarProps {
   workspaces: Workspace[];
@@ -119,7 +120,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
               value={newWorkspaceName}
               onChangeText={setNewWorkspaceName}
               placeholder="Namn på ny vy"
-              placeholderTextColor="#6b6b82"
+              placeholderTextColor={palette.textSecondary}
               style={styles.nameInput}
               maxLength={32}
               accessibilityLabel="Namn på ny tabellvy"
@@ -141,7 +142,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#111118', borderBottomWidth: 1, borderBottomColor: '#1e1e2e' },
+  container: { backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.border },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 },
   tabsScroll: { flex: 1 },
   tabs: { gap: 6, paddingVertical: 8, paddingRight: 8 },
@@ -165,15 +166,15 @@ const styles = StyleSheet.create({
   helpItem: { width: '31.8%', minWidth: 210, flexGrow: 1, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderColor: '#293346', borderRadius: 6, backgroundColor: '#10111a' },
   helpItemTitle: { color: '#dbeafe', fontSize: 12, fontWeight: '800', marginBottom: 3 },
   helpItemText: { color: '#9ca9bd', fontSize: 11, lineHeight: 16 },
-  panel: { borderTopWidth: 1, borderTopColor: '#1e1e2e', padding: 12, backgroundColor: '#161620' },
+  panel: { borderTopWidth: 1, borderTopColor: palette.border, padding: 12, backgroundColor: '#161620' },
   panelTitle: { color: '#a0a0b2', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 },
   columnList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   columnToggle: { borderWidth: 1, borderColor: '#2a2a38', borderRadius: 5, paddingHorizontal: 8, paddingVertical: 5 },
-  columnToggleSelected: { borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.12)' },
+  columnToggleSelected: { borderColor: palette.accent, backgroundColor: 'rgba(59,130,246,0.12)' },
   columnToggleText: { color: '#8e8e9e', fontSize: 11 },
   columnToggleTextSelected: { color: '#bfdbfe' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  nameInput: { color: '#e2e2ea', borderWidth: 1, borderColor: '#2a2a38', borderRadius: 5, paddingHorizontal: 8, paddingVertical: 7, fontSize: 12, minWidth: 140 },
+  nameInput: { color: palette.textPrimary, borderWidth: 1, borderColor: '#2a2a38', borderRadius: 5, paddingHorizontal: 8, paddingVertical: 7, fontSize: 12, minWidth: 140 },
   saveButton: { backgroundColor: '#2563eb', borderRadius: 5, paddingHorizontal: 9, paddingVertical: 8 },
   saveButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   deleteButton: { paddingHorizontal: 8, paddingVertical: 8 },

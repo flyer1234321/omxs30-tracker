@@ -4,14 +4,19 @@ import Svg, { Polyline } from 'react-native-svg';
 import { SignalBadges } from '@/components/SignalBadges';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import type { StockData, TableColumnId } from '@/types/stock';
+import { colors as palette } from '@/theme';
 
 export type { StockData } from '@/types/stock';
 
+// Fargerna kommer fran det gemensamma temat. Tidigare hade den har vyn,
+// detaljvyn, grafen och filterpanelen var sin egen palett, med tva olika
+// nyanser av gront och rott i samma granssnitt.
 const COLORS = {
-  bg: '#08080f', surface: '#111118', surfaceAlt: '#161620', surfaceHover: '#1c1c28',
-  textPrimary: '#e2e2ea', textSecondary: '#6b6b82', positive: '#22c55e',
-  negative: '#ef4444', accent: '#3b82f6', gradeA: '#22c55e', gradeB: '#84cc16',
-  gradeC: '#eab308', gradeD: '#f97316', gradeF: '#ef4444',
+  bg: palette.bg, surface: palette.surface, surfaceAlt: palette.surfaceAlt, surfaceHover: palette.surfaceHover,
+  textPrimary: palette.textPrimary, textSecondary: palette.textSecondary, positive: palette.positive,
+  negative: palette.negative, accent: palette.accent,
+  gradeA: palette.gradeA.text, gradeB: palette.gradeB.text,
+  gradeC: palette.gradeC.text, gradeD: palette.gradeD.text, gradeF: palette.gradeF.text,
 };
 
 interface ProTableViewProps {
@@ -166,6 +171,6 @@ const styles = StyleSheet.create({
   rowEven: { backgroundColor: COLORS.surface }, rowOdd: { backgroundColor: COLORS.surfaceAlt }, cell: { justifyContent: 'center' },
   tickerText: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
   numeric: { color: COLORS.textPrimary, fontSize: 12, fontVariant: ['tabular-nums'], ...Platform.select({ ios: { fontFamily: 'Menlo' }, android: { fontFamily: 'monospace' } }) },
-  positive: { color: COLORS.positive }, negative: { color: COLORS.negative }, warning: { color: '#fbbf24' }, sma: { fontSize: 14, fontWeight: '700' }, empty: { color: COLORS.textSecondary, fontSize: 12 },
+  positive: { color: COLORS.positive }, negative: { color: COLORS.negative }, warning: { color: palette.warningBright }, sma: { fontSize: 14, fontWeight: '700' }, empty: { color: COLORS.textSecondary, fontSize: 12 },
   gradeBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }, gradeText: { fontSize: 12, fontWeight: '700' },
 });

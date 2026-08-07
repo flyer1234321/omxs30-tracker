@@ -15,26 +15,11 @@ import {
   type ProFilter,
 } from '@/lib/pro-filter';
 import { formatNumericInput, parseNumericInput } from '@/lib/numeric-input';
+import { colors as palette } from '@/theme';
 
 export { applyProFilter, type ProFilter };
 
-// Colors inline to avoid import issues during build
-const C = {
-  bg: '#08080f',
-  surface: '#111118',
-  surfaceAlt: '#16161f',
-  border: '#1e1e2e',
-  textPrimary: '#e2e2ea',
-  textSecondary: '#6b6b82',
-  textMuted: '#404055',
-  accent: '#3b82f6',
-  accentBg: 'rgba(59,130,246,0.10)',
-  accentBorder: 'rgba(59,130,246,0.25)',
-  positive: '#22c55e',
-  negative: '#ef4444',
-  warning: '#f59e0b',
-  warningBg: 'rgba(245,158,11,0.08)',
-};
+const C = palette;
 
 export interface PresetStrategy {
   id: string;

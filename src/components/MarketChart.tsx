@@ -19,15 +19,16 @@ import {
 } from '@/lib/chart-presentation';
 import { authenticatedFetch } from '@/lib/auth-client';
 import { formatNumber, formatPrice } from '@/lib/format';
+import { colors as palette } from '@/theme';
 
 const colors = {
-  surface: '#111118',
-  text: '#FFFFFF',
-  muted: '#8E8E93',
-  green: '#34C759',
-  red: '#FF453A',
-  border: '#2A2A35',
-  grid: '#20202A',
+  surface: palette.surface,
+  text: palette.textStrong,
+  muted: palette.textSecondary,
+  green: palette.positive,
+  red: palette.negative,
+  border: palette.borderStrong,
+  grid: palette.grid,
 };
 
 const remoteHistoryRanges: Partial<Record<ChartPeriod, string>> = {
@@ -126,6 +127,14 @@ export function MarketChart({ item }: MarketChartProps) {
   const accent = isPositive ? colors.green : colors.red;
   const chartWidth = Math.max(260, width - 64);
   const volumeBars = useMemo(() => buildVolumeBars(chartHistory), [chartHistory]);
+  // Grafen ar avsiktligt icke-interaktiv (pointerEvents none) for att undvika
+  // en krasch i gifted-charts pa webben. Periodens ytterlagen visas darfor som
+  // text i stallet, sa att det gar att lasa av niva utan att peka i grafen.
+  const periodRange = useMemo(() => {
+    const closes = chartHistory.map((point) => point.close).filter(Number.isFinite);
+    if (!closes.length) return null;
+    return { low: Math.min(...closes), high: Math.max(...closes) };
+  }, [chartHistory]);
   const maximumVolume = Math.max(...volumeBars, 1);
 
   const priceData = useMemo(() => {
@@ -200,9 +209,9 @@ export function MarketChart({ item }: MarketChartProps) {
 
       {showIndicators && (
         <View style={styles.indicatorRow}>
-          <IndicatorToggle active={showSma50} color="#8B5CF6" label="SMA 50" onPress={() => setShowSma50((value) => !value)} />
-          <IndicatorToggle active={showSma125} color="#F59E0B" label="SMA 125" onPress={() => setShowSma125((value) => !value)} />
-          <IndicatorToggle active={showSma200} color="#FB2C55" label="SMA 200" onPress={() => setShowSma200((value) => !value)} />
+          <IndicatorToggle active={showSma50} color={palette.sma50} label="SMA 50" onPress={() => setShowSma50((value) => !value)} />
+          <IndicatorToggle active={showSma125} color={palette.sma125} label="SMA 125" onPress={() => setShowSma125((value) => !value)} />
+          <IndicatorToggle active={showSma200} color={palette.sma200} label="SMA 200" onPress={() => setShowSma200((value) => !value)} />
         </View>
       )}
 
@@ -222,9 +231,9 @@ export function MarketChart({ item }: MarketChartProps) {
               width={chartWidth}
               height={218}
               color={accent}
-              color2="#F59E0B"
-              color3="#8B5CF6"
-              color4="#FB2C55"
+              color2={palette.sma125}
+              color3={palette.sma50}
+              color4={palette.sma200}
               thickness={2.5}
               thickness2={1.25}
               thickness3={1.25}
@@ -256,6 +265,27 @@ export function MarketChart({ item }: MarketChartProps) {
               isAnimated={false}
             />
           </View>
+
+          {periodRange && (
+            <View style={styles.rangeRow}>
+              <View style={styles.rangeItem}>
+                <Text style={styles.rangeLabel}>Periodens lägsta</Text>
+                <Text style={styles.rangeValue}>{formatPrice(periodRange.low, item.currency)}</Text>
+              </View>
+              <View style={styles.rangeItem}>
+                <Text style={styles.rangeLabel}>Periodens högsta</Text>
+                <Text style={styles.rangeValue}>{formatPrice(periodRange.high, item.currency)}</Text>
+              </View>
+              <View style={styles.rangeItem}>
+                <Text style={styles.rangeLabel}>Läge i intervallet</Text>
+                <Text style={styles.rangeValue}>
+                  {periodRange.high > periodRange.low
+                    ? `${formatNumber(((item.currentPrice - periodRange.low) / (periodRange.high - periodRange.low)) * 100, 0)} %`
+                    : '-'}
+                </Text>
+              </View>
+            </View>
+          )}
 
           <View style={styles.volumeSection} accessibilityLabel="Relativ handelsvolym under den valda perioden">
             <Text style={styles.volumeLabel}>Volym</Text>
@@ -305,16 +335,20 @@ const styles = StyleSheet.create({
   performanceSub: { fontSize: 12, fontFamily: 'monospace', marginTop: 4 },
   periodTabs: { paddingHorizontal: 12, gap: 4, marginBottom: 14 },
   periodButton: { minWidth: 42, height: 36, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
-  periodButtonActive: { backgroundColor: '#2A2A35' },
+  periodButtonActive: { backgroundColor: palette.borderStrong },
   periodText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   periodTextActive: { color: colors.text },
   indicatorRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 14 },
   indicator: { minHeight: 30, paddingHorizontal: 10, justifyContent: 'center', borderWidth: 1, borderRadius: 15 },
-  indicatorActive: { backgroundColor: '#1E1E28' },
+  indicatorActive: { backgroundColor: palette.surfaceHover },
   indicatorText: { fontSize: 12, fontWeight: '700' },
   loading: { height: 250, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { color: colors.muted, fontSize: 13 },
   chartWrap: { paddingHorizontal: 8 },
+  rangeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, marginTop: 14 },
+  rangeItem: { flexGrow: 1, flexBasis: 110 },
+  rangeLabel: { color: colors.muted, fontSize: 11, marginBottom: 3 },
+  rangeValue: { color: colors.text, fontSize: 14, fontFamily: 'monospace', fontWeight: '600' },
   volumeSection: { paddingHorizontal: 16, marginTop: 8 },
   volumeLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', marginBottom: 4 },
   volumeBars: { height: 34, flexDirection: 'row', alignItems: 'flex-end', gap: 1 },

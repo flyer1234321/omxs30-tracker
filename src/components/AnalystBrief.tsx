@@ -4,16 +4,17 @@ import { HintedTouchable } from '@/components/HintedTouchable';
 import type { AnalystReport } from '@/lib/analyst-engine';
 import { authenticatedFetch } from '@/lib/auth-client';
 import type { StockData } from '@/types/stock';
+import { colors as palette } from '@/theme';
 
 const colors = {
-  surface: '#111118',
-  border: '#2A2A35',
-  text: '#FFFFFF',
-  muted: '#8E8E93',
-  green: '#34C759',
-  amber: '#FF9F0A',
-  red: '#FF453A',
-  blue: '#0A84FF',
+  surface: palette.surface,
+  border: palette.borderStrong,
+  text: palette.textStrong,
+  muted: palette.textSecondary,
+  green: palette.positive,
+  amber: palette.warning,
+  red: palette.negative,
+  blue: palette.accent,
 };
 
 interface AnalystBriefProps {

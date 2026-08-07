@@ -1,12 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { StockSignal } from '@/types/stock';
+import { signalTones } from '@/theme';
 
-const toneStyles = {
-  positive: { backgroundColor: 'rgba(34,197,94,0.14)', color: '#86efac' },
-  attention: { backgroundColor: 'rgba(245,158,11,0.14)', color: '#fcd34d' },
-  value: { backgroundColor: 'rgba(59,130,246,0.14)', color: '#93c5fd' },
-};
+const toneStyles = signalTones;
 
 /**
  * Utrymmet räcker till ett par märkningar per rad, så den mest

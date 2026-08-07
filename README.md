@@ -1,56 +1,77 @@
-# Welcome to your Expo app 👋
+# OMX30 Screener
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aktiescreener för Stockholmsbörsen och ett urval amerikanska bolag. Byggd med Expo Router och körs som en webbapp på Vercel, men samma kod går att köra som iOS- och Android-app.
 
-## Get started
+Appen är beslutsstöd. Den ger inte personlig investeringsrådgivning, och all marknadsdata kan vara fördröjd eller ofullständig.
 
-1. Install dependencies
+## Vad appen gör
 
-   ```bash
-   npm install
-   ```
+- **Screener** över OMXS30, ett bredare svenskt urval, svenska fastighetsbolag, Dow Jones, storbolag inom teknik samt en egen favoritlista.
+- **Hälsobetyg A–F** som väger sex grundkriterier och tre tekniska bonusar. Betyget premierar rekyler och rabatt, inte kvalitet i sig: en aktie i stark uppåttrend får sällan A.
+- **Handelsplan** per aktie: stop loss och riktkurs härledda ur ATR och närliggande stöd och motstånd, uttryckta i kronor, procent och R-multipel.
+- **Pro Filter** med sparbara vyer (workspaces) och färdiga strategier.
+- **Analyst AI** som sammanfattar styrkor, risker och katalysatorer. Utan `OPENAI_API_KEY` används en regelbaserad analys i stället.
+- **E-postvarningar** för favoritlistan, som daglig sammanfattning eller som snabbvarning vid högprioriterade lägen.
+- **Utskriftsvänlig rapport** som kan sparas som PDF från webbläsaren.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Kom igång
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env.local   # fyll i värdena, se nedan
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+| Kommando | Gör |
+| --- | --- |
+| `npm start` | Startar Expo i utvecklingsläge |
+| `npm run web` | Startar bara webbversionen |
+| `npm test` | Kör enhetstesterna |
+| `npm run typecheck` | Typkontroll utan att bygga |
+| `npm run lint` | ESLint |
+| `npm run build:web` | Bygger webbversionen till `dist/` |
 
-### Other setup steps
+## Miljövariabler
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Se `.env.example` för fullständig lista. Kort sammanfattning:
 
-## Learn more
+| Variabel | Krävs för |
+| --- | --- |
+| `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Inloggning med e-post och favoriter i molnet |
+| `APP_ACCESS_PASSWORD`, `APP_SESSION_SECRET` | Alternativ inloggning med enbart lösenord |
+| `APP_ALLOWED_EMAILS` | Begränsar vilka konton som får logga in |
+| `OPENAI_API_KEY` | AI-skriven analystext (frivilligt) |
+| `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET`, `APP_URL` | E-postvarningar |
 
-To learn more about developing your project with Expo, look at the following resources:
+Servernycklar får aldrig ligga i variabler som börjar med `EXPO_PUBLIC_`; de skickas till klienten.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Installationsanvisningar för databasen finns i [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
 
-## Join the community
+## Datakällor och gränser
 
-Join our community of developers creating universal apps.
+Kursdata hämtas från Yahoo Finance via `yahoo-finance2`. Det är ett inofficiellt gratis-API utan garanterad tillgänglighet, och det stryper trafik per IP-adress. Koden är därför byggd för att hålla nere antalet anrop:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- högst sex parallella hämtningar
+- svaren cachas fem minuter när börsen är öppen och en timme när den är stängd
+- klienten hämtar nytt var femte minut, och bara under börstid
+- gammal data visas hellre än ett felmeddelande när Yahoo inte svarar
+
+Håll dessa gränser i åtanke innan pollningen görs tätare.
+
+## Projektstruktur
+
+```
+src/
+  app/            Skärmar och API-rutter (Expo Router, filbaserad routing)
+    api/          Serverendpoints: analyze, history, intraday, search, analyst, alerts
+  components/     Gränssnitt
+  lib/            Beräkningar och affärslogik, med enhetstester bredvid
+  types/          Delade typer
+  theme.ts        Färger, avstånd och typsnitt
+```
+
+Beräkningarna i `src/lib` är rena funktioner utan React-beroenden, vilket gör dem enkla att testa. Kör `npm test` efter ändringar där.
+
+## Licens
+
+MIT, se [LICENSE](LICENSE).

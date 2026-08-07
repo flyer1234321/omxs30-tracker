@@ -8,9 +8,12 @@ export const colors = {
   surfaceHover: '#1c1c28',
   border: '#1e1e2e',
   borderSubtle: '#151520',
+  borderStrong: '#2a2a35',
   
   // Text
+  textStrong: '#ffffff',
   textPrimary: '#e2e2ea',
+  textBody: '#d1d1d6',
   textSecondary: '#6b6b82',
   textMuted: '#404055',
   textInverse: '#08080f',
@@ -32,7 +35,14 @@ export const colors = {
   accentBorder: 'rgba(59,130,246,0.25)',
   
   warning: '#f59e0b',
+  warningBright: '#fbbf24',
   warningBg: 'rgba(245,158,11,0.08)',
+
+  // Diagramserier: en fast farg per glidande medelvarde
+  sma50: '#8b5cf6',
+  sma125: '#f59e0b',
+  sma200: '#fb2c55',
+  grid: '#20202a',
   
   // Grades
   gradeA: { bg: '#0a2e1a', text: '#22c55e', border: '#16a34a' },
@@ -71,3 +81,16 @@ export const radius = {
   xl: 16,
   pill: 999,
 };
+
+/**
+ * Signalmärkningarnas färger. Ligger här så att tabellen, detaljvyn och
+ * utskriften använder samma skala.
+ */
+export const signalTones = {
+  positive: { backgroundColor: 'rgba(34,197,94,0.14)', color: '#86efac' },
+  attention: { backgroundColor: 'rgba(245,158,11,0.14)', color: '#fcd34d' },
+  value: { backgroundColor: 'rgba(59,130,246,0.14)', color: '#93c5fd' },
+};
+
+/** Bredaste innehållsbredd innan layouten börjar se tom ut på en stor skärm. */
+export const maxContentWidth = 1440;

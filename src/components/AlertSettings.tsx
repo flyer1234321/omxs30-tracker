@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, SafeAreaView, StyleSheet, Switch, Text, View 
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { loadAlertPreferences, saveAlertPreferences } from '@/lib/alert-preferences';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { colors as palette } from '@/theme';
 
 interface AlertSettingsProps { visible: boolean; onClose: () => void; }
 
@@ -75,10 +76,10 @@ export function AlertSettings({ visible, onClose }: AlertSettingsProps) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#08080f' },
+  safe: { flex: 1, backgroundColor: palette.bg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#242434' },
-  title: { color: '#e2e2ea', fontSize: 20, fontWeight: '700' }, close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }, closeText: { color: '#a0a0b2', fontSize: 20 },
-  body: { padding: 20 }, settingRow: { flexDirection: 'row', gap: 20, alignItems: 'center', backgroundColor: '#111118', borderWidth: 1, borderColor: '#242434', borderRadius: 8, padding: 16, marginBottom: 12 }, settingCopy: { flex: 1 },
-  settingTitle: { color: '#e2e2ea', fontSize: 15, fontWeight: '700', marginBottom: 5 }, settingText: { color: '#a0a0b2', fontSize: 13, lineHeight: 19 },
-  note: { borderLeftWidth: 2, borderLeftColor: '#3b82f6', marginTop: 16, paddingLeft: 12 }, noteText: { color: '#8e8e9e', fontSize: 12, lineHeight: 18 }, message: { color: '#bfdbfe', fontSize: 13, lineHeight: 19, marginTop: 16 },
+  title: { color: palette.textPrimary, fontSize: 20, fontWeight: '700' }, close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }, closeText: { color: '#a0a0b2', fontSize: 20 },
+  body: { padding: 20 }, settingRow: { flexDirection: 'row', gap: 20, alignItems: 'center', backgroundColor: palette.surface, borderWidth: 1, borderColor: '#242434', borderRadius: 8, padding: 16, marginBottom: 12 }, settingCopy: { flex: 1 },
+  settingTitle: { color: palette.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 5 }, settingText: { color: '#a0a0b2', fontSize: 13, lineHeight: 19 },
+  note: { borderLeftWidth: 2, borderLeftColor: palette.accent, marginTop: 16, paddingLeft: 12 }, noteText: { color: '#8e8e9e', fontSize: 12, lineHeight: 18 }, message: { color: '#bfdbfe', fontSize: 13, lineHeight: 19, marginTop: 16 },
 });

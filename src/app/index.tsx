@@ -19,7 +19,7 @@ import {
   WORKSPACE_STORAGE_KEY,
 } from '../lib/workspaces';
 import type { MarketId, TableColumnId, Workspace } from '../types/stock';
-import { colors } from '../theme';
+import { colors, maxContentWidth } from '../theme';
 import { authenticatedFetch } from '../lib/auth-client';
 import { useAppAuth } from '../components/AuthGate';
 import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
@@ -268,6 +268,9 @@ export default function HomeScreen() {
   // ─── RENDER ────────────────────────────────
   return (
     <View style={s.container}>
+      {/* Tabellen sträckte sig tidigare över hela skärmbredden, vilket gav
+          orimligt breda kolumner på en dator. */}
+      <View style={s.content}>
       <FilterBar
         market={market}
         onMarketChange={onMarketChange}
@@ -331,6 +334,8 @@ export default function HomeScreen() {
         />
       )}
 
+      </View>
+
       <StockDetailModal
         item={selectedItem}
         onClose={() => setSelectedTicker(null)}
@@ -343,6 +348,7 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  content: { flex: 1, width: '100%', maxWidth: maxContentWidth, alignSelf: 'center' },
   errorWrap: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#3D0A0A' },
   errorText: { color: '#FF3B30', fontSize: 13 },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
