@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,22 @@ const colors = {
   grid: palette.grid,
 };
 
+/**
+ * Grafen var tidigare inpackad i pointerEvents="none" för att kringgå en krasch
+ * på webben. Kraschen som finns loggad var dock ett fel i y-axelns
+ * etikettformatering (value.toFixed), inte i touch-hanteringen, och det felet
+ * är sedan länge åtgärdat.
+ *
+ * I gifted-charts 1.4.77 är hela responder-koden dessutom avstängd när
+ * pointerConfig saknas, så avläsningen måste aktiveras explicit. Skulle den
+ * ändå strula i din webbläsare: sätt den här till false, så återställs det
+ * gamla, helt passiva beteendet.
+ */
+const INTERACTIVE_CHART = true;
+
+/** Delas av grafen och pekarens lodräta linje, så att de inte kan glida isär. */
+const CHART_HEIGHT = 218;
+
 const remoteHistoryRanges: Partial<Record<ChartPeriod, string>> = {
   YTD: 'ytd',
   '2Y': '2y',
@@ -59,6 +76,14 @@ function formatPeriodLabel(date: string, period: ChartPeriod) {
   if (period === '1W') return ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'][value.getDay()];
   if (period === '1M' || period === '3M' || period === '6M') return `${value.getDate()}/${value.getMonth() + 1}`;
   return `${value.getMonth() + 1}/${String(value.getFullYear()).slice(-2)}`;
+}
+
+function formatTooltipDate(date: string, isIntraday: boolean) {
+  const value = new Date(date);
+  if (isIntraday) {
+    return value.toLocaleString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  return value.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function periodTitle(period: ChartPeriod) {
@@ -127,9 +152,8 @@ export function MarketChart({ item }: MarketChartProps) {
   const accent = isPositive ? colors.green : colors.red;
   const chartWidth = Math.max(260, width - 64);
   const volumeBars = useMemo(() => buildVolumeBars(chartHistory), [chartHistory]);
-  // Grafen ar avsiktligt icke-interaktiv (pointerEvents none) for att undvika
-  // en krasch i gifted-charts pa webben. Periodens ytterlagen visas darfor som
-  // text i stallet, sa att det gar att lasa av niva utan att peka i grafen.
+  // Ytterlägena visas som text vid sidan av avläsningen i grafen: de svarar på
+  // "var i intervallet ligger kursen nu" utan att man behöver dra i grafen.
   const periodRange = useMemo(() => {
     const closes = chartHistory.map((point) => point.close).filter(Number.isFinite);
     if (!closes.length) return null;
@@ -141,6 +165,7 @@ export function MarketChart({ item }: MarketChartProps) {
     const labelInterval = Math.max(1, Math.floor(displayHistory.length / 5));
     return displayHistory.map((point, index) => ({
       value: point.close,
+      date: point.date,
       label: index % labelInterval === 0 || index === displayHistory.length - 1
         ? formatPeriodLabel(point.date, period)
         : '',
@@ -170,6 +195,55 @@ export function MarketChart({ item }: MarketChartProps) {
   const yMax = rawMax + padding;
   const sections = 4;
   const stepValue = Math.max((yMax - yMin) / sections, 0.01);
+
+  // Avläsningsrutan slår upp dagen via pointerIndex i stället för att tolka
+  // items-arrayen, vars ordning ändras när SMA-serierna slås av och på.
+  const renderPointerLabel = (_items: unknown, _secondary: unknown, pointerIndex: number) => {
+    const point = displayHistory[pointerIndex];
+    if (!point) return null;
+    const first = displayHistory[0];
+    const changePercent = first && first.close > 0 ? ((point.close - first.close) / first.close) * 100 : null;
+
+    return (
+      <View style={styles.tooltip}>
+        <Text style={styles.tooltipDate}>{formatTooltipDate(point.date, isIntraday)}</Text>
+        <Text style={styles.tooltipPrice}>{formatPrice(point.close, item.currency)}</Text>
+        {changePercent != null && (
+          <Text style={[styles.tooltipChange, { color: changePercent >= 0 ? colors.green : colors.red }]}>
+            {changePercent >= 0 ? '+' : ''}{formatNumber(changePercent, 2)} % sedan periodstart
+          </Text>
+        )}
+        {showSma50 && point.sma50 != null && (
+          <Text style={[styles.tooltipSma, { color: palette.sma50 }]}>SMA 50: {formatNumber(point.sma50, 2)}</Text>
+        )}
+        {showSma125 && point.sma125 != null && (
+          <Text style={[styles.tooltipSma, { color: palette.sma125 }]}>SMA 125: {formatNumber(point.sma125, 2)}</Text>
+        )}
+        {showSma200 && point.sma200 != null && (
+          <Text style={[styles.tooltipSma, { color: palette.sma200 }]}>SMA 200: {formatNumber(point.sma200, 2)}</Text>
+        )}
+      </View>
+    );
+  };
+
+  const pointerConfig = {
+    pointerStripHeight: CHART_HEIGHT,
+    pointerStripWidth: 1,
+    pointerStripColor: colors.muted,
+    pointerColor: accent,
+    radius: 4,
+    pointerLabelWidth: 168,
+    pointerLabelHeight: 104,
+    autoAdjustPointerLabelPosition: true,
+    resetPointerIndexOnRelease: true,
+    pointerVanishDelay: 150,
+    // På webben räcker ett musklick. På telefon skulle det kapa den vertikala
+    // scrollen i detaljvyn, så där krävs en långtryckning först.
+    activatePointersInstantlyOnTouch: Platform.OS === 'web',
+    activatePointersOnLongPress: Platform.OS !== 'web',
+    activatePointersDelay: 180,
+    pointerLabelComponent: renderPointerLabel,
+  };
 
   const showIndicators = !isIntraday && !remoteHistoryRanges[period];
   const rangeLabel = `${periodTitle(period)} ${isPositive ? 'upp' : 'ned'}`;
@@ -221,7 +295,7 @@ export function MarketChart({ item }: MarketChartProps) {
         <View style={styles.loading}><Text style={styles.loadingText}>Ingen kurshistorik tillgänglig för perioden.</Text></View>
       ) : (
         <>
-          <View pointerEvents="none" style={styles.chartWrap}>
+          <View pointerEvents={INTERACTIVE_CHART ? 'auto' : 'none'} style={styles.chartWrap}>
             <LineChart
               key={`${item.ticker}-${period}-${width}`}
               data={priceData}
@@ -229,7 +303,7 @@ export function MarketChart({ item }: MarketChartProps) {
               data3={sma50Data.length ? sma50Data : undefined}
               data4={sma200Data.length ? sma200Data : undefined}
               width={chartWidth}
-              height={218}
+              height={CHART_HEIGHT}
               color={accent}
               color2={palette.sma125}
               color3={palette.sma50}
@@ -263,6 +337,7 @@ export function MarketChart({ item }: MarketChartProps) {
               startOpacity={0.22}
               endOpacity={0.01}
               isAnimated={false}
+              {...(INTERACTIVE_CHART ? { pointerConfig } : {})}
             />
           </View>
 
@@ -345,6 +420,19 @@ const styles = StyleSheet.create({
   loading: { height: 250, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { color: colors.muted, fontSize: 13 },
   chartWrap: { paddingHorizontal: 8 },
+  tooltip: {
+    backgroundColor: palette.surfaceHover,
+    borderColor: palette.borderStrong,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  tooltipDate: { color: colors.muted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  tooltipPrice: { color: colors.text, fontSize: 15, fontWeight: '700', fontFamily: 'monospace' },
+  tooltipChange: { fontSize: 11, fontFamily: 'monospace' },
+  tooltipSma: { fontSize: 10, fontFamily: 'monospace' },
   rangeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, marginTop: 14 },
   rangeItem: { flexGrow: 1, flexBasis: 110 },
   rangeLabel: { color: colors.muted, fontSize: 11, marginBottom: 3 },
