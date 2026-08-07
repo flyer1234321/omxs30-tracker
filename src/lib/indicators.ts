@@ -3,6 +3,10 @@ export interface PricePoint {
   volume?: number | null;
 }
 
+export interface DatedPricePoint extends PricePoint {
+  date: Date | string;
+}
+
 export function calculateSMA(history: PricePoint[], period: number) {
   if (history.length < period) return null;
   const recent = history.slice(-period);
@@ -115,4 +119,42 @@ export function calculateVolatility(history: PricePoint[], period = 20) {
   const mean = returns.reduce((sum, val) => sum + val, 0) / returns.length;
   const variance = returns.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / returns.length;
   return Math.sqrt(variance) * Math.sqrt(252) * 100;
+}
+
+export function calculateMaxDrawdown(history: PricePoint[], period = 252) {
+  const prices = history.slice(-period).map((point) => point.close).filter((price) => price > 0);
+  if (prices.length < 2) return null;
+
+  let peak = prices[0];
+  let maxDrawdown = 0;
+  for (const price of prices) {
+    peak = Math.max(peak, price);
+    maxDrawdown = Math.max(maxDrawdown, (peak - price) / peak);
+  }
+  return maxDrawdown * 100;
+}
+
+export function calculateBeta(assetHistory: DatedPricePoint[], benchmarkHistory: DatedPricePoint[], period = 252) {
+  const benchmarkByDate = new Map(
+    benchmarkHistory.map((point) => [new Date(point.date).toISOString().slice(0, 10), point.close]),
+  );
+  const paired = assetHistory
+    .map((point) => ({ date: new Date(point.date).toISOString().slice(0, 10), asset: point.close }))
+    .filter((point) => benchmarkByDate.has(point.date))
+    .slice(-period)
+    .map((point) => ({ asset: point.asset, benchmark: benchmarkByDate.get(point.date)! }));
+
+  if (paired.length < 30) return null;
+  const returns = paired.slice(1).map((point, index) => ({
+    asset: Math.log(point.asset / paired[index].asset),
+    benchmark: Math.log(point.benchmark / paired[index].benchmark),
+  })).filter((point) => Number.isFinite(point.asset) && Number.isFinite(point.benchmark));
+
+  if (returns.length < 29) return null;
+  const assetMean = returns.reduce((sum, point) => sum + point.asset, 0) / returns.length;
+  const benchmarkMean = returns.reduce((sum, point) => sum + point.benchmark, 0) / returns.length;
+  const covariance = returns.reduce((sum, point) => sum + (point.asset - assetMean) * (point.benchmark - benchmarkMean), 0) / returns.length;
+  const benchmarkVariance = returns.reduce((sum, point) => sum + (point.benchmark - benchmarkMean) ** 2, 0) / returns.length;
+
+  return benchmarkVariance > 0 ? covariance / benchmarkVariance : null;
 }

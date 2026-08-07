@@ -11,11 +11,22 @@ import ProTableView from '../components/ProTableView';
 import type { StockData } from '../components/ProTableView';
 import { StockDetailModal } from '../components/StockDetailModal';
 import ProFilterPanel, { applyProFilter, type ProFilter } from '../components/ProFilterPanel';
+import { WorkspaceBar } from '../components/WorkspaceBar';
+import {
+  ACTIVE_WORKSPACE_STORAGE_KEY,
+  DEFAULT_WORKSPACES,
+  normalizeWorkspace,
+  WORKSPACE_STORAGE_KEY,
+} from '../lib/workspaces';
+import type { TableColumnId, Workspace } from '../types/stock';
 import { colors } from '../theme';
+import { authenticatedFetch } from '../lib/auth-client';
+import { useAppAuth } from '../components/AuthGate';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
 export default function HomeScreen() {
+  const { signOut } = useAppAuth();
   // ─── STATE ─────────────────────────────────
   const [data, setData] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +42,8 @@ export default function HomeScreen() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [proFilter, setProFilter] = useState<ProFilter>({});
   const [proFilterExpanded, setProFilterExpanded] = useState(false);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(DEFAULT_WORKSPACES);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(DEFAULT_WORKSPACES[0].id);
   const searchTimeout = useRef<any>(null);
 
   // ─── WATCHLIST PERSISTENCE ─────────────────
@@ -43,8 +56,68 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const [storedWorkspaces, storedActiveWorkspace] = await Promise.all([
+          AsyncStorage.getItem(WORKSPACE_STORAGE_KEY),
+          AsyncStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY),
+        ]);
+        if (storedWorkspaces) {
+          const parsed: unknown = JSON.parse(storedWorkspaces);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const restored = parsed.map((workspace) => normalizeWorkspace(workspace as Workspace));
+            setWorkspaces(restored);
+            if (storedActiveWorkspace && restored.some((workspace) => workspace.id === storedActiveWorkspace)) {
+              setActiveWorkspaceId(storedActiveWorkspace);
+            }
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
   const saveWatchlist = async (list: string[]) => {
     try { await AsyncStorage.setItem('@watchlist', JSON.stringify(list)); setWatchlist(list); } catch {}
+  };
+
+  const saveWorkspaces = async (nextWorkspaces: Workspace[], nextActiveWorkspaceId = activeWorkspaceId) => {
+    setWorkspaces(nextWorkspaces);
+    setActiveWorkspaceId(nextActiveWorkspaceId);
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(nextWorkspaces)),
+        AsyncStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, nextActiveWorkspaceId),
+      ]);
+    } catch {}
+  };
+
+  const updateWorkspaceColumns = (id: string, columns: TableColumnId[]) => {
+    const updatedAt = new Date().toISOString();
+    const next = workspaces.map((workspace) => workspace.id === id
+      ? normalizeWorkspace({ ...workspace, columns, updatedAt })
+      : workspace);
+    saveWorkspaces(next, id);
+  };
+
+  const createWorkspace = (name: string, columns: TableColumnId[]) => {
+    const timestamp = new Date().toISOString();
+    const workspace = normalizeWorkspace({
+      id: `custom-${Date.now()}`,
+      name,
+      columns,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    saveWorkspaces([...workspaces, workspace], workspace.id);
+  };
+
+  const deleteWorkspace = (id: string) => {
+    const next = workspaces.filter((workspace) => workspace.id !== id);
+    const nextActiveWorkspaceId = next.some((workspace) => workspace.id === activeWorkspaceId)
+      ? activeWorkspaceId
+      : next[0]?.id ?? DEFAULT_WORKSPACES[0].id;
+    saveWorkspaces(next.length > 0 ? next : DEFAULT_WORKSPACES, nextActiveWorkspaceId);
   };
 
   // ─── SEARCH ────────────────────────────────
@@ -55,7 +128,7 @@ export default function HomeScreen() {
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(text)}`);
+        const res = await authenticatedFetch(`/api/search?q=${encodeURIComponent(text)}`);
         const json = await res.json();
         setSearchResults(json.data || []);
       } catch { setSearchResults([]); }
@@ -77,7 +150,7 @@ export default function HomeScreen() {
         if (wl.length === 0) { setData([]); setLoading(false); return; }
         url += `&tickers=${wl.join(',')}`;
       } else { url += `&market=${m}`; }
-      const response = await fetch(url);
+      const response = await authenticatedFetch(url);
       if (!response.ok) throw new Error('Nätverksfel');
       const json = await response.json();
       if (json.error) throw new Error(json.error);
@@ -119,6 +192,10 @@ export default function HomeScreen() {
   }, [data, filter, proFilter]);
 
   const gradeACount = useMemo(() => data.filter(d => d.healthCheck?.grade === 'A').length, [data]);
+  const activeWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0],
+    [activeWorkspaceId, workspaces],
+  );
 
   // ─── MODAL ─────────────────────────────────
   const selectedItem = useMemo(() => data.find(d => d.ticker === selectedTicker) || null, [data, selectedTicker]);
@@ -152,6 +229,16 @@ export default function HomeScreen() {
         filteredCount={filteredData.length}
         lastUpdated={lastUpdated}
         gradeACount={gradeACount}
+        onSignOut={() => { void signOut(); }}
+      />
+
+      <WorkspaceBar
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSelect={(id) => saveWorkspaces(workspaces, id)}
+        onUpdateColumns={updateWorkspaceColumns}
+        onCreate={createWorkspace}
+        onDelete={deleteWorkspace}
       />
 
       <ProFilterPanel
@@ -175,6 +262,7 @@ export default function HomeScreen() {
       ) : (
         <ProTableView
           data={filteredData}
+          visibleColumns={activeWorkspace?.columns ?? DEFAULT_WORKSPACES[0].columns}
           onStockPress={setSelectedTicker}
           refreshing={refreshing}
           onRefresh={onRefresh}

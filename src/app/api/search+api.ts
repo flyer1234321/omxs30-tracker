@@ -1,7 +1,11 @@
 import YahooFinance from 'yahoo-finance2';
+import { requireAuthenticatedUser } from '@/lib/app-auth';
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
 export async function GET(request: Request) {
+  const authenticationError = await requireAuthenticatedUser(request);
+  if (authenticationError) return authenticationError;
+
   const url = new URL(request.url);
   const q = url.searchParams.get('q');
 

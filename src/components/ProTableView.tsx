@@ -1,502 +1,163 @@
-import React, { useState, useMemo } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Platform,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
+import { SignalBadges } from '@/components/SignalBadges';
+import type { StockData, TableColumnId } from '@/types/stock';
+
+export type { StockData } from '@/types/stock';
 
 const COLORS = {
-  bg: '#08080f',
-  surface: '#111118',
-  surfaceAlt: '#161620',
-  surfaceHover: '#1c1c28',
-  textPrimary: '#e2e2ea',
-  textSecondary: '#6b6b82',
-  positive: '#22c55e',
-  negative: '#ef4444',
-  accent: '#3b82f6',
-  gradeA: '#22c55e',
-  gradeB: '#84cc16',
-  gradeC: '#eab308',
-  gradeD: '#f97316',
-  gradeF: '#ef4444',
+  bg: '#08080f', surface: '#111118', surfaceAlt: '#161620', surfaceHover: '#1c1c28',
+  textPrimary: '#e2e2ea', textSecondary: '#6b6b82', positive: '#22c55e',
+  negative: '#ef4444', accent: '#3b82f6', gradeA: '#22c55e', gradeB: '#84cc16',
+  gradeC: '#eab308', gradeD: '#f97316', gradeF: '#ef4444',
 };
-
-// Extracted from app/index.tsx
-interface ChartDataPoint {
-  date: string;
-  close: number;
-  sma125?: number;
-}
-
-interface ChecklistItem {
-  label: string;
-  passed: boolean;
-  detail: string;
-}
-
-interface HealthCheck {
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  gradeScore: number;
-  summary: string;
-  riskLevel: 'Låg' | 'Medel' | 'Hög';
-  momentum: 'Uppåt' | 'Nedåt' | 'Sidledes';
-  checklist: ChecklistItem[];
-}
-
-export interface StockData {
-  ticker: string;
-  companyName: string;
-  currentPrice: number;
-  sma125: number | null;
-  sma200: number | null;
-  rsi: number | null;
-  diffPercent125: number | null;
-  sma50?: number | null;
-  chartHistory: ChartDataPoint[];
-  fiftyTwoWeekHigh: number | null;
-  fiftyTwoWeekLow: number | null;
-  trailingPE: number | null;
-  dividendYield: number | null;
-  marketCap: number | null;
-  regularMarketChangePercent: number | null;
-  latestVolume: number | null;
-  avgVolume20: number | null;
-  healthCheck: HealthCheck | null;
-}
 
 interface ProTableViewProps {
   data: StockData[];
+  visibleColumns: TableColumnId[];
   onStockPress: (ticker: string) => void;
   refreshing: boolean;
   onRefresh: () => void;
 }
 
-type SortColumn = 'ticker' | 'grade' | 'price' | 'change' | 'rsi' | 'pe' | 'sma' | 'volume' | 'trend';
-type SortDirection = 'asc' | 'desc';
+interface ColumnDefinition {
+  id: TableColumnId;
+  label: string;
+  flex: number;
+  align?: 'flex-start' | 'center' | 'flex-end';
+}
 
-const Sparkline = ({
-  data,
-  width = 60,
-  height = 24,
-  color,
-}: {
-  data: number[];
-  width?: number;
-  height?: number;
-  color: string;
-}) => {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const points = data
-    .map(
-      (v, i) =>
-        `${(i / (data.length - 1)) * width},${
-          height - ((v - min) / range) * height
-        }`
-    )
-    .join(' ');
-  return (
-    <Svg width={width} height={height}>
-      <Polyline points={points} fill="none" stroke={color} strokeWidth={1.5} />
-    </Svg>
-  );
+const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
+  ticker: { id: 'ticker', label: 'Ticker', flex: 1.55, align: 'flex-start' },
+  grade: { id: 'grade', label: 'Betyg', flex: 0.65, align: 'center' },
+  price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end' },
+  change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end' },
+  rsi: { id: 'rsi', label: 'RSI', flex: 0.65, align: 'flex-end' },
+  volume: { id: 'volume', label: 'Vol', flex: 0.85, align: 'flex-end' },
+  pe: { id: 'pe', label: 'P/E', flex: 0.7, align: 'flex-end' },
+  sma: { id: 'sma', label: 'SMA', flex: 0.55, align: 'center' },
+  volatility: { id: 'volatility', label: 'Volat.', flex: 0.85, align: 'flex-end' },
+  beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end' },
+  drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end' },
+  riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end' },
+  trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center' },
 };
 
-export default function ProTableView({
-  data,
-  onStockPress,
-  refreshing,
-  onRefresh,
-}: ProTableViewProps) {
-  const [sortColumn, setSortColumn] = useState<SortColumn>('grade');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (data.length < 2) return null;
+  const width = 60;
+  const height = 24;
+  const min = Math.min(...data);
+  const range = Math.max(Math.max(...data) - min, 1);
+  const points = data.map((value, index) => `${(index / (data.length - 1)) * width},${height - ((value - min) / range) * height}`).join(' ');
+  return <Svg width={width} height={height}><Polyline points={points} fill="none" stroke={color} strokeWidth={1.5} /></Svg>;
+}
 
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
+function gradeColor(grade?: 'A' | 'B' | 'C' | 'D' | 'F') {
+  return ({ A: COLORS.gradeA, B: COLORS.gradeB, C: COLORS.gradeC, D: COLORS.gradeD, F: COLORS.gradeF } as Record<string, string>)[String(grade)] ?? COLORS.textSecondary;
+}
+
+function sortValue(item: StockData, column: TableColumnId): number | string {
+  switch (column) {
+    case 'ticker': return item.ticker;
+    case 'grade': return item.healthCheck?.gradeScore ?? -1;
+    case 'price': return item.currentPrice;
+    case 'change': return item.regularMarketChangePercent ?? 0;
+    case 'rsi': return item.rsi ?? -1;
+    case 'volume': return item.latestVolume && item.avgVolume20 ? item.latestVolume / item.avgVolume20 : -1;
+    case 'pe': return item.trailingPE ?? -1;
+    case 'sma': return item.sma125 ? item.currentPrice / item.sma125 : -1;
+    case 'volatility': return item.volatility ?? -1;
+    case 'beta': return item.beta ?? -1;
+    case 'drawdown': return item.maxDrawdown ?? -1;
+    case 'riskReward': return item.riskRewardScore ?? -1;
+    case 'trend': return item.chartHistory.at(-1)?.close ?? -1;
+  }
+}
+
+export default function ProTableView({ data, visibleColumns, onStockPress, refreshing, onRefresh }: ProTableViewProps) {
+  const [sortColumn, setSortColumn] = useState<TableColumnId>('grade');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const { width: viewportWidth } = useWindowDimensions();
+  const columns = useMemo(() => {
+    const unique = Array.from(new Set(['ticker', ...visibleColumns] as TableColumnId[]));
+    return unique.map((id) => COLUMNS[id]).filter(Boolean);
+  }, [visibleColumns]);
+  const sortedData = useMemo(() => [...data].sort((a, b) => {
+    const aValue = sortValue(a, sortColumn);
+    const bValue = sortValue(b, sortColumn);
+    const comparison = typeof aValue === 'string' && typeof bValue === 'string'
+      ? aValue.localeCompare(bValue)
+      : Number(aValue) - Number(bValue);
+    return sortDirection === 'asc' ? comparison : -comparison;
+  }), [data, sortColumn, sortDirection]);
+  const tableWidth = Math.max(viewportWidth, columns.reduce((width, column) => width + (column.id === 'ticker' ? 120 : 68), 0));
+
+  const handleSort = (column: TableColumnId) => {
+    if (column === sortColumn) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else { setSortColumn(column); setSortDirection('desc'); }
   };
 
-  const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => {
-      let aVal: any = 0;
-      let bVal: any = 0;
-
-      switch (sortColumn) {
-        case 'ticker':
-          aVal = a.ticker;
-          bVal = b.ticker;
-          break;
-        case 'grade':
-          aVal = a.healthCheck?.gradeScore ?? -1;
-          bVal = b.healthCheck?.gradeScore ?? -1;
-          break;
-        case 'price':
-          aVal = a.currentPrice;
-          bVal = b.currentPrice;
-          break;
-        case 'change':
-          aVal = a.regularMarketChangePercent ?? 0;
-          bVal = b.regularMarketChangePercent ?? 0;
-          break;
-        case 'rsi':
-          aVal = a.rsi ?? 0;
-          bVal = b.rsi ?? 0;
-          break;
-        case 'pe':
-          aVal = a.trailingPE ?? 0;
-          bVal = b.trailingPE ?? 0;
-          break;
-        case 'sma':
-          aVal = a.sma125 ? (a.currentPrice > a.sma125 ? 1 : -1) : 0;
-          bVal = b.sma125 ? (b.currentPrice > b.sma125 ? 1 : -1) : 0;
-          break;
-        case 'volume':
-          aVal = (a.latestVolume && a.avgVolume20) ? a.latestVolume / a.avgVolume20 : 0;
-          bVal = (b.latestVolume && b.avgVolume20) ? b.latestVolume / b.avgVolume20 : 0;
-          break;
-        default:
-          break;
-      }
-
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [data, sortColumn, sortDirection]);
-
-  const renderSortIcon = (column: SortColumn) => {
-    if (sortColumn !== column) return null;
-    return <Text style={styles.sortIcon}>{sortDirection === 'asc' ? '▲' : '▼'}</Text>;
-  };
-
-  const renderHeader = () => (
-    <View style={styles.headerRow}>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 1.2 }]}
-        onPress={() => handleSort('ticker')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'left' }]}>
-          Ticker {renderSortIcon('ticker')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 0.8 }]}
-        onPress={() => handleSort('grade')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'center' }]}>
-          Betyg {renderSortIcon('grade')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 1 }]}
-        onPress={() => handleSort('price')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'right' }]}>
-          Pris {renderSortIcon('price')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 1 }]}
-        onPress={() => handleSort('change')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'right' }]}>
-          %Idag {renderSortIcon('change')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 0.8 }]}
-        onPress={() => handleSort('rsi')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'right' }]}>
-          RSI {renderSortIcon('rsi')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 0.8 }]}
-        onPress={() => handleSort('volume')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'right' }]}>
-          Vol {renderSortIcon('volume')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 0.7 }]}
-        onPress={() => handleSort('pe')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'right' }]}>
-          P/E {renderSortIcon('pe')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.headerCell, { flex: 0.6 }]}
-        onPress={() => handleSort('sma')}
-      >
-        <Text style={[styles.headerText, { textAlign: 'center' }]}>
-          SMA {renderSortIcon('sma')}
-        </Text>
-      </TouchableOpacity>
-      <View style={[styles.headerCell, { flex: 0.9 }]}>
-        <Text style={[styles.headerText, { textAlign: 'center' }]}>7d Trend</Text>
-      </View>
-    </View>
-  );
-
-  const getGradeColor = (grade: string | undefined) => {
-    switch (grade) {
-      case 'A':
-        return COLORS.gradeA;
-      case 'B':
-        return COLORS.gradeB;
-      case 'C':
-        return COLORS.gradeC;
-      case 'D':
-        return COLORS.gradeD;
-      case 'F':
-        return COLORS.gradeF;
-      default:
-        return COLORS.textSecondary;
-    }
-  };
-
-  const renderItem = ({ item, index }: { item: StockData; index: number }) => {
-    const isEven = index % 2 === 0;
-    const shortTicker = item.ticker.replace('.ST', '');
-    const grade = item.healthCheck?.grade;
-    const gradeColor = getGradeColor(grade);
-
+  const renderCell = (item: StockData, column: TableColumnId) => {
     const change = item.regularMarketChangePercent ?? 0;
-    const isPositiveChange = change > 0;
-    const isNegativeChange = change < 0;
+    const volumeRatio = item.latestVolume != null && item.avgVolume20 != null && item.avgVolume20 > 0 ? item.latestVolume / item.avgVolume20 : null;
+    const recentHistory = item.chartHistory.slice(-7).map((point) => point.close);
 
-    const rsi = item.rsi;
-    let rsiColor = COLORS.textSecondary;
-    if (rsi) {
-      if (rsi > 70) rsiColor = COLORS.negative;
-      else if (rsi < 30) rsiColor = COLORS.positive;
-    }
-
-    const volRatio = (item.latestVolume && item.avgVolume20) ? (item.latestVolume / item.avgVolume20) * 100 : 0;
-
-    let smaStatus = '-';
-    let smaColor = COLORS.textSecondary;
-    if (item.sma125) {
-      if (item.currentPrice > item.sma125) {
-        smaStatus = '↑';
-        smaColor = COLORS.positive;
-      } else {
-        smaStatus = '↓';
-        smaColor = COLORS.negative;
+    switch (column) {
+      case 'ticker':
+        return <View><Text style={styles.tickerText} numberOfLines={1}>{item.ticker.replace('.ST', '')}</Text><SignalBadges signals={item.signals} /></View>;
+      case 'grade': {
+        const grade = item.healthCheck?.grade;
+        const color = gradeColor(grade);
+        return grade ? <View style={[styles.gradeBadge, { backgroundColor: `${color}20` }]}><Text style={[styles.gradeText, { color }]}>{grade}</Text></View> : <Text style={styles.empty}>-</Text>;
+      }
+      case 'price': return <Text style={styles.numeric}>{item.currentPrice.toFixed(2)}</Text>;
+      case 'change': return <Text style={[styles.numeric, change > 0 && styles.positive, change < 0 && styles.negative]}>{change > 0 ? '▲ ' : change < 0 ? '▼ ' : ''}{Math.abs(change).toFixed(2)}%</Text>;
+      case 'rsi': return <Text style={[styles.numeric, item.rsi != null && item.rsi < 30 && styles.positive, item.rsi != null && item.rsi > 70 && styles.negative]}>{item.rsi != null ? Math.round(item.rsi) : '-'}</Text>;
+      case 'volume': return <Text style={[styles.numeric, volumeRatio != null && volumeRatio >= 2 && styles.warning]}>{volumeRatio != null ? `${volumeRatio.toFixed(1)}x` : '-'}</Text>;
+      case 'pe': return <Text style={styles.numeric}>{item.trailingPE != null ? item.trailingPE.toFixed(1) : '-'}</Text>;
+      case 'sma': return <Text style={[styles.sma, item.sma125 != null && item.currentPrice > item.sma125 ? styles.positive : styles.negative]}>{item.sma125 == null ? '-' : item.currentPrice > item.sma125 ? '↑' : '↓'}</Text>;
+      case 'volatility': return <Text style={[styles.numeric, item.volatility != null && item.volatility > 35 && styles.warning]}>{item.volatility != null ? `${item.volatility.toFixed(0)}%` : '-'}</Text>;
+      case 'beta': return <Text style={styles.numeric}>{item.beta != null ? item.beta.toFixed(2) : '-'}</Text>;
+      case 'drawdown': return <Text style={[styles.numeric, item.maxDrawdown != null && styles.negative]}>{item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'}</Text>;
+      case 'riskReward': return <Text style={[styles.numeric, item.riskRewardScore != null && item.riskRewardScore >= 70 && styles.positive]}>{item.riskRewardScore != null ? item.riskRewardScore.toFixed(0) : '-'}</Text>;
+      case 'trend': {
+        const color = recentHistory.length > 1 && recentHistory.at(-1)! >= recentHistory[0] ? COLORS.positive : COLORS.negative;
+        return <Sparkline data={recentHistory} color={color} />;
       }
     }
-
-    // Get last 7 days for sparkline
-    const history = item.chartHistory || [];
-    const recentHistory = history.slice(-7).map((p) => p.close);
-    let sparklineColor = COLORS.textSecondary;
-    if (recentHistory.length >= 2) {
-      const first = recentHistory[0];
-      const last = recentHistory[recentHistory.length - 1];
-      sparklineColor = last > first ? COLORS.positive : COLORS.negative;
-    }
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.row,
-          isEven ? styles.rowEven : styles.rowOdd,
-        ]}
-        onPress={() => onStockPress(item.ticker)}
-      >
-        <View style={[styles.cell, { flex: 1.2, alignItems: 'flex-start' }]}>
-          <Text style={styles.tickerText} numberOfLines={1}>
-            {shortTicker}
-          </Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 0.8, alignItems: 'center' }]}>
-          {grade ? (
-            <View style={[styles.badge, { backgroundColor: gradeColor + '20' }]}>
-              <Text style={[styles.badgeText, { color: gradeColor }]}>{grade}</Text>
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>-</Text>
-          )}
-        </View>
-
-        <View style={[styles.cell, { flex: 1, alignItems: 'flex-end' }]}>
-          <Text style={styles.numericText}>{item.currentPrice.toFixed(2)}</Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 1, alignItems: 'flex-end' }]}>
-          <Text
-            style={[
-              styles.numericText,
-              isPositiveChange && styles.textPositive,
-              isNegativeChange && styles.textNegative,
-            ]}
-          >
-            {isPositiveChange && '▲ '}
-            {isNegativeChange && '▼ '}
-            {Math.abs(change).toFixed(2)}%
-          </Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 0.8, alignItems: 'flex-end' }]}>
-          <Text style={[styles.numericText, { color: rsiColor }]}>
-            {rsi ? Math.round(rsi) : '-'}
-          </Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 0.8, alignItems: 'flex-end' }]}>
-          {volRatio > 150 ? (
-            <View style={[styles.badge, { backgroundColor: '#FFD70030', paddingHorizontal: 4 }]}>
-              <Text style={[styles.numericText, { color: '#FFD700' }]}>{Math.round(volRatio)}%</Text>
-            </View>
-          ) : (
-            <Text style={styles.numericText}>
-              {volRatio > 0 ? `${Math.round(volRatio)}%` : '-'}
-            </Text>
-          )}
-        </View>
-
-        <View style={[styles.cell, { flex: 0.7, alignItems: 'flex-end' }]}>
-          <Text style={styles.numericText}>
-            {item.trailingPE ? item.trailingPE.toFixed(1) : '-'}
-          </Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 0.6, alignItems: 'center' }]}>
-          <Text style={[styles.smaText, { color: smaColor }]}>{smaStatus}</Text>
-        </View>
-
-        <View style={[styles.cell, { flex: 0.9, alignItems: 'center' }]}>
-          {recentHistory.length >= 2 ? (
-            <Sparkline data={recentHistory} color={sparklineColor} />
-          ) : (
-            <Text style={styles.emptyText}>-</Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
   };
 
   return (
     <View style={styles.container}>
-      {renderHeader()}
-      <FlatList
-        data={sortedData}
-        keyExtractor={(item) => item.ticker}
-        renderItem={renderItem}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.textPrimary}
-            colors={[COLORS.accent]}
+      <ScrollView horizontal style={styles.horizontalScroll} contentContainerStyle={styles.horizontalScrollContent} showsHorizontalScrollIndicator={false}>
+        <View style={[styles.table, { width: tableWidth }]}>
+          <View style={styles.headerRow}>
+            {columns.map((column) => <TouchableOpacity key={column.id} style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]} onPress={() => handleSort(column.id)}><Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>{column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}</Text></TouchableOpacity>)}
+          </View>
+          <FlatList
+            data={sortedData}
+            keyExtractor={(item) => item.ticker}
+            renderItem={({ item, index }) => <TouchableOpacity style={[styles.row, index % 2 === 0 ? styles.rowEven : styles.rowOdd]} onPress={() => onStockPress(item.ticker)}>{columns.map((column) => <View key={column.id} style={[styles.cell, { flex: column.flex, alignItems: column.align }]}>{renderCell(item, column.id)}</View>)}</TouchableOpacity>}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textPrimary} colors={[COLORS.accent]} />}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
           />
-        }
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surfaceHover,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.surfaceAlt,
-  },
-  headerCell: {
-    justifyContent: 'center',
-  },
-  headerText: {
-    color: COLORS.textSecondary,
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sortIcon: {
-    fontSize: 8,
-    marginLeft: 2,
-    color: COLORS.textSecondary,
-  },
-  row: {
-    flexDirection: 'row',
-    height: 48,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.surfaceAlt,
-    alignItems: 'center',
-  },
-  rowEven: {
-    backgroundColor: COLORS.surface,
-  },
-  rowOdd: {
-    backgroundColor: COLORS.surfaceAlt,
-  },
-  cell: {
-    justifyContent: 'center',
-  },
-  tickerText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  numericText: {
-    color: COLORS.textPrimary,
-    fontSize: 13,
-    fontVariant: ['tabular-nums'],
-    ...Platform.select({
-      ios: { fontFamily: 'Menlo' },
-      android: { fontFamily: 'monospace' },
-    }),
-  },
-  textPositive: {
-    color: COLORS.positive,
-  },
-  textNegative: {
-    color: COLORS.negative,
-  },
-  badge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  smaText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-  },
+  container: { flex: 1, backgroundColor: COLORS.bg }, horizontalScroll: { flex: 1 }, horizontalScrollContent: { flexGrow: 1 }, table: { flex: 1 }, listContent: { paddingBottom: 20 },
+  headerRow: { flexDirection: 'row', backgroundColor: COLORS.surfaceHover, paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.surfaceAlt },
+  headerCell: { justifyContent: 'center' }, headerText: { color: COLORS.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  row: { flexDirection: 'row', minHeight: 54, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.surfaceAlt, alignItems: 'center' },
+  rowEven: { backgroundColor: COLORS.surface }, rowOdd: { backgroundColor: COLORS.surfaceAlt }, cell: { justifyContent: 'center' },
+  tickerText: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
+  numeric: { color: COLORS.textPrimary, fontSize: 12, fontVariant: ['tabular-nums'], ...Platform.select({ ios: { fontFamily: 'Menlo' }, android: { fontFamily: 'monospace' } }) },
+  positive: { color: COLORS.positive }, negative: { color: COLORS.negative }, warning: { color: '#fbbf24' }, sma: { fontSize: 14, fontWeight: '700' }, empty: { color: COLORS.textSecondary, fontSize: 12 },
+  gradeBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }, gradeText: { fontSize: 12, fontWeight: '700' },
 });

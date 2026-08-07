@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,45 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  ActivityIndicator,
-  Dimensions
 } from 'react-native';
-import { LineChart } from 'react-native-gifted-charts';
+import type { StockData } from '@/types/stock';
+import { MarketChart } from '@/components/MarketChart';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
-interface ChartDataPoint { date: string; close: number; sma125?: number; sma50?: number; sma200?: number; }
-interface ChecklistItem { label: string; passed: boolean; detail: string; }
-interface HealthCheck {
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  gradeScore: number;
-  summary: string;
-  riskLevel: 'Låg' | 'Medel' | 'Hög';
-  momentum: 'Uppåt' | 'Nedåt' | 'Sidledes';
-  checklist: ChecklistItem[];
-}
-export interface StockData {
-  ticker: string;
-  companyName: string;
-  currentPrice: number;
-  sma125: number | null;
-  sma200: number | null;
-  sma50?: number | null;
-  rsi: number | null;
-  diffPercent125: number | null;
-  chartHistory: ChartDataPoint[];
-  fiftyTwoWeekHigh: number | null;
-  fiftyTwoWeekLow: number | null;
-  trailingPE: number | null;
-  dividendYield: number | null;
-  marketCap: number | null;
-  regularMarketChangePercent: number | null;
-  latestVolume: number | null;
-  avgVolume20: number | null;
-  healthCheck: HealthCheck | null;
-  volatility?: number | null; // Added for bull/bear
-  macdData?: { trend: 'up' | 'down' | 'neutral' }; // Added for bull/bear
-}
+export type { StockData } from '@/types/stock';
 
 interface StockDetailModalProps {
   item: StockData | null;
@@ -77,34 +43,7 @@ const riskColors: Record<string, string> = { 'Låg': '#34C759', 'Medel': '#FF950
 const momentumIcons: Record<string, string> = { 'Uppåt': '↗️', 'Nedåt': '↘️', 'Sidledes': '→' };
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
-  const [chartPeriod, setChartPeriod] = useState<'1D'|'1W'|'1M'|'3M'|'6M'|'1Y'>('6M');
-  const [intradayData, setIntradayData] = useState<Record<string, ChartDataPoint[]>>({});
-  const [loadingIntraday, setLoadingIntraday] = useState(false);
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
-
-  const [showSma50, setShowSma50] = useState(false);
-  const [showSma125, setShowSma125] = useState(true);
-  const [showSma200, setShowSma200] = useState(false);
-
-  useEffect(() => {
-    if (!item) return;
-    if (chartPeriod === '1D' || chartPeriod === '1W') {
-      const range = chartPeriod === '1D' ? '1d' : '5d';
-      const cacheKey = `${item.ticker}-${range}`;
-      if (intradayData[cacheKey]) return;
-
-      setLoadingIntraday(true);
-      fetch(`/api/intraday?ticker=${item.ticker}&range=${range}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json && json.data && Array.isArray(json.data)) {
-            setIntradayData(prev => ({ ...prev, [cacheKey]: json.data }));
-          }
-        })
-        .catch(err => console.error('Failed to fetch intraday', err))
-        .finally(() => setLoadingIntraday(false));
-    }
-  }, [item, chartPeriod, intradayData]);
 
   if (!item) return null;
 
@@ -253,149 +192,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     );
   };
 
-  const renderChart = () => {
-    if (!item.chartHistory || item.chartHistory.length === 0) return null;
-    
-    let filteredHistory: ChartDataPoint[] = [];
-    let isIntraday = false;
-    
-    if (chartPeriod === '1D' || chartPeriod === '1W') {
-      const range = chartPeriod === '1D' ? '1d' : '5d';
-      const cacheKey = `${item.ticker}-${range}`;
-      if (intradayData[cacheKey]) {
-        filteredHistory = intradayData[cacheKey];
-        isIntraday = true;
-      }
-    } else {
-      let days = 125;
-      if (chartPeriod === '1M') days = 21;
-      if (chartPeriod === '3M') days = 63;
-      if (chartPeriod === '1Y') days = 252;
-      const startIndex = Math.max(0, item.chartHistory.length - days);
-      filteredHistory = item.chartHistory.slice(startIndex);
-    }
-    
-    if (loadingIntraday) {
-      return (
-        <View style={[s.chartSection, { height: 260, justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="small" color="#007AFF" />
-        </View>
-      );
-    }
-    
-    if (filteredHistory.length === 0) return null;
-
-    const labelInterval = Math.max(1, Math.floor(filteredHistory.length / 5));
-    const weekdays = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
-
-    const priceData = filteredHistory.map((d, i) => {
-      let label = '';
-      if (i % labelInterval === 0 || i === filteredHistory.length - 1) {
-        const dateObj = new Date(d.date);
-        if (chartPeriod === '1D') {
-          label = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-        } else if (chartPeriod === '1W') {
-          label = `${weekdays[dateObj.getDay()]}`;
-        } else {
-          label = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
-        }
-      }
-      return { value: d.close, label };
-    });
-    
-    const sma125Data = (!isIntraday && showSma125) ? filteredHistory.map(d => ({ value: d.sma125 || d.close })) : [];
-    const sma50Data = (!isIntraday && showSma50) ? filteredHistory.map(d => ({ value: d.sma50 || d.close })) : [];
-    const sma200Data = (!isIntraday && showSma200) ? filteredHistory.map(d => ({ value: d.sma200 || d.close })) : [];
-    
-    const chartWidth = SCREEN_WIDTH - 40; // Full screen modal with 20px padding on each side
-
-    const allValues = filteredHistory.map(d => d.close).filter(v => v != null);
-    if (!isIntraday && showSma125) allValues.push(...filteredHistory.map(d => d.sma125).filter((v): v is number => v != null));
-    if (!isIntraday && showSma50) allValues.push(...filteredHistory.map(d => d.sma50).filter((v): v is number => v != null));
-    if (!isIntraday && showSma200) allValues.push(...filteredHistory.map(d => d.sma200).filter((v): v is number => v != null));
-    
-    let yMin = 0;
-    let yMax = 1;
-    let stepValue = 1;
-    const noOfSections = 4;
-    
-    if (allValues.length > 0) {
-      yMin = Math.min(...allValues) * 0.95;
-      yMax = Math.max(...allValues) * 1.05;
-      stepValue = Math.max((yMax - yMin) / noOfSections, 0.001);
-    }
-
-    return (
-      <View style={[s.chartSection, { height: 320 }]}>
-        <View style={s.chartHeader}>
-          <Text style={s.chartTitle}>Kursutveckling</Text>
-          <View style={s.periodTabs}>
-            {(['1D', '1W', '1M', '3M', '6M', '1Y'] as const).map(p => (
-              <TouchableOpacity key={p} style={[s.periodBtn, chartPeriod === p && s.periodBtnActive]} onPress={() => setChartPeriod(p)}>
-                <Text style={[s.periodBtnText, chartPeriod === p && s.periodBtnTextActive]}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-        
-        {/* SMA Toggles */}
-        <View style={s.smaToggles}>
-          <TouchableOpacity style={[s.smaBtn, showSma50 && s.smaBtnActive, { borderColor: '#8A2BE2' }]} onPress={() => setShowSma50(!showSma50)}>
-            <Text style={[s.smaBtnText, showSma50 && s.smaBtnTextActive, { color: showSma50 ? '#fff' : '#8A2BE2' }]}>SMA 50</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.smaBtn, showSma125 && s.smaBtnActive, { borderColor: '#FF9500' }]} onPress={() => setShowSma125(!showSma125)}>
-            <Text style={[s.smaBtnText, showSma125 && s.smaBtnTextActive, { color: showSma125 ? '#fff' : '#FF9500' }]}>SMA 125</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.smaBtn, showSma200 && s.smaBtnActive, { borderColor: '#FF2D55' }]} onPress={() => setShowSma200(!showSma200)}>
-            <Text style={[s.smaBtnText, showSma200 && s.smaBtnTextActive, { color: showSma200 ? '#fff' : '#FF2D55' }]}>SMA 200</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Wrap in pointerEvents none to prevent web panresponder crash on touch */}
-        <View pointerEvents="none">
-          <LineChart
-            key={chartPeriod}
-            data={priceData}
-            data2={sma125Data.length > 0 ? sma125Data : undefined}
-            data3={sma50Data.length > 0 ? sma50Data : undefined}
-            data4={sma200Data.length > 0 ? sma200Data : undefined}
-            width={chartWidth}
-            height={180}
-            color="#007AFF"
-            color2="#FF9500"
-            color3="#8A2BE2"
-            color4="#FF2D55"
-            thickness={2}
-            thickness2={1.5}
-            thickness3={1.5}
-            thickness4={1.5}
-            hideDataPoints
-            hideDataPoints2
-            hideDataPoints3
-            hideDataPoints4
-            noOfSections={noOfSections}
-            stepValue={stepValue}
-            yAxisOffset={yMin}
-            yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-            xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-            spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
-            initialSpacing={10}
-            yAxisColor="#333"
-            xAxisColor="#333"
-            rulesColor="#222"
-            curved
-            areaChart
-            startFillColor="rgba(0,122,255,0.2)"
-            endFillColor="rgba(0,122,255,0.02)"
-            startOpacity={0.4}
-            endOpacity={0}
-            isAnimated={false}
-          />
-        </View>
-      </View>
-    );
-  };
-
   const dayChange = item.regularMarketChangePercent;
   const dayColor = dayChange != null && dayChange >= 0 ? colors.green : colors.red;
   const bullPoints = getBullPoints(item);
@@ -435,18 +231,27 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             )}
           </View>
 
-          {/* Quick Stats Grid */}
+          {/* Market data mirrors the compact quote block in Apple Stocks. */}
           <View style={s.statsGrid}>
+            <View style={s.statBox}><Text style={s.statLabel}>Öppning</Text><Text style={s.statVal}>{item.regularMarketOpen?.toFixed(2) ?? '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Högsta</Text><Text style={s.statVal}>{item.regularMarketDayHigh?.toFixed(2) ?? '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Lägsta</Text><Text style={s.statVal}>{item.regularMarketDayLow?.toFixed(2) ?? '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Volym</Text><Text style={s.statVal}>{formatVol(item.latestVolume)}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>P/E</Text><Text style={s.statVal}>{item.trailingPE?.toFixed(1) || '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Börsvärde</Text><Text style={s.statVal}>{formatMCap(item.marketCap)}</Text></View>
             <View style={s.statBox}><Text style={s.statLabel}>52v Hög</Text><Text style={s.statVal}>{item.fiftyTwoWeekHigh?.toFixed(2) || '-'}</Text></View>
             <View style={s.statBox}><Text style={s.statLabel}>52v Låg</Text><Text style={s.statVal}>{item.fiftyTwoWeekLow?.toFixed(2) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>P/E</Text><Text style={s.statVal}>{item.trailingPE?.toFixed(1) || '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Utdelning</Text><Text style={s.statVal}>{item.dividendYield ? `${(item.dividendYield*100).toFixed(1)}%` : '-'}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Volym</Text><Text style={s.statVal}>{formatVol(item.latestVolume)}</Text></View>
-            <View style={s.statBox}><Text style={s.statLabel}>Börsvärde</Text><Text style={s.statVal}>{formatMCap(item.marketCap)}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Snittvolym</Text><Text style={s.statVal}>{formatVol(item.avgVolume20)}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Direktavk.</Text><Text style={s.statVal}>{item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Beta</Text><Text style={s.statVal}>{item.beta?.toFixed(2) || '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>VPA</Text><Text style={s.statVal}>{item.epsTrailingTwelveMonths?.toFixed(2) ?? '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Volatilitet</Text><Text style={s.statVal}>{item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Max drawdown</Text><Text style={[s.statVal, { color: colors.red }]}>{item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'}</Text></View>
+            <View style={s.statBox}><Text style={s.statLabel}>Risk/Reward</Text><Text style={[s.statVal, item.riskRewardScore != null && item.riskRewardScore >= 70 && { color: colors.green }]}>{item.riskRewardScore?.toFixed(0) || '-'}</Text></View>
           </View>
 
           {/* Chart */}
-          {renderChart()}
+          <MarketChart item={item} />
 
           {/* Bull vs Bear */}
           <View style={s.bullBearContainer}>
@@ -576,68 +381,6 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'monospace',
     fontWeight: '500',
-  },
-  chartSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  chartTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  periodTabs: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    padding: 2,
-  },
-  periodBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  periodBtnActive: {
-    backgroundColor: '#333',
-  },
-  periodBtnText: {
-    color: '#8E8E93',
-    fontSize: 12,
-  },
-  periodBtnTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  smaToggles: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
-  },
-  smaBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  smaBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  smaBtnText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  smaBtnTextActive: {
-    fontWeight: 'bold',
   },
   bullBearContainer: {
     flexDirection: 'row',

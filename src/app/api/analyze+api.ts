@@ -2,12 +2,17 @@ import YahooFinance from 'yahoo-finance2';
 import {
   calculateBollingerBands,
   calculateMACD,
+  calculateBeta,
+  calculateMaxDrawdown,
   calculateRSI,
   calculateSMA,
   calculateVolatility,
   type PricePoint,
 } from '@/lib/indicators';
+import { deriveStockSignals } from '@/lib/stock-signals';
 import { parseTickerList } from '@/lib/ticker-validation';
+import type { StockData } from '@/types/stock';
+import { requireAuthenticatedUser } from '@/lib/app-auth';
 
 const yahooFinance = new YahooFinance({ 
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
@@ -33,6 +38,11 @@ interface YahooQuote {
   dividendYield?: number;
   marketCap?: number;
   regularMarketChangePercent?: number;
+  regularMarketOpen?: number;
+  regularMarketDayHigh?: number;
+  regularMarketDayLow?: number;
+  regularMarketPreviousClose?: number;
+  epsTrailingTwelveMonths?: number;
   earningsTimestamp?: number;
   priceToBook?: number;
   bookValue?: number;
@@ -64,6 +74,19 @@ const MARKETS: Record<string, string[]> = {
     "CIBUS.ST", "HEBA-B.ST", "KFAST-B.ST", "CATENA.ST", "ATRLJ-B.ST"
   ]
 };
+
+const BENCHMARKS: Record<string, string> = {
+  omxs30: '^OMX',
+  swe_fastigheter: '^OMX',
+  dji: '^DJI',
+  tech: '^IXIC',
+  watchlist: '^OMX',
+};
+
+function benchmarkForTicker(ticker: string, market: string, isCustomRequest: boolean) {
+  if (isCustomRequest) return ticker.endsWith('.ST') ? '^OMX' : '^GSPC';
+  return BENCHMARKS[market] || BENCHMARKS.omxs30;
+}
 
 // In-memory cache keyed by normalized request string.
 let cache: Record<string, { data: unknown, lastUpdated: number }> = {};
@@ -146,7 +169,9 @@ function generateHealthCheck(item: {
     else if (volatility > 25) riskLevel = 'Medel';
   }
   
-  const momentum = macdData ? (macdData.trend === 'up' ? 'Uppåt' : (macdData.trend === 'down' ? 'Nedåt' : 'Sidledes')) : 'Sidledes';
+  const momentum: 'Uppåt' | 'Nedåt' | 'Sidledes' = macdData
+    ? (macdData.trend === 'up' ? 'Uppåt' : (macdData.trend === 'down' ? 'Nedåt' : 'Sidledes'))
+    : 'Sidledes';
   
   const diffPct = sma125 ? Math.abs(((currentPrice - sma125) / sma125) * 100).toFixed(1) : '0.0';
   const priceAction = sma125 ? (currentPrice < sma125 ? `handlas ${diffPct}% under` : `handlas ${diffPct}% över`) + ' sitt 6-månaderssnitt' : 'handlas nära sitt snitt';
@@ -166,7 +191,31 @@ function generateHealthCheck(item: {
   return { grade, gradeScore, summary, riskLevel, momentum, checklist };
 }
 
+function calculateRiskRewardScore(item: {
+  currentPrice: number;
+  sma50: number | null;
+  sma125: number | null;
+  volatility: number | null;
+  healthCheck: { gradeScore: number };
+}) {
+  if (item.volatility == null) return null;
+
+  let score = 0;
+  if (item.volatility <= 20) score += 40;
+  else if (item.volatility <= 30) score += 28;
+  else if (item.volatility <= 40) score += 15;
+
+  if (item.sma50 != null && item.currentPrice > item.sma50) score += 20;
+  if (item.sma125 != null && item.currentPrice > item.sma125) score += 20;
+  score += Math.min(item.healthCheck.gradeScore, 10) * 2;
+
+  return Math.min(score, 100);
+}
+
 export async function GET(request: Request) {
+  const authenticationError = await requireAuthenticatedUser(request);
+  if (authenticationError) return authenticationError;
+
   const url = new URL(request.url);
   const market = url.searchParams.get('market') || 'omxs30';
   const customTickers = url.searchParams.get('tickers');
@@ -199,6 +248,20 @@ export async function GET(request: Request) {
     period1.setMonth(period1.getMonth() - 18); // 18 months back to ensure enough data for 125-day SMA on the 1Y chart
 
     const results = [];
+    const benchmarkTickers = Array.from(new Set(tickersToFetch.map((ticker) => benchmarkForTicker(ticker, market, Boolean(customTickers)))));
+    const benchmarkHistories = new Map<string, ChartQuote[]>();
+    await Promise.all(benchmarkTickers.map(async (benchmarkTicker) => {
+      try {
+        const benchmarkChart = await yahooFinance.chart(benchmarkTicker, {
+          period1,
+          interval: '1d',
+        }, { validateResult: false }) as ChartResponse;
+        benchmarkHistories.set(benchmarkTicker, (benchmarkChart.quotes || []).filter((quote): quote is ChartQuote => quote.close != null));
+      } catch (error) {
+        console.error(`Failed to fetch benchmark ${benchmarkTicker}:`, error);
+      }
+    }));
+
     const quotesResponse = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false }) as YahooQuote[] | YahooQuote;
     const quotes = Array.isArray(quotesResponse) ? quotesResponse : [quotesResponse];
     const quotesMap = new Map<string, YahooQuote>();
@@ -230,8 +293,8 @@ export async function GET(request: Request) {
         const volatility = calculateVolatility(history, 20);
         
         const latestVolume = history[history.length - 1].volume || 0;
-        const vol20 = history.slice(-20);
-        const avgVolume20 = vol20.reduce((acc, curr) => acc + (curr.volume || 0), 0) / (vol20.length || 1);
+        const previous20Sessions = history.slice(-21, -1);
+        const avgVolume20 = previous20Sessions.reduce((acc, curr) => acc + (curr.volume || 0), 0) / (previous20Sessions.length || 1);
 
         const chartHistory = [];
         const chartHistoryLength = 252; // Return 1 year of trading data for timeframe selector
@@ -243,8 +306,9 @@ export async function GET(request: Request) {
             const sma125AtDay = calculateSMA(historyUpToI, 125);
             const sma200AtDay = calculateSMA(historyUpToI, 200);
             chartHistory.push({
-                date: history[i].date,
+                date: new Date(history[i].date).toISOString(),
                 close: history[i].close,
+                volume: history[i].volume || null,
                 sma50: sma50AtDay,
                 sma125: sma125AtDay,
                 sma200: sma200AtDay
@@ -261,18 +325,25 @@ export async function GET(request: Request) {
           rsi,
           diffPercent50: sma50 ? ((currentPrice - sma50) / sma50) * 100 : null,
           diffPercent125: sma125 ? ((currentPrice - sma125) / sma125) * 100 : null,
-          fiftyTwoWeekLow: quote?.fiftyTwoWeekLow || null,
-          fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh || null,
-          trailingPE: quote?.trailingPE || null,
-          dividendYield: quote?.dividendYield || null,
-          marketCap: quote?.marketCap || null,
-          regularMarketChangePercent: quote?.regularMarketChangePercent || null,
+          fiftyTwoWeekLow: quote?.fiftyTwoWeekLow ?? null,
+          fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh ?? null,
+          trailingPE: quote?.trailingPE ?? null,
+          dividendYield: quote?.dividendYield ?? null,
+          marketCap: quote?.marketCap ?? null,
+          regularMarketChangePercent: quote?.regularMarketChangePercent ?? null,
+          regularMarketOpen: quote?.regularMarketOpen ?? null,
+          regularMarketDayHigh: quote?.regularMarketDayHigh ?? null,
+          regularMarketDayLow: quote?.regularMarketDayLow ?? null,
+          regularMarketPreviousClose: quote?.regularMarketPreviousClose ?? null,
+          epsTrailingTwelveMonths: quote?.epsTrailingTwelveMonths ?? null,
           latestVolume,
           avgVolume20,
           chartHistory,
           bollingerBands,
           macdData,
           volatility,
+          beta: calculateBeta(history, benchmarkHistories.get(benchmarkForTicker(ticker, market, Boolean(customTickers))) || [], 252),
+          maxDrawdown: calculateMaxDrawdown(history, 252),
           earningsTimestamp: quote?.earningsTimestamp || null,
           priceToBook: quote?.priceToBook || null,
           bookValue: quote?.bookValue || null,
@@ -281,11 +352,17 @@ export async function GET(request: Request) {
         };
         
         const healthCheck = generateHealthCheck(itemData);
-
-        results.push({
+        const stock: StockData = {
           ...itemData,
-          healthCheck
-        });
+          healthCheck,
+          riskRewardScore: calculateRiskRewardScore({ ...itemData, healthCheck }),
+          valuation: {
+            trailingPE5yMedian: null,
+            trailingPESectorMedian: null,
+          },
+        };
+
+        results.push({ ...stock, signals: deriveStockSignals(stock) });
       } catch (err) {
         console.error(`Failed to fetch data for ${ticker}:`, err);
       }

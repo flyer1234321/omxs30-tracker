@@ -1,5 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
 import { isValidTicker, normalizeTicker } from '@/lib/ticker-validation';
+import { requireAuthenticatedUser } from '@/lib/app-auth';
 
 const yahooFinance = new YahooFinance({ 
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
@@ -9,6 +10,10 @@ const yahooFinance = new YahooFinance({
 interface IntradayQuote {
   date: Date | string;
   close: number | null;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  volume?: number | null;
 }
 
 interface ChartResponse {
@@ -16,6 +21,9 @@ interface ChartResponse {
 }
 
 export async function GET(request: Request) {
+  const authenticationError = await requireAuthenticatedUser(request);
+  if (authenticationError) return authenticationError;
+
   const url = new URL(request.url);
   const tickerParam = url.searchParams.get('ticker');
   const range = url.searchParams.get('range') || '1d'; // '1d' or '5d'
@@ -66,7 +74,11 @@ export async function GET(request: Request) {
 
     const data = history.map(q => ({
       date: q.date,
-      close: q.close
+      close: q.close,
+      open: q.open ?? null,
+      high: q.high ?? null,
+      low: q.low ?? null,
+      volume: q.volume ?? null,
     }));
 
     return Response.json({ data });

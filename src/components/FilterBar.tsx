@@ -20,6 +20,7 @@ interface FilterBarProps {
   filteredCount: number;
   lastUpdated: number | null;
   gradeACount: number;
+  onSignOut: () => void;
 }
 
 const MARKETS = [
@@ -54,6 +55,7 @@ export function FilterBar({
   filteredCount,
   lastUpdated,
   gradeACount,
+  onSignOut,
 }: FilterBarProps) {
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -121,8 +123,13 @@ export function FilterBar({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>📊 Screener</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
+          <View style={styles.headerActions}>
+            <View style={styles.countBadge}>
+              <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
+            </View>
+            <TouchableOpacity style={styles.signOutButton} onPress={onSignOut}>
+              <Text style={styles.signOutText}>Logga ut</Text>
+            </TouchableOpacity>
           </View>
         </View>
         <Text style={styles.subtitle}>Uppdaterad: {formattedTime} • {gradeACount} A-betyg</Text>
@@ -224,6 +231,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: fonts.sans,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   countBadge: {
     backgroundColor: colors.surfaceAlt,
     paddingHorizontal: spacing.sm,
@@ -237,6 +245,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: fonts.mono,
   },
+  signOutButton: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  signOutText: { color: colors.textSecondary, fontSize: 12, fontFamily: fonts.sans, fontWeight: '600' },
   subtitle: {
     fontSize: 12,
     color: colors.textSecondary,

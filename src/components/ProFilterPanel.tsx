@@ -181,6 +181,12 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
             <NumberInput label="Utdeln. min %" value={activeFilter.divYieldMin} onChange={v => updateFilter({ divYieldMin: v })} placeholder="t.ex. 4" />
           </View>
 
+          <Text style={st.sectionTitle}>RISKFILTER</Text>
+          <View style={st.filterRow}>
+            <NumberInput label="Volatilitet max %" value={activeFilter.volatilityMax} onChange={v => updateFilter({ volatilityMax: v })} placeholder="t.ex. 30" />
+            <NumberInput label="Risk/Reward min" value={activeFilter.riskRewardMin} onChange={v => updateFilter({ riskRewardMin: v })} placeholder="t.ex. 70" />
+          </View>
+
           {/* Toggle filters */}
           <Text style={st.sectionTitle}>TRENDFILTER</Text>
           <View style={st.chipWrap}>
