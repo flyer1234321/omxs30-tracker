@@ -96,9 +96,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
       setLoadingIntraday(true);
       fetch(`/api/intraday?ticker=${item.ticker}&range=${range}`)
         .then(res => res.json())
-        .then(data => {
-          if (data && Array.isArray(data)) {
-            setIntradayData(prev => ({ ...prev, [cacheKey]: data }));
+        .then(json => {
+          if (json && json.data && Array.isArray(json.data)) {
+            setIntradayData(prev => ({ ...prev, [cacheKey]: json.data }));
           }
         })
         .catch(err => console.error('Failed to fetch intraday', err))
@@ -351,6 +351,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
         {/* Wrap in pointerEvents none to prevent web panresponder crash on touch */}
         <View pointerEvents="none">
           <LineChart
+            key={chartPeriod}
             data={priceData}
             data2={sma125Data.length > 0 ? sma125Data : undefined}
             data3={sma50Data.length > 0 ? sma50Data : undefined}
