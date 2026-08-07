@@ -348,43 +348,45 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           </TouchableOpacity>
         </View>
 
-        <LineChart
-          key={`${item.ticker}-${chartPeriod}-${showSma50}-${showSma125}-${showSma200}`}
-          data={priceData}
-          data2={sma125Data.length > 0 ? sma125Data : undefined}
-          data3={sma50Data.length > 0 ? sma50Data : undefined}
-          data4={sma200Data.length > 0 ? sma200Data : undefined}
-          width={chartWidth}
-          height={180}
-          color="#007AFF"
-          color2="#FF9500"
-          color3="#8A2BE2"
-          color4="#FF2D55"
-          thickness={2}
-          thickness2={1.5}
-          thickness3={1.5}
-          thickness4={1.5}
-          hideDataPoints
-          hideDataPoints2
-          hideDataPoints3
-          hideDataPoints4
-          noOfSections={noOfSections}
-          stepValue={stepValue}
-          yAxisOffset={yMin}
-          yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10 }}
-          spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
-          initialSpacing={10}
-          yAxisColor="#333"
-          xAxisColor="#333"
-          rulesColor="#222"
-          curved
-          areaChart
-          startFillColor="rgba(0,122,255,0.2)"
-          endFillColor="rgba(0,122,255,0.02)"
-          startOpacity={0.4}
-          endOpacity={0}
-        />
+        {/* Wrap in pointerEvents none to prevent web panresponder crash on touch */}
+        <View pointerEvents="none">
+          <LineChart
+            data={priceData}
+            data2={sma125Data.length > 0 ? sma125Data : undefined}
+            data3={sma50Data.length > 0 ? sma50Data : undefined}
+            data4={sma200Data.length > 0 ? sma200Data : undefined}
+            width={chartWidth}
+            height={180}
+            color="#007AFF"
+            color2="#FF9500"
+            color3="#8A2BE2"
+            color4="#FF2D55"
+            thickness={2}
+            thickness2={1.5}
+            thickness3={1.5}
+            thickness4={1.5}
+            hideDataPoints
+            hideDataPoints2
+            hideDataPoints3
+            hideDataPoints4
+            noOfSections={noOfSections}
+            stepValue={stepValue}
+            yAxisOffset={yMin}
+            yAxisTextStyle={{ color: '#8E8E93', fontSize: 10 }}
+            xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 10 }}
+            spacing={(chartWidth - 20) / Math.max(filteredHistory.length, 1)}
+            initialSpacing={10}
+            yAxisColor="#333"
+            xAxisColor="#333"
+            rulesColor="#222"
+            curved
+            areaChart
+            startFillColor="rgba(0,122,255,0.2)"
+            endFillColor="rgba(0,122,255,0.02)"
+            startOpacity={0.4}
+            endOpacity={0}
+          />
+        </View>
       </View>
     );
   };
