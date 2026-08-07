@@ -38,7 +38,8 @@ export async function POST(request: Request) {
       return Response.json({ error: payload?.msg || payload?.message || 'Kunde inte skicka inloggningslänken.' }, { status: response.status });
     }
     return Response.json({ sent: true });
-  } catch {
+  } catch (error) {
+    console.error('Supabase magic-link request failed', error);
     return Response.json({ error: 'Kunde inte nå inloggningstjänsten. Försök igen om en stund.' }, { status: 502 });
   }
 }
