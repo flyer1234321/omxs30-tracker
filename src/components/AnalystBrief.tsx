@@ -18,6 +18,7 @@ const colors = {
 
 interface AnalystBriefProps {
   item: StockData;
+  onReportGenerated?: (report: AnalystReport) => void;
 }
 
 function verdictColor(verdict: AnalystReport['verdict']) {
@@ -26,7 +27,7 @@ function verdictColor(verdict: AnalystReport['verdict']) {
   return colors.amber;
 }
 
-export function AnalystBrief({ item }: AnalystBriefProps) {
+export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
   const [report, setReport] = useState<AnalystReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function AnalystBrief({ item }: AnalystBriefProps) {
       const payload = await response.json();
       if (!response.ok || !payload?.report) throw new Error(payload?.error || 'Kunde inte skapa analysen.');
       setReport(payload.report);
+      onReportGenerated?.(payload.report);
       setAiAvailable(Boolean(payload.aiAvailable));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Kunde inte skapa analysen.');

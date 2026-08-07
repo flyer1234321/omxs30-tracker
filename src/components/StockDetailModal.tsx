@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,8 @@ import type { StockData } from '@/types/stock';
 import { AnalystBrief } from '@/components/AnalystBrief';
 import { MarketChart } from '@/components/MarketChart';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import type { AnalystReport } from '@/lib/analyst-engine';
+import { openPrintReport } from '@/lib/print-report';
 
 export type { StockData } from '@/types/stock';
 
@@ -45,6 +47,13 @@ const momentumIcons: Record<string, string> = { 'Uppåt': '↗️', 'Nedåt': '�
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
+  const [analystReport, setAnalystReport] = useState<AnalystReport | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAnalystReport(null);
+    setPrintError(null);
+  }, [item?.ticker]);
 
   if (!item) return null;
 
@@ -197,6 +206,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
   const dayColor = dayChange != null && dayChange >= 0 ? colors.green : colors.red;
   const bullPoints = getBullPoints(item);
   const bearPoints = getBearPoints(item);
+  const printReport = () => {
+    setPrintError(openPrintReport(item, analystReport) ? null : 'Kunde inte öppna utskriftsdialogen. Tillåt popup-fönster för den här sidan och försök igen.');
+  };
 
   return (
     <Modal visible={!!item} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -209,11 +221,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <Text style={s.headerTicker}>{item.ticker.replace('.ST', '')}</Text>
             <Text style={s.headerName} numberOfLines={1}>{item.companyName}</Text>
           </View>
-          <HintedTouchable style={s.headerBtn} onPress={onToggleWatchlist} accessibilityLabel={isWatchlisted ? `Ta bort ${item.ticker.replace('.ST', '')} från favoriter` : `Lägg till ${item.ticker.replace('.ST', '')} i favoriter`} hint={isWatchlisted ? 'Tar bort aktien från din personliga favoritlista.' : 'Lägger till aktien i din personliga favoritlista.'}>
-            <Text style={[s.starIcon, isWatchlisted && s.starIconActive]}>
-              {isWatchlisted ? '★' : '☆'}
-            </Text>
-          </HintedTouchable>
+          <View style={s.headerActions}>
+            <HintedTouchable style={s.printButton} onPress={printReport} accessibilityLabel="Skriv ut eller spara som PDF" hint="Öppnar en utskriftsvänlig aktierapport. Välj Spara som PDF i webbläsarens utskriftsdialog.">
+              <Text style={s.printButtonText}>PDF</Text>
+            </HintedTouchable>
+            <HintedTouchable style={s.headerBtn} onPress={onToggleWatchlist} accessibilityLabel={isWatchlisted ? `Ta bort ${item.ticker.replace('.ST', '')} från favoriter` : `Lägg till ${item.ticker.replace('.ST', '')} i favoriter`} hint={isWatchlisted ? 'Tar bort aktien från din personliga favoritlista.' : 'Lägger till aktien i din personliga favoritlista.'}>
+              <Text style={[s.starIcon, isWatchlisted && s.starIconActive]}>
+                {isWatchlisted ? '★' : '☆'}
+              </Text>
+            </HintedTouchable>
+          </View>
         </View>
 
         <ScrollView style={s.scrollView} contentContainerStyle={s.scrollContent}>
@@ -231,6 +248,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               </View>
             )}
           </View>
+          {printError && <Text style={s.printError}>{printError}</Text>}
 
           {/* Market data mirrors the compact quote block in Apple Stocks. */}
           <View style={s.statsGrid}>
@@ -252,7 +270,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           </View>
 
           {/* Chart */}
-          <AnalystBrief item={item} />
+          <AnalystBrief item={item} onReportGenerated={setAnalystReport} />
 
           <MarketChart item={item} />
 
@@ -303,6 +321,9 @@ const s = StyleSheet.create({
   headerBtn: {
     padding: 8,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  printButton: { borderWidth: 1, borderColor: '#3b82f6', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 5 },
+  printButtonText: { color: '#93c5fd', fontSize: 10, fontWeight: '800' },
   headerBtnText: {
     color: '#007AFF',
     fontSize: 24,
@@ -341,6 +362,7 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
+  printError: { color: colors.red, fontSize: 12, lineHeight: 18, marginTop: -14, marginBottom: 16 },
   priceText: {
     color: colors.text,
     fontSize: 32,
