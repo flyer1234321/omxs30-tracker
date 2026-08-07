@@ -10,7 +10,7 @@ interface FilterBarProps {
   // Search
   searchQuery: string;
   onSearchChange: (text: string) => void;
-  searchResults: Array<{ symbol: string; shortname: string; exchange: string }>;
+  searchResults: { symbol: string; shortname: string; exchange: string }[];
   isSearching: boolean;
   onAddFromSearch: (symbol: string) => void;
   watchlist: string[];
@@ -75,41 +75,45 @@ export function FilterBar({
           </View>
           <ScrollView style={styles.modalBody}>
             <Text style={styles.modalText}>
-              Betyget (A, B, C, D, F) baseras på en teknisk och fundamental hälsokontroll av varje aktie. Varje aktie kan få max 6 poäng.
+              Betyget (A, B, C, D, F) baseras på en teknisk och fundamental hälsokontroll. Varje aktie kan få upp till 9 poäng från grundkriterier och tekniska bonusar.
             </Text>
             
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>1. Långsiktig Trend (SMA 200)</Text>
-              <Text style={styles.criteriaDesc}>Aktien handlas över sitt glidande medelvärde för de senaste 200 dagarna. Indikerar en stabil, långsiktig uppgång.</Text>
+              <Text style={styles.criteriaTitle}>1. Positiv vinst (P/E)</Text>
+              <Text style={styles.criteriaDesc}>Ett positivt P/E-tal visar att bolaget rapporterar vinst. Saknas eller negativt P/E ger ingen poäng.</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>2. Kortsiktig Trend (SMA 50)</Text>
-              <Text style={styles.criteriaDesc}>Aktien handlas över sitt glidande medelvärde för de senaste 50 dagarna. Visar kortsiktig styrka och momentum.</Text>
+              <Text style={styles.criteriaTitle}>2. Utdelning</Text>
+              <Text style={styles.criteriaDesc}>Positiv direktavkastning ger poäng och indikerar ofta ett moget bolag med kassaflöde.</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>3. Avstånd från botten</Text>
-              <Text style={styles.criteriaDesc}>Priset är minst 10 % över sin lägsta nivå de senaste 52 veckorna. Bekräftar att botten troligen är nådd.</Text>
+              <Text style={styles.criteriaTitle}>3. Fall från topp</Text>
+              <Text style={styles.criteriaDesc}>Aktier som har fallit mer än 8 % från 52-veckorshögsta, eller från SMA 125 när 52-veckorsdata saknas, får poäng.</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>4. Sund RSI (Relativt Styrkeindex)</Text>
-              <Text style={styles.criteriaDesc}>RSI ligger mellan 40 och 70. Det betyder att aktien har positivt momentum utan att vara "överköpt" (vilket ökar risken för rekyl).</Text>
+              <Text style={styles.criteriaTitle}>4. Nära botten</Text>
+              <Text style={styles.criteriaDesc}>Aktier inom 10 % från 52-veckorslägsta får poäng eftersom läget kan indikera ett potentiellt stödområde.</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>5. Rimlig Värdering (P/E)</Text>
-              <Text style={styles.criteriaDesc}>P/E-talet är positivt men under 25. Man betalar alltså ett rimligt pris för bolagets nuvarande vinster.</Text>
+              <Text style={styles.criteriaTitle}>5. Översåld RSI</Text>
+              <Text style={styles.criteriaDesc}>RSI under 35 ger poäng. RSI under 20 ger dessutom en extra bonuspoäng.</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>6. Utdelning</Text>
-              <Text style={styles.criteriaDesc}>Bolaget ger positiv direktavkastning (utdelning). Indikerar ofta ett moget och lönsamt bolag.</Text>
+              <Text style={styles.criteriaTitle}>6. Under SMA 125</Text>
+              <Text style={styles.criteriaDesc}>Kurs under 125-dagars glidande medelvärde ger poäng som möjlig rabatt- eller rekylsignal.</Text>
+            </View>
+            <View style={styles.criteriaBox}>
+              <Text style={styles.criteriaTitle}>Bonusar</Text>
+              <Text style={styles.criteriaDesc}>Extra poäng kan ges när kursen ligger nära nedre Bollinger-bandet eller när MACD visar positiv momentumvändning.</Text>
             </View>
 
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>🏆 Betyg A (5-6 poäng)</Text>
-              <Text style={styles.gradeDesc}>Aktien uppfyller nästan alla tekniska och fundamentala krav. Mycket stark trend och fundamenta.</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>🏆 Betyg A</Text>
+              <Text style={styles.gradeDesc}>Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30.</Text>
             </View>
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>✅ Betyg B (3-4 poäng)</Text>
-              <Text style={styles.gradeDesc}>Bra aktie som saknar något, t.ex. att den är tillfälligt överköpt, eller har ett lite för högt P/E-tal, men i grunden hälsosam.</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>✅ Betyg B/C/D</Text>
+              <Text style={styles.gradeDesc}>B ges från 5 poäng, C från 3 poäng och D från 1 poäng. F betyder att inga tydliga signaler hittas.</Text>
             </View>
           </ScrollView>
         </SafeAreaView>

@@ -36,7 +36,11 @@
     "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.1",
+    "tsx": "^4.23.10",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -45,7 +49,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts",
+    "build:web": "expo export -p web"
   },
   "private": true
 }

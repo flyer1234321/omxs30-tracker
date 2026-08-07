@@ -57,6 +57,7 @@ export interface StockData {
   sma200: number | null;
   rsi: number | null;
   diffPercent125: number | null;
+  sma50?: number | null;
   chartHistory: ChartDataPoint[];
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
@@ -282,8 +283,8 @@ export default function ProTableView({
     const rsi = item.rsi;
     let rsiColor = COLORS.textSecondary;
     if (rsi) {
-      if (rsi > 70) rsiColor = COLORS.red;
-      else if (rsi < 30) rsiColor = COLORS.green;
+      if (rsi > 70) rsiColor = COLORS.negative;
+      else if (rsi < 30) rsiColor = COLORS.positive;
     }
 
     const volRatio = (item.latestVolume && item.avgVolume20) ? (item.latestVolume / item.avgVolume20) * 100 : 0;

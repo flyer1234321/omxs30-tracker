@@ -4,7 +4,6 @@ import {
   View,
   ActivityIndicator,
   Text,
-  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FilterBar } from '../components/FilterBar';
@@ -13,8 +12,6 @@ import type { StockData } from '../components/ProTableView';
 import { StockDetailModal } from '../components/StockDetailModal';
 import ProFilterPanel, { applyProFilter, type ProFilter } from '../components/ProFilterPanel';
 import { colors } from '../theme';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
@@ -42,12 +39,12 @@ export default function HomeScreen() {
       try {
         const stored = await AsyncStorage.getItem('@watchlist');
         if (stored) setWatchlist(JSON.parse(stored));
-      } catch (e) {}
+      } catch {}
     })();
   }, []);
 
   const saveWatchlist = async (list: string[]) => {
-    try { await AsyncStorage.setItem('@watchlist', JSON.stringify(list)); setWatchlist(list); } catch (e) {}
+    try { await AsyncStorage.setItem('@watchlist', JSON.stringify(list)); setWatchlist(list); } catch {}
   };
 
   // ─── SEARCH ────────────────────────────────
@@ -61,7 +58,7 @@ export default function HomeScreen() {
         const res = await fetch(`/api/search?q=${encodeURIComponent(text)}`);
         const json = await res.json();
         setSearchResults(json.data || []);
-      } catch (e) { setSearchResults([]); }
+      } catch { setSearchResults([]); }
       finally { setIsSearching(false); }
     }, 300);
   };
@@ -72,7 +69,7 @@ export default function HomeScreen() {
   };
 
   // ─── DATA FETCHING ─────────────────────────
-  const fetchData = async (m = market, wl = watchlist) => {
+  const fetchData = useCallback(async (m = market, wl = watchlist) => {
     setLoading(true);
     try {
       let url = `/api/analyze?t=${Date.now()}`;
@@ -87,7 +84,7 @@ export default function HomeScreen() {
       setData(json.data || []); setLastUpdated(json.timestamp); setError(null);
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); setRefreshing(false); }
-  };
+  }, [market, watchlist]);
 
   const onMarketChange = (tab: any) => {
     if (tab !== market) {
@@ -101,9 +98,9 @@ export default function HomeScreen() {
     fetchData(market, watchlist);
     const interval = setInterval(() => fetchData(market, watchlist), 60000);
     return () => clearInterval(interval);
-  }, [market, watchlist]);
+  }, [market, watchlist, fetchData]);
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(market, watchlist); }, [market, watchlist]);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchData(market, watchlist); }, [market, watchlist, fetchData]);
 
   // ─── FILTERING (useMemo for performance) ───
   const filteredData = useMemo(() => {
@@ -164,6 +161,12 @@ export default function HomeScreen() {
         onToggleExpand={() => setProFilterExpanded(!proFilterExpanded)}
       />
 
+      {error && (
+        <View style={s.errorWrap}>
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      )}
+
       {loading && !refreshing && data.length === 0 ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -190,6 +193,8 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  errorWrap: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#3D0A0A' },
+  errorText: { color: '#FF3B30', fontSize: 13 },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: colors.textSecondary, marginTop: 12, fontSize: 14 },
 });

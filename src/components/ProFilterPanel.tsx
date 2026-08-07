@@ -6,10 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Dimensions,
 } from 'react-native';
+import {
+  applyProFilter,
+  getActiveFilterCount,
+  type ProFilter,
+} from '@/lib/pro-filter';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+export { applyProFilter, type ProFilter };
 
 // Colors inline to avoid import issues during build
 const C = {
@@ -28,21 +32,6 @@ const C = {
   warning: '#f59e0b',
   warningBg: 'rgba(245,158,11,0.08)',
 };
-
-export interface ProFilter {
-  rsiMax?: number;
-  rsiMin?: number;
-  peMax?: number;
-  peMin?: number;
-  divYieldMin?: number;
-  aboveSMA50?: boolean;
-  aboveSMA125?: boolean;
-  aboveSMA200?: boolean;
-  belowSMA125?: boolean;
-  volAboveAvg?: boolean;
-  near52wHigh?: boolean;
-  near52wLow?: boolean;
-}
 
 export interface PresetStrategy {
   id: string;
@@ -88,44 +77,6 @@ interface ProFilterPanelProps {
   onFilterChange: (filter: ProFilter) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
-}
-
-export function applyProFilter(data: any[], filter: ProFilter): any[] {
-  return data.filter(item => {
-    if (filter.rsiMax != null && (item.rsi == null || item.rsi > filter.rsiMax)) return false;
-    if (filter.rsiMin != null && (item.rsi == null || item.rsi < filter.rsiMin)) return false;
-    if (filter.peMax != null && (item.trailingPE == null || item.trailingPE <= 0 || item.trailingPE > filter.peMax)) return false;
-    if (filter.peMin != null && (item.trailingPE == null || item.trailingPE < filter.peMin)) return false;
-    if (filter.divYieldMin != null) {
-      const yieldPct = (item.dividendYield || 0) * 100;
-      if (yieldPct < filter.divYieldMin) return false;
-    }
-    if (filter.aboveSMA50 && !(item.sma50 && item.currentPrice > item.sma50)) return false;
-    if (filter.aboveSMA125 && !(item.sma125 && item.currentPrice > item.sma125)) return false;
-    if (filter.aboveSMA200 && !(item.sma200 && item.currentPrice > item.sma200)) return false;
-    if (filter.belowSMA125 && !(item.sma125 && item.currentPrice < item.sma125)) return false;
-    if (filter.volAboveAvg && !(item.latestVolume && item.avgVolume20 && item.latestVolume > item.avgVolume20 * 1.5)) return false;
-    if (filter.near52wHigh && !(item.fiftyTwoWeekHigh && item.currentPrice > item.fiftyTwoWeekHigh * 0.95)) return false;
-    if (filter.near52wLow && !(item.fiftyTwoWeekLow && item.currentPrice < item.fiftyTwoWeekLow * 1.05)) return false;
-    return true;
-  });
-}
-
-export function getActiveFilterCount(filter: ProFilter): number {
-  let count = 0;
-  if (filter.rsiMax != null) count++;
-  if (filter.rsiMin != null) count++;
-  if (filter.peMax != null) count++;
-  if (filter.peMin != null) count++;
-  if (filter.divYieldMin != null) count++;
-  if (filter.aboveSMA50) count++;
-  if (filter.aboveSMA125) count++;
-  if (filter.aboveSMA200) count++;
-  if (filter.belowSMA125) count++;
-  if (filter.volAboveAvg) count++;
-  if (filter.near52wHigh) count++;
-  if (filter.near52wLow) count++;
-  return count;
 }
 
 function NumberInput({ label, value, onChange, placeholder }: {

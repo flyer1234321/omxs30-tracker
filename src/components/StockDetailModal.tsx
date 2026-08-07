@@ -104,7 +104,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
         .catch(err => console.error('Failed to fetch intraday', err))
         .finally(() => setLoadingIntraday(false));
     }
-  }, [item, chartPeriod]);
+  }, [item, chartPeriod, intradayData]);
 
   if (!item) return null;
 

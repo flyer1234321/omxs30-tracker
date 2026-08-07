@@ -1,8 +1,44 @@
 import YahooFinance from 'yahoo-finance2';
+import {
+  calculateBollingerBands,
+  calculateMACD,
+  calculateRSI,
+  calculateSMA,
+  calculateVolatility,
+  type PricePoint,
+} from '@/lib/indicators';
+import { parseTickerList } from '@/lib/ticker-validation';
+
 const yahooFinance = new YahooFinance({ 
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
   validation: { logErrors: false }
 });
+
+interface ChartQuote extends PricePoint {
+  date: Date | string;
+}
+
+interface ChartResponse {
+  quotes?: ChartQuote[];
+}
+
+interface YahooQuote {
+  symbol: string;
+  regularMarketPrice?: number;
+  longName?: string;
+  shortName?: string;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
+  trailingPE?: number;
+  dividendYield?: number;
+  marketCap?: number;
+  regularMarketChangePercent?: number;
+  earningsTimestamp?: number;
+  priceToBook?: number;
+  bookValue?: number;
+  fiftyDayAverage?: number;
+  twoHundredDayAverage?: number;
+}
 
 const MARKETS: Record<string, string[]> = {
   omxs30: [
@@ -29,133 +65,27 @@ const MARKETS: Record<string, string[]> = {
   ]
 };
 
-// In-memory cache keyed by request string
-let cache: Record<string, { data: any, lastUpdated: number }> = {};
+// In-memory cache keyed by normalized request string.
+let cache: Record<string, { data: unknown, lastUpdated: number }> = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-function calculateSMA(history: any[], period: number) {
-  if (history.length < period) return null;
-  const recent = history.slice(-period);
-  const sum = recent.reduce((acc, curr) => acc + curr.close, 0);
-  return sum / period;
-}
-
-function calculateRSI(history: any[], period = 14) {
-  if (history.length < period + 1) return null;
-  let gains = 0;
-  let losses = 0;
-
-  for (let i = 1; i <= period; i++) {
-    const diff = history[i].close - history[i - 1].close;
-    if (diff >= 0) gains += diff;
-    else losses -= diff;
-  }
-
-  let avgGain = gains / period;
-  let avgLoss = losses / period;
-
-  for (let i = period + 1; i < history.length; i++) {
-    const diff = history[i].close - history[i - 1].close;
-    if (diff >= 0) {
-      avgGain = (avgGain * (period - 1) + diff) / period;
-      avgLoss = (avgLoss * (period - 1)) / period;
-    } else {
-      avgGain = (avgGain * (period - 1)) / period;
-      avgLoss = (avgLoss * (period - 1) - diff) / period;
-    }
-  }
-
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return 100 - (100 / (1 + rs));
-}
-
-function calculateBollingerBands(history: any[], period = 20, stdDev = 2) {
-  if (history.length < period) return null;
-  const recent = history.slice(-period);
-  const middle = recent.reduce((acc, curr) => acc + curr.close, 0) / period;
-  
-  const variance = recent.reduce((acc, curr) => acc + Math.pow(curr.close - middle, 2), 0) / period;
-  const std = Math.sqrt(variance);
-  
-  return {
-    upper: middle + stdDev * std,
-    middle: middle,
-    lower: middle - stdDev * std
-  };
-}
-
-function calculateMACD(history: any[]) {
-  if (history.length < 26) return null;
-  
-  const ema = (data: number[], period: number) => {
-    let result = [];
-    let k = 2 / (period + 1);
-    let initialSma = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
-    result.push(initialSma);
-    for (let i = period; i < data.length; i++) {
-      result.push(data[i] * k + result[result.length - 1] * (1 - k));
-    }
-    return result;
-  };
-  
-  const closes = history.map(h => h.close);
-  const ema12 = ema(closes, 12);
-  const ema26 = ema(closes, 26);
-  
-  const macdLine = [];
-  for (let i = 0; i < ema26.length; i++) {
-    const idx12 = ema12.length - ema26.length + i;
-    macdLine.push(ema12[idx12] - ema26[i]);
-  }
-  
-  if (macdLine.length < 9) return null;
-  const signalLine = ema(macdLine, 9);
-  
-  const histogram = [];
-  for(let i=0; i<signalLine.length; i++) {
-    const idxMacd = macdLine.length - signalLine.length + i;
-    histogram.push(macdLine[idxMacd] - signalLine[i]);
-  }
-  
-  const currentMacd = macdLine[macdLine.length - 1];
-  const currentSignal = signalLine[signalLine.length - 1];
-  const currentHistogram = histogram[histogram.length - 1];
-  
-  let trend: 'up' | 'down' | 'neutral' = 'neutral';
-  if (histogram.length >= 3) {
-    const h = histogram;
-    const len = h.length;
-    if (currentHistogram > 0 && h[len-1] > h[len-2] && h[len-2] > h[len-3]) {
-      trend = 'up';
-    } else if (currentHistogram < 0 && h[len-1] < h[len-2] && h[len-2] < h[len-3]) {
-      trend = 'down';
-    }
-  }
-
-  return { macd: currentMacd, signal: currentSignal, histogram: currentHistogram, trend };
-}
-
-function calculateVolatility(history: any[], period = 20) {
-  if (history.length < period + 1) return null;
-  const recent = history.slice(-(period + 1));
-  const returns = [];
-  for (let i = 1; i < recent.length; i++) {
-    returns.push(Math.log(recent[i].close / recent[i - 1].close));
-  }
-  
-  const mean = returns.reduce((sum, val) => sum + val, 0) / returns.length;
-  const variance = returns.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / returns.length;
-  const std = Math.sqrt(variance);
-  
-  return std * Math.sqrt(252) * 100; // Annualized percentage
-}
-
-function generateHealthCheck(item: any) {
+function generateHealthCheck(item: {
+  currentPrice: number;
+  sma125: number | null;
+  rsi: number | null;
+  fiftyTwoWeekLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  trailingPE: number | null;
+  dividendYield: number | null;
+  bollingerBands: ReturnType<typeof calculateBollingerBands>;
+  macdData: ReturnType<typeof calculateMACD>;
+  volatility: number | null;
+  companyName: string;
+}) {
   let gradeScore = 0;
   const checklist = [];
   
-  const { currentPrice, sma125, rsi, fiftyTwoWeekLow, fiftyTwoWeekHigh, trailingPE, dividendYield, regularMarketChangePercent, bollingerBands, macdData, volatility, companyName, latestVolume, avgVolume20 } = item;
+  const { currentPrice, sma125, rsi, fiftyTwoWeekLow, fiftyTwoWeekHigh, trailingPE, dividendYield, bollingerBands, macdData, volatility, companyName } = item;
   
   const pePassed = trailingPE !== null && trailingPE > 0;
   checklist.push({ label: 'Tjänar företaget pengar?', passed: pePassed, detail: pePassed ? `P/E: ${trailingPE.toFixed(1)}` : 'Negativt/Saknas' });
@@ -218,13 +148,6 @@ function generateHealthCheck(item: any) {
   
   const momentum = macdData ? (macdData.trend === 'up' ? 'Uppåt' : (macdData.trend === 'down' ? 'Nedåt' : 'Sidledes')) : 'Sidledes';
   
-  const observations = [];
-  if (nearLowerBB) observations.push('Kursen är vid sin statistiska botten');
-  if (macdData && macdData.trend === 'up') observations.push('Momentum håller på att vända uppåt');
-  if (latestVolume && avgVolume20 && latestVolume > 1.5 * avgVolume20) observations.push('Handelsvolymen är ovanligt hög');
-  if (rsi !== null && rsi < 30) observations.push('Aktien är tekniskt översåld');
-  if (nearLowPassed) observations.push('Kursen närmar sig årslägsta');
-  
   const diffPct = sma125 ? Math.abs(((currentPrice - sma125) / sma125) * 100).toFixed(1) : '0.0';
   const priceAction = sma125 ? (currentPrice < sma125 ? `handlas ${diffPct}% under` : `handlas ${diffPct}% över`) + ' sitt 6-månaderssnitt' : 'handlas nära sitt snitt';
   const rsiText = (rsi !== null && rsi < 30) ? ` och RSI ligger på ${rsi.toFixed(0)} (översåld)` : '';
@@ -249,13 +172,23 @@ export async function GET(request: Request) {
   const customTickers = url.searchParams.get('tickers');
 
   let tickersToFetch: string[] = [];
+  let cacheKey = `market_${market}`;
   if (customTickers) {
-    tickersToFetch = customTickers.split(',').map(t => t.trim().toUpperCase());
+    const parsed = parseTickerList(customTickers);
+    if (parsed.invalid.length > 0) {
+      return Response.json({ error: `Invalid ticker symbol: ${parsed.invalid[0]}` }, { status: 400 });
+    }
+    if (parsed.tooMany) {
+      return Response.json({ error: 'Too many tickers. Maximum is 30.' }, { status: 400 });
+    }
+    if (parsed.tickers.length === 0) {
+      return Response.json({ error: 'At least one ticker is required' }, { status: 400 });
+    }
+    tickersToFetch = parsed.tickers;
+    cacheKey = `custom_${tickersToFetch.join(',')}`;
   } else {
     tickersToFetch = MARKETS[market] || MARKETS['omxs30'];
   }
-
-  const cacheKey = customTickers ? `custom_${customTickers}` : `market_${market}`;
 
   if (cache[cacheKey] && Date.now() - cache[cacheKey].lastUpdated < CACHE_TTL) {
     return Response.json({ data: cache[cacheKey].data, cached: true, timestamp: cache[cacheKey].lastUpdated });
@@ -266,22 +199,23 @@ export async function GET(request: Request) {
     period1.setMonth(period1.getMonth() - 18); // 18 months back to ensure enough data for 125-day SMA on the 1Y chart
 
     const results = [];
-    const quotes = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false });
-    const quotesMap = new Map();
-    quotes.forEach(q => quotesMap.set(q.symbol, q));
+    const quotesResponse = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false }) as YahooQuote[] | YahooQuote;
+    const quotes = Array.isArray(quotesResponse) ? quotesResponse : [quotesResponse];
+    const quotesMap = new Map<string, YahooQuote>();
+    quotes.forEach((q) => quotesMap.set(q.symbol, q));
 
     for (const ticker of tickersToFetch) {
       try {
         const chartData = await yahooFinance.chart(ticker, {
           period1,
           interval: '1d',
-        }, { validateResult: false });
+        }, { validateResult: false }) as ChartResponse;
 
         const quote = quotesMap.get(ticker);
         const currentPrice = quote?.regularMarketPrice;
         const companyName = quote?.longName || quote?.shortName || ticker;
 
-        const history = chartData.quotes.filter((q: any) => q.close !== null);
+        const history = (chartData.quotes || []).filter((q): q is ChartQuote => q.close != null);
 
         if (!history || history.length === 0 || !currentPrice) {
           continue;
