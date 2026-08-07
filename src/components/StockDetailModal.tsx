@@ -21,6 +21,7 @@ import { formatNumber, formatPercent, formatPrice, formatSignedPercent } from '@
 import { MAX_GRADE_SCORE } from '@/lib/stock-health';
 import { positionSizeForRisk } from '@/lib/trade-plan';
 import { daysUntilEarnings } from '@/lib/stock-signals';
+import { EarningsHistory } from '@/components/EarningsHistory';
 
 export type { StockData } from '@/types/stock';
 
@@ -338,6 +339,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               )) : <Text style={s.bullBearEmpty}>Inga tydliga svagheter just nu</Text>}
             </View>
           </View>
+
+          <EarningsHistory item={item} />
 
           {/* Trend Analysis */}
           {renderTrendAnalysis()}

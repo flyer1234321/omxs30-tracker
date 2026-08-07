@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, SafeAreaView, ScrollView, StyleSheet, Text, V
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { authenticatedFetch } from '@/lib/auth-client';
 import { colors as palette } from '@/theme';
+import { EarningsStudyPanel } from '@/components/EarningsStudyPanel';
 
 interface AdminStatus {
   configured: Record<string, boolean>;
@@ -153,6 +154,9 @@ export function AdminPanel({ visible, onClose }: AdminPanelProps) {
               <Text style={styles.sectionNote}>
                 Sjudagarsspärren gäller även här: bolag som redan gett en signal den här veckan skickas inte igen.
               </Text>
+
+              <Text style={styles.sectionTitle}>Kursen efter rapport</Text>
+              <EarningsStudyPanel />
             </>
           ) : null}
 
