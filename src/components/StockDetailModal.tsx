@@ -314,13 +314,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     if (!isIntraday && showSma50) allValues.push(...filteredHistory.map(d => d.sma50).filter((v): v is number => v != null));
     if (!isIntraday && showSma200) allValues.push(...filteredHistory.map(d => d.sma200).filter((v): v is number => v != null));
     
-    const minPrice = Math.min(...allValues);
-    const maxPrice = Math.max(...allValues);
-    const padding = (maxPrice - minPrice) * 0.1 || 1;
-    const yMin = Math.floor(minPrice - padding);
-    const yMax = Math.ceil(maxPrice + padding);
+    let yMin = 0;
+    let yMax = 1;
+    let stepValue = 1;
     const noOfSections = 4;
-    const stepValue = (yMax - yMin) / noOfSections;
+    
+    if (allValues.length > 0) {
+      yMin = Math.min(...allValues) * 0.95;
+      yMax = Math.max(...allValues) * 1.05;
+      stepValue = Math.max((yMax - yMin) / noOfSections, 0.001);
+    }
 
     return (
       <View style={[s.chartSection, { height: 320 }]}>
@@ -386,6 +389,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             endFillColor="rgba(0,122,255,0.02)"
             startOpacity={0.4}
             endOpacity={0}
+            isAnimated={false}
           />
         </View>
       </View>
