@@ -8,6 +8,7 @@ import {
   buildPosition,
   detectHoldingMismatch,
   portfolioWeight,
+  approximateSekValue,
   type Holding,
   type PortfolioSummary,
 } from '@/lib/holdings';
@@ -118,17 +119,22 @@ export function HoldingEditor({ item, holding, portfolio, onSave, onRemove }: Ho
       {position && (
         <>
           <View style={styles.figures}>
-            <Figure label={t('Värde', 'Value')} value={price(position.marketValue, 0)} />
+            <Figure
+              label={t('Värde', 'Value')}
+              value={price(position.marketValue, 0)}
+              note={item.currency && item.currency.toUpperCase() !== 'SEK' ? formatPrice(approximateSekValue(position.marketValue, item.currency), 'SEK', 0) : undefined}
+            />
             <Figure
               label={t('Orealiserat', 'Unrealised')}
               value={`${position.unrealisedAmount >= 0 ? '+' : ''}${price(position.unrealisedAmount, 0)}`}
               tone={position.unrealisedAmount >= 0 ? 'positive' : 'negative'}
-              note={formatSignedPercent(position.unrealisedPercent)}
+              note={`${item.currency && item.currency.toUpperCase() !== 'SEK' ? (position.unrealisedAmount >= 0 ? '+' : '') + formatPrice(approximateSekValue(position.unrealisedAmount, item.currency), 'SEK', 0) + '\n' : ''}${formatSignedPercent(position.unrealisedPercent)}`}
             />
             <Figure
               label={t('I dag', 'Today')}
               value={position.dayChangeAmount == null ? '-' : `${position.dayChangeAmount >= 0 ? '+' : ''}${price(position.dayChangeAmount, 0)}`}
               tone={(position.dayChangeAmount ?? 0) >= 0 ? 'positive' : 'negative'}
+              note={item.currency && item.currency.toUpperCase() !== 'SEK' && position.dayChangeAmount != null ? `${position.dayChangeAmount >= 0 ? '+' : ''}${formatPrice(approximateSekValue(position.dayChangeAmount, item.currency), 'SEK', 0)}` : undefined}
             />
           </View>
 
