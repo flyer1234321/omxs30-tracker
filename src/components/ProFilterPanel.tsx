@@ -227,13 +227,12 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, quickFilt
             {FILTERS.map((f) => (
               <HintedTouchable
                 key={f.id}
-                style={[st.presetCard, quickFilter === f.id && st.presetCardActive]}
+                style={[st.quickChip, quickFilter === f.id && st.quickChipActive]}
                 onPress={() => onQuickFilterChange(f.id)}
                 accessibilityLabel={`${t('Snabbfilter', 'Quick filter')}: ${t(f.sv, f.en)}`}
                 hint={t(f.hintSv, f.hintEn)}
               >
-                <Text style={[st.presetName, quickFilter === f.id && st.presetNameActive]}>{t(f.sv, f.en)}</Text>
-                <Text style={st.presetDesc}>{t(f.hintSv, f.hintEn)}</Text>
+                <Text style={[st.quickChipText, quickFilter === f.id && st.quickChipTextActive]}>{t(f.sv, f.en)}</Text>
               </HintedTouchable>
             ))}
           </ScrollView>
@@ -397,6 +396,16 @@ const st = StyleSheet.create({
     letterSpacing: 1.2, marginBottom: 4, marginTop: 12,
   },
   sectionHelp: { color: C.textSecondary, fontSize: 11, lineHeight: 16, marginBottom: 8, maxWidth: 760 },
+
+  quickChip: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: C.surface, borderRadius: 16,
+    borderWidth: 1, borderColor: C.border,
+    marginRight: 8,
+  },
+  quickChipActive: { borderColor: C.accent, backgroundColor: C.accentBg },
+  quickChipText: { color: C.textSecondary, fontSize: 13, fontWeight: '500' },
+  quickChipTextActive: { color: C.accent, fontWeight: '600' },
 
   presetScroll: { marginBottom: 8, marginHorizontal: -4 },
   presetCard: {
