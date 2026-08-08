@@ -36,7 +36,7 @@ export function HoldingsOverview({ portfolio }: HoldingsOverviewProps) {
           <Text style={styles.cardValue}>{formatPrice(portfolio.marketValue, portfolio.currency, 0)}</Text>
           {portfolio.mixedCurrencies && (
             <Text style={styles.cardWarning}>
-              {t('Blandade valutor (summa i SEK + USD etc)', 'Mixed currencies (sum in SEK + USD etc)')}
+              {t('Visas i SEK (omräknat med schablonkurser)', 'Shown in SEK (converted with standard rates)')}
             </Text>
           )}
         </View>

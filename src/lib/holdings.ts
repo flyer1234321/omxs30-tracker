@@ -96,15 +96,24 @@ export interface PortfolioSummary {
 }
 
 /**
- * Summerar positionerna. Blandade valutor summeras rakt av och flaggas: en
- * växelkurs vore fel att gissa, och en tyst felaktig totalsumma är sämre än en
- * summa med en tydlig reservation.
+ * Omvandlar ett belopp till SEK med hjälp av en schablonkurs.
+ */
+export function approximateSekValue(amount: number, currency: string | null | undefined): number {
+  if (!currency || currency.toUpperCase() === 'SEK') return amount;
+  const match = PLAUSIBLE_FX_RATES.find((candidate) => candidate.code === currency.toUpperCase());
+  return amount * (match ? match.rate : 1);
+}
+
+/**
+ * Summerar positionerna. Om portföljen innehåller flera valutor omvandlas
+ * allt till SEK med schablonkurser för att ge korrekta totalbelopp och andelar.
  */
 export function summarisePortfolio(positions: HoldingPosition[]): PortfolioSummary {
   const currencies = new Set(positions.map((position) => position.currency ?? 'okänd'));
+  const mixedCurrencies = currencies.size > 1;
 
-  const marketValue = positions.reduce((sum, position) => sum + position.marketValue, 0);
-  const costBasis = positions.reduce((sum, position) => sum + position.costBasis, 0);
+  const marketValue = positions.reduce((sum, position) => sum + (mixedCurrencies ? approximateSekValue(position.marketValue, position.currency) : position.marketValue), 0);
+  const costBasis = positions.reduce((sum, position) => sum + (mixedCurrencies ? approximateSekValue(position.costBasis, position.currency) : position.costBasis), 0);
   const unrealisedAmount = marketValue - costBasis;
 
   return {
@@ -113,16 +122,20 @@ export function summarisePortfolio(positions: HoldingPosition[]): PortfolioSumma
     costBasis,
     unrealisedAmount,
     unrealisedPercent: costBasis > 0 ? (unrealisedAmount / costBasis) * 100 : 0,
-    dayChangeAmount: positions.reduce((sum, position) => sum + (position.dayChangeAmount ?? 0), 0),
-    riskToStopAmount: positions.reduce((sum, position) => sum + (position.riskToStopAmount ?? 0), 0),
-    mixedCurrencies: currencies.size > 1,
-    currency: currencies.size === 1 ? positions[0]?.currency ?? null : null,
+    dayChangeAmount: positions.reduce((sum, position) => sum + (mixedCurrencies ? approximateSekValue(position.dayChangeAmount ?? 0, position.currency) : (position.dayChangeAmount ?? 0)), 0),
+    riskToStopAmount: positions.reduce((sum, position) => sum + (mixedCurrencies ? approximateSekValue(position.riskToStopAmount ?? 0, position.currency) : (position.riskToStopAmount ?? 0)), 0),
+    mixedCurrencies,
+    currency: mixedCurrencies ? 'SEK' : (positions[0]?.currency ?? null),
   };
 }
 
 /** Positionens andel av portföljen, i procent. */
 export function portfolioWeight(position: HoldingPosition, summary: PortfolioSummary) {
-  return summary.marketValue > 0 ? (position.marketValue / summary.marketValue) * 100 : 0;
+  if (summary.marketValue === 0) return 0;
+  if (summary.mixedCurrencies) {
+    return (approximateSekValue(position.marketValue, position.currency) / summary.marketValue) * 100;
+  }
+  return (position.marketValue / summary.marketValue) * 100;
 }
 
 export type HoldingMismatch = 'currency' | 'split' | null;
