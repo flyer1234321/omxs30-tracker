@@ -241,3 +241,147 @@ export function calculateRelativeStrength(
   const benchmarkReturn = ((lastBenchmark - firstBenchmark) / firstBenchmark) * 100;
   return assetReturn - benchmarkReturn;
 }
+
+/**
+ * Rullande varianter av indikatorerna ovan.
+ *
+ * En punkt-i-tid-mätning behöver varje indikators värde för varje dag i
+ * historiken. Att anropa engångsfunktionerna på en växande delmängd hade
+ * kostat O(n²) per indikator; över tio år och trettio bolag blir det
+ * ohanterligt. Serierna nedan räknas i ett svep.
+ */
+
+export function calculateRsiSeries(history: PricePoint[], period = 14): (number | null)[] {
+  const result: (number | null)[] = new Array(history.length).fill(null);
+  if (history.length < period + 1) return result;
+
+  let gains = 0;
+  let losses = 0;
+  for (let index = 1; index <= period; index += 1) {
+    const diff = history[index].close - history[index - 1].close;
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  const rsiFrom = (gain: number, loss: number) => (loss === 0 ? 100 : 100 - 100 / (1 + gain / loss));
+  result[period] = rsiFrom(avgGain, avgLoss);
+
+  for (let index = period + 1; index < history.length; index += 1) {
+    const diff = history[index].close - history[index - 1].close;
+    if (diff >= 0) {
+      avgGain = (avgGain * (period - 1) + diff) / period;
+      avgLoss = (avgLoss * (period - 1)) / period;
+    } else {
+      avgGain = (avgGain * (period - 1)) / period;
+      avgLoss = (avgLoss * (period - 1) - diff) / period;
+    }
+    result[index] = rsiFrom(avgGain, avgLoss);
+  }
+
+  return result;
+}
+
+/** Nedre Bollingerbandet för varje dag. */
+export function calculateLowerBandSeries(history: PricePoint[], period = 20, stdDev = 2): (number | null)[] {
+  const result: (number | null)[] = new Array(history.length).fill(null);
+  let sum = 0;
+  let sumSquares = 0;
+
+  for (let index = 0; index < history.length; index += 1) {
+    const value = history[index].close;
+    sum += value;
+    sumSquares += value * value;
+
+    if (index >= period) {
+      const dropped = history[index - period].close;
+      sum -= dropped;
+      sumSquares -= dropped * dropped;
+    }
+
+    if (index >= period - 1) {
+      const mean = sum / period;
+      // Variansen ur summorna: E[x²] - E[x]². Klamras mot noll eftersom
+      // avrundningsfel annars kan ge ett minimalt negativt tal.
+      const variance = Math.max(sumSquares / period - mean * mean, 0);
+      result[index] = mean - stdDev * Math.sqrt(variance);
+    }
+  }
+
+  return result;
+}
+
+/** MACD-histogrammets riktning för varje dag, med samma regel som calculateMACD. */
+export function calculateMacdTrendSeries(history: PricePoint[]): ('up' | 'down' | 'neutral' | null)[] {
+  const result: ('up' | 'down' | 'neutral' | null)[] = new Array(history.length).fill(null);
+  if (history.length < 35) return result;
+
+  const emaSeries = (values: number[], period: number) => {
+    const output: (number | null)[] = new Array(values.length).fill(null);
+    const k = 2 / (period + 1);
+    let previous = values.slice(0, period).reduce((sum, value) => sum + value, 0) / period;
+    output[period - 1] = previous;
+    for (let index = period; index < values.length; index += 1) {
+      previous = values[index] * k + previous * (1 - k);
+      output[index] = previous;
+    }
+    return output;
+  };
+
+  const closes = history.map((point) => point.close);
+  const ema12 = emaSeries(closes, 12);
+  const ema26 = emaSeries(closes, 26);
+
+  const macdLine: (number | null)[] = closes.map((_, index) => (
+    ema12[index] != null && ema26[index] != null ? ema12[index]! - ema26[index]! : null
+  ));
+
+  const defined = macdLine.map((value, index) => ({ value, index })).filter((entry) => entry.value != null);
+  if (defined.length < 9) return result;
+
+  const signal = emaSeries(defined.map((entry) => entry.value!), 9);
+  const histogram: (number | null)[] = new Array(history.length).fill(null);
+  defined.forEach((entry, position) => {
+    if (signal[position] != null) histogram[entry.index] = entry.value! - signal[position]!;
+  });
+
+  for (let index = 2; index < history.length; index += 1) {
+    const current = histogram[index];
+    const previous = histogram[index - 1];
+    const before = histogram[index - 2];
+    if (current == null || previous == null || before == null) continue;
+
+    result[index] = current > 0 && current > previous && previous > before
+      ? 'up'
+      : current < 0 && current < previous && previous < before
+        ? 'down'
+        : 'neutral';
+  }
+
+  return result;
+}
+
+/** Högsta respektive lägsta stängning inom ett bakåtblickande fönster. */
+export function rollingExtremes(history: PricePoint[], period = 252) {
+  const highs: (number | null)[] = new Array(history.length).fill(null);
+  const lows: (number | null)[] = new Array(history.length).fill(null);
+
+  for (let index = 0; index < history.length; index += 1) {
+    const start = Math.max(0, index - period + 1);
+    let high = -Infinity;
+    let low = Infinity;
+    for (let cursor = start; cursor <= index; cursor += 1) {
+      const value = history[cursor].close;
+      if (value > high) high = value;
+      if (value < low) low = value;
+    }
+    // Kräver ett halvår för att vara meningsfullt som års-extrem.
+    if (index >= 125) {
+      highs[index] = high;
+      lows[index] = low;
+    }
+  }
+
+  return { highs, lows };
+}

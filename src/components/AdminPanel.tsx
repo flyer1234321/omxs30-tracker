@@ -5,6 +5,7 @@ import { authenticatedFetch } from '@/lib/auth-client';
 import { colors as palette } from '@/theme';
 import { EarningsStudyPanel } from '@/components/EarningsStudyPanel';
 import { UserAdmin } from '@/components/UserAdmin';
+import { RekylBacktestPanel } from '@/components/RekylBacktestPanel';
 
 interface AdminStatus {
   configured: Record<string, boolean>;
@@ -149,6 +150,9 @@ export function AdminPanel({ visible, onClose, currentEmail }: AdminPanelProps) 
               <Text style={styles.sectionNote}>
                 Sjudagarsspärren gäller även här: bolag som redan gett en signal den här veckan skickas inte igen.
               </Text>
+
+              <Text style={styles.sectionTitle}>Fungerar rekylläget?</Text>
+              <RekylBacktestPanel />
 
               <Text style={styles.sectionTitle}>Kursen efter rapport</Text>
               <EarningsStudyPanel />
