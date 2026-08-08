@@ -75,8 +75,6 @@ export const PRESET_STRATEGIES: PresetStrategy[] = [
 interface ProFilterPanelProps {
   activeFilter: ProFilter;
   onFilterChange: (filter: ProFilter) => void;
-  quickFilter: string;
-  onQuickFilterChange: (filter: string) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onShowResults: () => void;
@@ -84,13 +82,7 @@ interface ProFilterPanelProps {
   matchCount: number;
 }
 
-const FILTERS = [
-  { id: 'all', sv: 'Alla', en: 'All', hintSv: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.', hintEn: 'Clears the quick filter and shows the full selected market universe.' },
-  { id: 'gradeA', sv: 'Rekyl A', en: 'Pullback A', hintSv: 'Visar endast aktier med det tydligaste rekylläget. Det betyder att kursen fallit mycket, inte att bolaget är bäst.', hintEn: 'Shows shares with the strongest pullback setup. It means the price has fallen substantially, not that the company is best.' },
-  { id: 'gradeAB', sv: 'A + B', en: 'A + B', hintSv: 'Visar aktier med rekylläge A eller B.', hintEn: 'Shows shares with a pullback grade of A or B.' },
-  { id: 'underSMA', sv: 'Under SMA', en: 'Below SMA', hintSv: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.', hintEn: 'Shows shares trading below SMA 125, roughly a six-month average.' },
-  { id: 'oversold', sv: 'RSI < 30', en: 'RSI < 30', hintSv: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.', hintEn: 'Shows shares with RSI below 30, which may indicate an oversold condition.' },
-];
+
 
 const FILTER_HELP = [
   ['RSI min/max', 'RSI (14 dagar) mäter styrkan i de senaste kursrörelserna på skalan 0-100. Lågt RSI kan indikera översålt, högt RSI starkt momentum. Min och max kan kombineras till ett intervall.', 'RSI min/max', 'RSI over 14 sessions measures recent momentum on a 0-100 scale. Low RSI can indicate oversold conditions, while high RSI shows strong momentum.'],
@@ -151,7 +143,7 @@ function ToggleChip({ label, hint, active, onToggle }: {
   );
 }
 
-export default function ProFilterPanel({ activeFilter, onFilterChange, quickFilter, onQuickFilterChange, isExpanded, onToggleExpand, onShowResults, candidateCount, matchCount }: ProFilterPanelProps) {
+export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand, onShowResults, candidateCount, matchCount }: ProFilterPanelProps) {
   const { height: viewportHeight } = useWindowDimensions();
   // Knappt halva fönstret, så att tabellen alltid syns under panelen.
   const panelMaxHeight = Math.max(220, viewportHeight * 0.45);
@@ -221,26 +213,23 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, quickFilt
           showsVerticalScrollIndicator
           nestedScrollEnabled
         >
-          <Text style={st.sectionTitle}>{t('SNABBFILTER', 'QUICK FILTERS')}</Text>
-          <Text style={st.sectionHelp}>{t('Färdiga filter som döljer bolag från det ordinarie urvalet.', 'Preset filters that hide companies from the standard selection.')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.presetScroll}>
-            {FILTERS.map((f) => (
-              <HintedTouchable
-                key={f.id}
-                style={[st.quickChip, quickFilter === f.id && st.quickChipActive]}
-                onPress={() => onQuickFilterChange(f.id)}
-                accessibilityLabel={`${t('Snabbfilter', 'Quick filter')}: ${t(f.sv, f.en)}`}
-                hint={t(f.hintSv, f.hintEn)}
-              >
-                <Text style={[st.quickChipText, quickFilter === f.id && st.quickChipTextActive]}>{t(f.sv, f.en)}</Text>
-              </HintedTouchable>
-            ))}
-          </ScrollView>
-
           {/* Preset strategies */}
           <Text style={st.sectionTitle}>{t('STRATEGIER', 'STRATEGIES')}</Text>
           <Text style={st.sectionHelp}>{t('Färdiga sökningar som kombinerar flera villkor. De sorterar fram kandidater men är inte köpråd.', 'Preset searches that combine several conditions. They surface candidates but are not buy recommendations.')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.presetScroll}>
+            <HintedTouchable
+              style={[st.presetCard, Object.keys(activeFilter).length === 0 && st.presetCardActive]}
+              onPress={() => {
+                setActivePreset(null);
+                onFilterChange({});
+              }}
+              accessibilityLabel={t('Återställ alla filter', 'Reset all filters')}
+              hint={t('Rensar alla filter och visar hela det valda marknadsurvalet.', 'Clears all filters and shows the full selected market universe.')}
+            >
+              <Text style={[st.presetName, Object.keys(activeFilter).length === 0 && st.presetNameActive]}>{t('Återställ', 'Reset')}</Text>
+              <Text style={st.presetDesc}>{t('Visar alla bolag', 'Show all companies')}</Text>
+            </HintedTouchable>
+
             {PRESET_STRATEGIES.map(p => (
               <HintedTouchable
                 key={p.id}
@@ -396,16 +385,6 @@ const st = StyleSheet.create({
     letterSpacing: 1.2, marginBottom: 4, marginTop: 12,
   },
   sectionHelp: { color: C.textSecondary, fontSize: 11, lineHeight: 16, marginBottom: 8, maxWidth: 760 },
-
-  quickChip: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: C.surface, borderRadius: 16,
-    borderWidth: 1, borderColor: C.border,
-    marginRight: 8,
-  },
-  quickChipActive: { borderColor: C.accent, backgroundColor: C.accentBg },
-  quickChipText: { color: C.textSecondary, fontSize: 13, fontWeight: '500' },
-  quickChipTextActive: { color: C.accent, fontWeight: '600' },
 
   presetScroll: { marginBottom: 8, marginHorizontal: -4 },
   presetCard: {

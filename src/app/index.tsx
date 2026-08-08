@@ -56,7 +56,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [favoriteSyncError, setFavoriteSyncError] = useState<string | null>(null);
   const [market, setMarket] = useState<MarketId>('omxs30');
-  const [filter, setFilter] = useState<string>('all');
+
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -344,19 +344,7 @@ export default function HomeScreen() {
     fetchData(market, watchlistRef.current, holdingsRef.current.map(h => h.ticker));
   }, [market, fetchData]);
 
-  // ─── FILTERING (useMemo for performance) ───
-  const quickFilteredData = useMemo(() => {
-    let f = data;
-
-    // Basic quick-filter
-    if (filter === 'gradeA') f = f.filter(d => d.healthCheck?.grade === 'A');
-    else if (filter === 'gradeAB') f = f.filter(d => d.healthCheck && ['A','B'].includes(d.healthCheck.grade));
-    else if (filter === 'underSMA') f = f.filter(d => d.sma125 && d.currentPrice < d.sma125);
-    else if (filter === 'oversold') f = f.filter(d => d.rsi != null && d.rsi < 30);
-
-    return f;
-  }, [data, filter]);
-  const filteredData = useMemo(() => applyProFilter(quickFilteredData, proFilter), [quickFilteredData, proFilter]);
+  const filteredData = useMemo(() => applyProFilter(data, proFilter), [data, proFilter]);
 
   const gradeACount = useMemo(() => data.filter(d => d.healthCheck?.grade === 'A').length, [data]);
   const activeWorkspace = useMemo(
@@ -442,12 +430,10 @@ export default function HomeScreen() {
       <ProFilterPanel
         activeFilter={proFilter}
         onFilterChange={setProFilter}
-        quickFilter={filter}
-        onQuickFilterChange={setFilter}
         isExpanded={proFilterExpanded}
         onToggleExpand={() => setProFilterExpanded(!proFilterExpanded)}
         onShowResults={() => setProFilterExpanded(false)}
-        candidateCount={quickFilteredData.length}
+        candidateCount={data.length}
         matchCount={filteredData.length}
       />
 
