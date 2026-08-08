@@ -1,5 +1,6 @@
 import type { AnalystReport } from '@/lib/analyst-engine';
 import { getBearPoints, getBullPoints, getTrendInsight } from '@/lib/stock-insights';
+import { interpretHealth } from '@/lib/health-interpretation';
 import type { StockData } from '@/types/stock';
 
 function escapeHtml(value: string | number) {
@@ -86,6 +87,7 @@ export function buildPrintReportHtml(stock: StockData, report: AnalystReport | n
   const bullPoints = getBullPoints(stock);
   const bearPoints = getBearPoints(stock);
   const trend = getTrendInsight(stock);
+  const interpretation = interpretHealth(stock);
   const generatedAt = new Date().toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' });
 
   return `<!doctype html>
@@ -107,7 +109,7 @@ ${stock.signals?.length ? `<section class="page-break-avoid"><h2>Aktiva signaler
 ${trend ? `<section class="page-break-avoid"><h2>Trendbedömning</h2><div class="panel panel-${trend.color}"><h3>${escapeHtml(trend.title)}</h3><p>${escapeHtml(trend.text)}</p></div></section>` : ''}
 <section class="page-break-avoid"><h2>Styrkor och svagheter</h2><div class="two-col"><div class="panel panel-positive"><h3>Styrkor</h3>${bullPoints.length ? list(bullPoints) : '<p class="muted">Inga tydliga styrkor just nu.</p>'}</div><div class="panel panel-negative"><h3>Svagheter</h3>${bearPoints.length ? list(bearPoints) : '<p class="muted">Inga tydliga svagheter just nu.</p>'}</div></div></section>
 ${report ? `<section class="long-section"><h2>Analyst AI</h2><div class="panel"><h3>${escapeHtml(report.verdict)} · ${escapeHtml(report.confidence)} konfidens · ${report.score}/100</h3><p>${escapeHtml(report.thesis)}</p><div class="two-col"><div><h3>Styrkor</h3>${list(report.strengths)}</div><div><h3>Risker</h3>${list(report.risks)}</div></div><h3 style="margin-top:14px">Katalysatorer</h3>${list(report.catalysts)}<h3 style="margin-top:14px">När tesen försvagas</h3><p>${escapeHtml(report.invalidation)}</p></div></section>` : ''}
-${health ? `<section class="long-section"><h2>Hälsokoll</h2><div class="panel"><p><strong>${escapeHtml(health.summary)}</strong></p><p class="muted">Risk: ${escapeHtml(health.riskLevel)} · Momentum: ${escapeHtml(health.momentum)}</p>${list(health.checklist.map((item) => `${item.passed ? 'Uppfyllt' : 'Ej uppfyllt'}: ${item.label} (${item.detail})`))}</div></section>` : ''}
+${health ? `<section class="long-section"><h2>Hälsokoll</h2><div class="panel"><p><strong>${escapeHtml(health.summary)}</strong></p><p class="muted">Risk: ${escapeHtml(health.riskLevel)} · Momentum: ${escapeHtml(health.momentum)}</p>${list(health.checklist.concat(health.bonuses).map((item) => `${item.passed ? 'Uppfyllt' : 'Ej uppfyllt'}: ${item.label} (${item.detail})`))}${interpretation ? `<p>${escapeHtml(interpretation.scoreExplanation)}</p><h3 style="margin-top:12px">Om du äger aktien</h3><p>${escapeHtml(interpretation.ifYouOwn)}</p><h3 style="margin-top:12px">Om du överväger att köpa</h3><p>${escapeHtml(interpretation.ifYouConsiderBuying)}</p>` : ''}</div></section>` : ''}
 <footer class="footer">OMX30 Screener · Uppgifterna är beslutsstöd och inte personlig investeringsrådgivning. Marknadsdata kan vara fördröjd eller ofullständig.</footer>
 </body></html>`;
 }

@@ -23,6 +23,12 @@ export interface HealthCheck {
   riskLevel: 'Låg' | 'Medel' | 'Hög';
   momentum: 'Uppåt' | 'Nedåt' | 'Sidledes';
   checklist: ChecklistItem[];
+  /**
+   * De tre tekniska bonuspoängen. De räknades tidigare in i poängen utan att
+   * visas någonstans, vilket gjorde att 5 av 9 inte gick att härleda ur de sex
+   * kryssen i listan.
+   */
+  bonuses: ChecklistItem[];
 }
 
 export type SignalKind = 'goldenCross' | 'volumeSpike' | 'valueDiscount' | 'earningsSoon';

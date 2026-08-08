@@ -56,9 +56,33 @@ export function generateHealthCheck(item: HealthCheckInput): HealthCheck {
   checklist.push({ label: 'Under glidande medelvärde?', passed: smaPassed, detail: smaPassed ? `${smaDiff.toFixed(1)}% under` : 'Över SMA' });
   if (smaPassed) gradeScore += 1;
 
-  if (rsi !== null && rsi < 20) gradeScore += 1;
-  if (bollingerBands && currentPrice <= bollingerBands.lower * 1.01) gradeScore += 1;
-  if (macdData?.trend === 'up') gradeScore += 1;
+  // Bonusarna beskrivs på samma form som grundkriterierna, så att gränssnittet
+  // kan visa alla nio raderna och poängen går att räkna efter.
+  const bonuses: HealthCheck['bonuses'] = [];
+
+  const deeplyOversold = rsi !== null && rsi < 20;
+  bonuses.push({
+    label: 'Extremt översåld (RSI under 20)',
+    passed: deeplyOversold,
+    detail: rsi !== null ? `RSI: ${rsi.toFixed(1)}` : 'N/A',
+  });
+  if (deeplyOversold) gradeScore += 1;
+
+  const atLowerBand = Boolean(bollingerBands && currentPrice <= bollingerBands.lower * 1.01);
+  bonuses.push({
+    label: 'Vid nedre Bollingerbandet',
+    passed: atLowerBand,
+    detail: bollingerBands ? `Nedre band: ${bollingerBands.lower.toFixed(2)}` : 'N/A',
+  });
+  if (atLowerBand) gradeScore += 1;
+
+  const macdTurningUp = macdData?.trend === 'up';
+  bonuses.push({
+    label: 'Positiv momentumvändning (MACD)',
+    passed: macdTurningUp,
+    detail: macdData ? (macdData.trend === 'up' ? 'Stigande histogram' : macdData.trend === 'down' ? 'Fallande histogram' : 'Neutralt') : 'N/A',
+  });
+  if (macdTurningUp) gradeScore += 1;
 
   const passedItems = checklist.filter((check) => check.passed).length;
   const grade: HealthCheck['grade'] = ((gradeScore >= 7 || (passedItems >= 5 && rsi !== null && rsi < 30)) && pePassed && divPassed)
@@ -73,5 +97,5 @@ export function generateHealthCheck(item: HealthCheckInput): HealthCheck {
   let summary = `${companyName} ${priceAction}${rsiText}${divText}${lowText}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
   summary += grade === 'A' || grade === 'B' ? ' Övergripande visar aktien flera tecken på köpläge.' : grade === 'C' ? ' Övergripande är aktien i ett neutralt läge.' : ' Inga tydliga köpsignaler för tillfället.';
 
-  return { grade, gradeScore, summary, riskLevel, momentum, checklist };
+  return { grade, gradeScore, summary, riskLevel, momentum, checklist, bonuses };
 }

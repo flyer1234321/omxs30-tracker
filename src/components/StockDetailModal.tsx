@@ -19,9 +19,12 @@ import { openPrintReport } from '@/lib/print-report';
 import { getBearPoints, getBullPoints, getTrendInsight } from '@/lib/stock-insights';
 import { formatNumber, formatPercent, formatPrice, formatSignedPercent } from '@/lib/format';
 import { MAX_GRADE_SCORE } from '@/lib/stock-health';
+import { interpretHealth } from '@/lib/health-interpretation';
 import { positionSizeForRisk } from '@/lib/trade-plan';
 import { daysUntilEarnings } from '@/lib/stock-signals';
 import { EarningsHistory } from '@/components/EarningsHistory';
+import { InfoTip } from '@/components/Tooltip';
+import type { GlossaryKey } from '@/lib/glossary';
 
 export type { StockData } from '@/types/stock';
 
@@ -48,14 +51,14 @@ const gradeColors = gradeColorMap;
 const riskColors: Record<string, string> = { 'Låg': palette.positive, 'Medel': palette.warning, 'Hög': palette.negative };
 const momentumIcons: Record<string, string> = { 'Uppåt': '↗️', 'Nedåt': '↘️', 'Sidledes': '→' };
 
-interface DetailStatProps { label: string; value: string; hint: string; valueColor?: string; width: DimensionValue; }
+interface DetailStatProps { label: string; value: string; term: GlossaryKey; valueColor?: string; width: DimensionValue; }
 
-function DetailStat({ label, value, hint, valueColor, width }: DetailStatProps) {
+function DetailStat({ label, value, term, valueColor, width }: DetailStatProps) {
   return (
-    <HintedTouchable style={[s.statBox, { width }]} accessibilityLabel={`Förklaring: ${label}`} hint={hint}>
+    <InfoTip term={term} style={[s.statBox, { width }]} accessibilityLabel={`Förklaring: ${label}`}>
       <Text style={s.statLabel}>{label}</Text>
       <Text style={[s.statVal, valueColor ? { color: valueColor } : null]}>{value}</Text>
-    </HintedTouchable>
+    </InfoTip>
   );
 }
 
@@ -103,6 +106,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
   };
 
   const earningsDays = daysUntilEarnings(item.earningsTimestamp);
+  const interpretation = interpretHealth(item);
 
   const renderTradePlan = () => {
     const plan = item.tradePlan;
@@ -121,19 +125,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
         <View style={s.planRow}>
           <View style={s.planCell}>
-            <Text style={s.planLabel}>Stop loss</Text>
+            <InfoTip term="stopLoss"><Text style={s.planLabel}>Stop loss</Text></InfoTip>
             <Text style={[s.planValue, { color: colors.red }]}>{price(plan.stopLoss)}</Text>
             <Text style={[s.planDelta, { color: colors.red }]}>-{formatPercent(plan.riskPercent)}</Text>
             <Text style={s.planBasis}>{plan.stopBasis}</Text>
           </View>
           <View style={s.planCell}>
-            <Text style={s.planLabel}>Riktkurs</Text>
+            <InfoTip term="target"><Text style={s.planLabel}>Riktkurs</Text></InfoTip>
             <Text style={[s.planValue, { color: colors.green }]}>{price(plan.target)}</Text>
             <Text style={[s.planDelta, { color: colors.green }]}>+{formatPercent(plan.rewardPercent)}</Text>
             <Text style={s.planBasis}>{plan.targetBasis}</Text>
           </View>
           <View style={s.planCell}>
-            <Text style={s.planLabel}>Risk/vinst</Text>
+            <InfoTip term="rMultiple"><Text style={s.planLabel}>Risk/vinst</Text></InfoTip>
             <Text style={[s.planValue, { color: rColor }]}>{formatNumber(plan.rMultiple, 1)}R</Text>
             <Text style={s.planDelta}>{plan.rMultiple >= 1 ? 'Vinstpotential > risk' : 'Risk > vinstpotential'}</Text>
             <Text style={s.planBasis}>Avstånd till riktkurs delat med avstånd till stop</Text>
@@ -202,12 +206,36 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               </HintedTouchable>
             );
           })}
+          <Text style={[s.checklistTitle, { marginTop: 18 }]}>Tekniska bonuspoäng</Text>
+          {hc.bonuses.map((bonus, index) => (
+            <View key={`bonus-${index}`} style={s.checkRow}>
+              <Text style={s.checkIcon}>{bonus.passed ? '✅' : '❌'}</Text>
+              <Text style={[s.checkLabel, !bonus.passed && { color: '#666' }]}>{bonus.label}</Text>
+              <Text style={[s.checkDetail, bonus.passed ? { color: colors.green } : { color: '#666' }]}>{bonus.detail}</Text>
+            </View>
+          ))}
+
           <View style={s.checkResult}>
             <Text style={s.checkResultText}>
-              {hc.checklist.filter(c => c.passed).length}/{hc.checklist.length} grundkriterier uppfyllda
-              {' · '}{hc.gradeScore}/{MAX_GRADE_SCORE} poäng med tekniska bonusar → Betyg {hc.grade}
+              {hc.gradeScore}/{MAX_GRADE_SCORE} poäng → Betyg {hc.grade}
             </Text>
           </View>
+
+          {interpretation && (
+            <View style={s.interpretation}>
+              <Text style={s.interpretationScore}>{interpretation.scoreExplanation}</Text>
+
+              <View style={s.interpretationBlock}>
+                <Text style={s.interpretationLabel}>Om du äger aktien</Text>
+                <Text style={s.interpretationText}>{interpretation.ifYouOwn}</Text>
+              </View>
+
+              <View style={s.interpretationBlock}>
+                <Text style={s.interpretationLabel}>Om du överväger att köpa</Text>
+                <Text style={s.interpretationText}>{interpretation.ifYouConsiderBuying}</Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -279,40 +307,39 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
           {/* Market data mirrors the compact quote block in Apple Stocks. */}
           <View style={s.statsGrid}>
-            <DetailStat width={statWidth} label="Öppning" value={price(item.regularMarketOpen)} hint="Första betalkursen för dagens handel. Jämför den med gårdagens stängning för att se om aktien öppnade med ett gap." />
-            <DetailStat width={statWidth} label="Högsta" value={price(item.regularMarketDayHigh)} hint="Högsta kurs som handlats i dag. Visar var dagens motstånd hittills har funnits." />
-            <DetailStat width={statWidth} label="Lägsta" value={price(item.regularMarketDayLow)} hint="Lägsta kurs som handlats i dag. Visar var dagens stöd hittills har funnits." />
-            <DetailStat width={statWidth} label="Volym" value={formatVol(item.latestVolume)} hint="Antal omsatta aktier i den senaste handelsdagen. Högre volym gör ofta en kursrörelse mer trovärdig." />
-            <DetailStat width={statWidth} label="P/E" value={item.trailingPE?.toFixed(1) || '-'} hint="Pris/vinst-tal: hur mycket marknaden betalar för en krona av bolagets vinst. Jämför helst med bolagets historik och sektorn." />
-            <DetailStat width={statWidth} label="Börsvärde" value={formatMCap(item.marketCap)} hint="Bolagets totala marknadsvärde: aktiekurs multiplicerat med antal aktier. Det säger inget ensamt om värderingen." />
-            <DetailStat width={statWidth} label="52v Hög" value={price(item.fiftyTwoWeekHigh)} hint="Högsta priset under de senaste 52 veckorna. Ett återtest kan fungera som motstånd." />
-            <DetailStat width={statWidth} label="52v Låg" value={price(item.fiftyTwoWeekLow)} hint="Lägsta priset under de senaste 52 veckorna. Ett återtest kan fungera som stöd, men också signalera fortsatt svaghet." />
-            <DetailStat width={statWidth} label="Snittvolym" value={formatVol(item.avgVolume20)} hint="Genomsnittlig dagsvolym över 20 handelsdagar. Jämför med dagens volym för att bedöma om rörelsen är bekräftad." />
-            <DetailStat width={statWidth} label="Direktavk." value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} hint="Årlig utdelning som andel av aktuell aktiekurs. En mycket hög siffra kan bero på ett kraftigt kursfall eller osäker utdelning." />
-            <DetailStat width={statWidth} label="Beta" value={item.beta?.toFixed(2) || '-'} hint="Känslighet mot jämförelseindex. Beta 1 innebär ungefär samma rörelse; över 1 innebär normalt större svängningar." />
-            <DetailStat width={statWidth} label="VPA" value={price(item.epsTrailingTwelveMonths)} hint="Vinst per aktie de senaste tolv månaderna. Tillsammans med priset ligger den till grund för P/E-talet." />
-            <DetailStat width={statWidth} label="Volatilitet" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} hint="Årsomräknad volatilitet från de senaste 20 handelsdagarna. Högre värde betyder större typiska kurssvängningar och normalt högre risk." />
-            <DetailStat width={statWidth} label="Max drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} hint="Största historiska fall från en tidigare topp i den studerade perioden. Visar hur djup en nedgång har varit." valueColor={colors.red} />
-            <DetailStat width={statWidth} label="Risk/Reward" value={item.riskRewardScore?.toFixed(0) || '-'} hint="Intern sammanvägd skala 0-100 som väger trend, volatilitet, drawdown och kvalitet. Den är beslutsstöd, inte en prisprognos." valueColor={item.riskRewardScore != null && item.riskRewardScore >= 70 ? colors.green : undefined} />
+            <DetailStat width={statWidth} label="Öppning" term="open" value={price(item.regularMarketOpen)} />
+            <DetailStat width={statWidth} label="Högsta" term="dayHigh" value={price(item.regularMarketDayHigh)} />
+            <DetailStat width={statWidth} label="Lägsta" term="dayLow" value={price(item.regularMarketDayLow)} />
+            <DetailStat width={statWidth} label="Volym" term="volume" value={formatVol(item.latestVolume)} />
+            <DetailStat width={statWidth} label="P/E" term="pe" value={item.trailingPE?.toFixed(1) || '-'} />
+            <DetailStat width={statWidth} label="Börsvärde" term="marketCap" value={formatMCap(item.marketCap)} />
+            <DetailStat width={statWidth} label="52v Hög" term="fiftyTwoWeekHigh" value={price(item.fiftyTwoWeekHigh)} />
+            <DetailStat width={statWidth} label="52v Låg" term="fiftyTwoWeekLow" value={price(item.fiftyTwoWeekLow)} />
+            <DetailStat width={statWidth} label="Snittvolym" term="avgVolume" value={formatVol(item.avgVolume20)} />
+            <DetailStat width={statWidth} label="Direktavk." term="dividendYield" value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} />
+            <DetailStat width={statWidth} label="Beta" term="beta" value={item.beta?.toFixed(2) || '-'} />
+            <DetailStat width={statWidth} label="VPA" term="eps" value={price(item.epsTrailingTwelveMonths)} />
+            <DetailStat width={statWidth} label="Volatilitet" term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
+            <DetailStat width={statWidth} label="Max drawdown" term="drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} valueColor={colors.red} />
+            <DetailStat width={statWidth} label="Risk/Reward" term="riskReward" value={item.riskRewardScore?.toFixed(0) || '-'} valueColor={item.riskRewardScore != null && item.riskRewardScore >= 70 ? colors.green : undefined} />
             <DetailStat
               width={statWidth}
               label="Mot index 3m"
+              term="relativeStrength"
               value={formatSignedPercent(item.relativeStrength63)}
-              hint="Aktiens avkastning minus jämförelseindexets de senaste tre månaderna, i procentenheter. Positivt tal betyder att aktien gått bättre än index."
               valueColor={item.relativeStrength63 == null ? undefined : item.relativeStrength63 >= 0 ? colors.green : colors.red}
             />
             <DetailStat
               width={statWidth}
-              label="ATR (14)"
+              label="ATR (14)" term="atr"
               value={item.atr != null ? `${formatNumber(item.atr, 2)} (${formatNumber((item.atr / item.currentPrice) * 100, 1)}%)` : '-'}
-              hint="Average True Range: hur mycket kursen i snitt rör sig under en dag, inklusive gap. Används för att sätta stop loss på ett avstånd som passar aktiens egen rörlighet."
             />
-            <DetailStat width={statWidth} label="P/B" value={item.priceToBook != null ? formatNumber(item.priceToBook, 2) : '-'} hint="Pris i förhållande till bokfört eget kapital. Under 1 betyder att bolaget värderas lägre än sitt bokförda värde, vilket kan bero på antingen undervärdering eller verkliga problem." />
+            <DetailStat width={statWidth} label="P/B" term="priceToBook" value={item.priceToBook != null ? formatNumber(item.priceToBook, 2) : '-'} />
             <DetailStat
               width={statWidth}
               label="Rapport"
+              term="earnings"
               value={earningsDays == null ? '-' : earningsDays === 0 ? 'I dag' : earningsDays < 0 ? 'Nyligen' : `Om ${earningsDays} d`}
-              hint="Nästa rapportdatum enligt Yahoo. Kursen kring en rapport styrs av innehållet i den, inte av tekniska nivåer, så tekniska signaler väger lättare strax före."
               valueColor={earningsDays != null && earningsDays >= 0 && earningsDays <= 7 ? colors.yellow : undefined}
             />
           </View>
@@ -654,6 +681,11 @@ const s = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: 'center',
   },
+  interpretation: { marginTop: 18, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
+  interpretationScore: { color: '#EBEBF5', fontSize: 13, lineHeight: 19 },
+  interpretationBlock: { marginTop: 14, borderLeftWidth: 2, borderLeftColor: '#3b82f6', paddingLeft: 12 },
+  interpretationLabel: { color: '#93c5fd', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  interpretationText: { color: '#EBEBF5', fontSize: 13, lineHeight: 19 },
   checkResultText: {
     color: '#8E8E93',
     fontSize: 14,

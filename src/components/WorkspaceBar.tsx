@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { InfoTip } from '@/components/Tooltip';
+import { glossaryEntry, WORKSPACE_GLOSSARY_KEYS } from '@/lib/glossary';
 import { TABLE_COLUMNS } from '@/lib/workspaces';
 import type { TableColumnId, Workspace } from '@/types/stock';
 import { colors as palette } from '@/theme';
@@ -13,13 +15,6 @@ interface WorkspaceBarProps {
   onCreate: (name: string, columns: TableColumnId[]) => void;
   onDelete: (id: string) => void;
 }
-
-const WORKSPACE_HELP: Record<string, string> = {
-  overview: 'Balanserad grundvy med betyg, prisrörelse, RSI, volym, värdering och trend i samma tabell.',
-  momentum: 'Fokuserar på styrkan i den pågående rörelsen: dagsförändring, RSI, relativ volym, trend och volatilitet.',
-  risk: 'Fokuserar på nedsiderisk och svängningar: volatilitet, beta, största nedgång och intern risk/reward-poäng.',
-  value: 'Fokuserar på värdering och kvalitet: hälsobetyg, P/E, volym, SMA och intern risk/reward-poäng.',
-};
 
 export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete }: WorkspaceBarProps) {
   const [editing, setEditing] = useState(false);
@@ -56,14 +51,25 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
         <ScrollView horizontal style={styles.tabsScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {workspaces.map((workspace) => (
             <View key={workspace.id} style={[styles.tab, workspace.id === activeWorkspace.id && styles.tabActive]}>
-              <HintedTouchable
-                style={styles.tabSelect}
-                onPress={() => onSelect(workspace.id)}
-                accessibilityLabel={`Välj vyn ${workspace.name}`}
-                hint={WORKSPACE_HELP[workspace.id] ?? `En egen vy med de kolumner du har valt för ${workspace.name}.`}
-              >
-                <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
-              </HintedTouchable>
+              {WORKSPACE_GLOSSARY_KEYS[workspace.id] ? (
+                <InfoTip
+                  term={WORKSPACE_GLOSSARY_KEYS[workspace.id]}
+                  style={styles.tabSelect}
+                  onPress={() => onSelect(workspace.id)}
+                  accessibilityLabel={`Välj vyn ${workspace.name}`}
+                >
+                  <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
+                </InfoTip>
+              ) : (
+                <HintedTouchable
+                  style={styles.tabSelect}
+                  onPress={() => onSelect(workspace.id)}
+                  accessibilityLabel={`Välj vyn ${workspace.name}`}
+                  hint={`En egen vy med de kolumner du har valt för ${workspace.name}.`}
+                >
+                  <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
+                </HintedTouchable>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -81,12 +87,16 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
         <View style={styles.helpPanel}>
           <Text style={styles.helpEyebrow}>{activeWorkspace.name}</Text>
           <Text style={styles.helpTitle}>Så läser du den här vyn</Text>
-          <Text style={styles.helpIntro}>{WORKSPACE_HELP[activeWorkspace.id] ?? `En egen vy med de kolumner du har valt för ${activeWorkspace.name}.`}</Text>
+          <Text style={styles.helpIntro}>
+            {WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id]
+              ? glossaryEntry(WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id]).detail
+              : `En egen vy med de kolumner du har valt för ${activeWorkspace.name}.`}
+          </Text>
           <View style={styles.helpGrid}>
             {explainedColumns.map((column) => (
               <View key={column.id} style={styles.helpItem}>
                 <Text style={styles.helpItemTitle}>{column.label}</Text>
-                <Text style={styles.helpItemText}>{column.description}</Text>
+                <Text style={styles.helpItemText}>{glossaryEntry(column.id).detail}</Text>
               </View>
             ))}
           </View>
@@ -100,18 +110,17 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
             {TABLE_COLUMNS.map((column) => {
               const selected = selectedColumns.includes(column.id);
               return (
-                <HintedTouchable
+                <InfoTip
                   key={column.id}
-                  disabled={column.id === 'ticker'}
+                  term={column.id}
                   style={[styles.columnToggle, selected && styles.columnToggleSelected]}
                   onPress={() => toggleColumn(column.id)}
                   accessibilityLabel={`${selected ? 'Dölj' : 'Visa'} kolumnen ${column.label}`}
-                  hint={column.id === 'ticker' ? 'Ticker är alltid synlig så att varje aktie går att identifiera.' : `${selected ? 'Döljer' : 'Visar'} kolumnen ${column.label} i den aktuella tabellvyn.`}
                 >
                   <Text style={[styles.columnToggleText, selected && styles.columnToggleTextSelected]}>
                     {selected ? '✓ ' : ''}{column.label}
                   </Text>
-                </HintedTouchable>
+                </InfoTip>
               );
             })}
           </View>

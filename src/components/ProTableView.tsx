@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { SignalBadges } from '@/components/SignalBadges';
+import { InfoTip } from '@/components/Tooltip';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import type { StockData, TableColumnId } from '@/types/stock';
 import { colors as palette } from '@/theme';
@@ -32,24 +33,23 @@ interface ColumnDefinition {
   label: string;
   flex: number;
   align?: 'flex-start' | 'center' | 'flex-end';
-  hint: string;
 }
 
 const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
-  ticker: { id: 'ticker', label: 'Ticker', flex: 1.55, align: 'flex-start', hint: 'Aktiesymbolen. Klicka på raden för att öppna hela analysen.' },
-  grade: { id: 'grade', label: 'Betyg', flex: 0.65, align: 'center', hint: 'Appens samlade hälsobetyg A till F. Betyget är beslutsstöd, inte ett köpråd.' },
-  price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end', hint: 'Senast tillgängliga aktiekurs i lokal handelsvaluta.' },
-  change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end', hint: 'Procentuell kursförändring under den aktuella handelsdagen.' },
-  rsi: { id: 'rsi', label: 'RSI', flex: 0.65, align: 'flex-end', hint: 'RSI över 70 kan indikera överköpt och under 30 översålt, men är ingen garanti för vändning.' },
-  volume: { id: 'volume', label: 'Vol', flex: 0.85, align: 'flex-end', hint: 'Senaste handelsvolym jämfört med 20-dagarssnittet. 2,0x betyder dubbelt snittvolym.' },
-  pe: { id: 'pe', label: 'P/E', flex: 0.7, align: 'flex-end', hint: 'Pris dividerat med vinst per aktie. Lägre är inte automatiskt bättre.' },
-  sma: { id: 'sma', label: 'SMA', flex: 0.55, align: 'center', hint: 'Pilen visar om kursen ligger över eller under SMA 125, cirka ett halvårssnitt.' },
-  volatility: { id: 'volatility', label: 'Volat.', flex: 0.85, align: 'flex-end', hint: 'Årsomräknad volatilitet från de senaste 20 handelsdagarna. Högre värde betyder större historiska rörelser.' },
-  beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end', hint: 'Hur mycket aktien historiskt rört sig relativt sitt jämförelseindex. 1,0 motsvarar ungefär indexrörelsen.' },
-  drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end', hint: 'Största historiska nedgång från en tidigare topp inom det tillgängliga kursunderlaget.' },
-  riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end', hint: 'Intern poäng 0 till 100 som väger trend, volatilitet och hälsobetyg. Den är ett filter, inte en prognos.' },
-  relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end', hint: 'Avkastning minus jämförelseindexets de senaste tre månaderna, i procentenheter. Positivt betyder att aktien gått bättre än index.' },
-  trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center', hint: 'Mini-graf över de senaste sju dagarnas tillgängliga kursrörelser.' },
+  ticker: { id: 'ticker', label: 'Ticker', flex: 1.55, align: 'flex-start' },
+  grade: { id: 'grade', label: 'Betyg', flex: 0.65, align: 'center' },
+  price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end' },
+  change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end' },
+  rsi: { id: 'rsi', label: 'RSI', flex: 0.65, align: 'flex-end' },
+  volume: { id: 'volume', label: 'Vol', flex: 0.85, align: 'flex-end' },
+  pe: { id: 'pe', label: 'P/E', flex: 0.7, align: 'flex-end' },
+  sma: { id: 'sma', label: 'SMA', flex: 0.55, align: 'center' },
+  volatility: { id: 'volatility', label: 'Volat.', flex: 0.85, align: 'flex-end' },
+  beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end' },
+  drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end' },
+  riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end' },
+  relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end' },
+  trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center' },
 };
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -147,7 +147,19 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       <ScrollView horizontal style={styles.horizontalScroll} contentContainerStyle={styles.horizontalScrollContent} showsHorizontalScrollIndicator={false}>
         <View style={[styles.table, { width: tableWidth }]}>
           <View style={styles.headerRow}>
-            {columns.map((column) => <HintedTouchable key={column.id} style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]} onPress={() => handleSort(column.id)} accessibilityLabel={`Sortera efter ${column.label}`} hint={`${column.hint} Tryck för att sortera tabellen efter denna kolumn.`}><Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>{column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}</Text></HintedTouchable>)}
+            {columns.map((column) => (
+              <InfoTip
+                key={column.id}
+                term={column.id}
+                style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]}
+                onPress={() => handleSort(column.id)}
+                accessibilityLabel={`Sortera efter ${column.label}`}
+              >
+                <Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>
+                  {column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}
+                </Text>
+              </InfoTip>
+            ))}
           </View>
           <FlatList
             data={sortedData}
