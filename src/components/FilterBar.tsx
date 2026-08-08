@@ -9,8 +9,6 @@ import type { MarketId } from '@/types/stock';
 interface FilterBarProps {
   market: MarketId;
   onMarketChange: (market: MarketId) => void;
-  filter: string;
-  onFilterChange: (filter: string) => void;
   // Search
   searchQuery: string;
   onSearchChange: (text: string) => void;
@@ -41,19 +39,9 @@ const MARKETS: { id: MarketId; sv: string; en: string; hintSv: string; hintEn: s
   { id: 'holdings', sv: 'Mitt Innehav', en: 'My Holdings', hintSv: 'Visar bolag där du har registrerat ett innehav. Varje användare har sin egen lista.', hintEn: 'Shows companies where you have registered a holding. Each user has a separate list.' },
 ];
 
-const FILTERS = [
-  { id: 'all', sv: 'Alla', en: 'All', hintSv: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.', hintEn: 'Clears the quick filter and shows the full selected market universe.' },
-  { id: 'gradeA', sv: 'Rekyl A', en: 'Pullback A', hintSv: 'Visar endast aktier med det tydligaste rekylläget. Det betyder att kursen fallit mycket, inte att bolaget är bäst.', hintEn: 'Shows shares with the strongest pullback setup. It means the price has fallen substantially, not that the company is best.' },
-  { id: 'gradeAB', sv: 'A + B', en: 'A + B', hintSv: 'Visar aktier med rekylläge A eller B.', hintEn: 'Shows shares with a pullback grade of A or B.' },
-  { id: 'underSMA', sv: 'Under SMA', en: 'Below SMA', hintSv: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.', hintEn: 'Shows shares trading below SMA 125, roughly a six-month average.' },
-  { id: 'oversold', sv: 'RSI < 30', en: 'RSI < 30', hintSv: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.', hintEn: 'Shows shares with RSI below 30, which may indicate an oversold condition.' },
-];
-
 export function FilterBar({
   market,
   onMarketChange,
-  filter,
-  onFilterChange,
   searchQuery,
   onSearchChange,
   searchResults,
@@ -71,7 +59,6 @@ export function FilterBar({
   onOpenAlertSettings,
   onOpenAdmin,
 }: FilterBarProps) {
-  const [showInfoModal, setShowInfoModal] = useState(false);
   const { mode, toggleMode } = useAppTheme();
   const { language, locale, toggleLanguage, t } = useAppLanguage();
 
@@ -83,62 +70,6 @@ export function FilterBar({
 
   return (
     <View style={styles.container}>
-      <Modal visible={showInfoModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowInfoModal(false)}>
-        <SafeAreaView style={styles.modalSafe}>
-          <View style={styles.modalHeader}>
-            <HintedTouchable style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)} accessibilityLabel={t('Stäng betygsförklaringen', 'Close grade explanation')} hint={t('Stänger förklaringen av betygssystemet.', 'Closes the explanation of the grading system.')}>
-              <Text style={styles.modalCloseText}>✕</Text>
-            </HintedTouchable>
-            <Text style={styles.modalTitle}>{t('Rekylläget förklarat', 'Pullback grade explained')}</Text>
-          </View>
-          <ScrollView style={styles.modalBody}>
-            <Text style={styles.modalText}>
-              {t('Rekylläget (A till F) mäter hur tydligt en aktie fallit tillbaka. Varje aktie kan få upp till 9 poäng från sex grundkriterier och tre tekniska bonusar.', 'The pullback grade (A to F) measures how clearly a share has pulled back. A share can receive up to 9 points from six core criteria and three technical bonuses.')}
-            </Text>
-            <Text style={styles.modalText}>
-              {t('Läs skalan för vad den är. Fyra av de sex grundkriterierna reagerar på att kursen gått ned. Ett A betyder därför att aktien fallit mycket, inte att bolaget är bra. Kolumnen Kvalitet bedömer i stället skuldsättning, kassaflöde och lönsamhet.', 'Read the scale for what it is. Four of the six core criteria react to a falling share price. An A therefore means the share has fallen substantially, not that the company is good. The Quality column instead assesses debt, cash flow and profitability.')}
-            </Text>
-            
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('1. Positiv vinst (P/E)', '1. Positive earnings (P/E)')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Ett positivt P/E-tal visar att bolaget rapporterar vinst. Saknas eller negativt P/E ger ingen poäng.', 'A positive P/E indicates reported earnings. A missing or negative P/E receives no point.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('2. Utdelning', '2. Dividend')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Positiv direktavkastning ger poäng och indikerar ofta ett moget bolag med kassaflöde.', 'A positive dividend yield earns a point and often indicates a mature, cash-generative company.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('3. Fall från topp', '3. Decline from peak')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Aktier som har fallit mer än 8 % från 52-veckorshögsta, eller från SMA 125 när 52-veckorsdata saknas, får poäng.', 'Shares down more than 8% from their 52-week high, or from SMA 125 when that data is unavailable, earn a point.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('4. Nära botten', '4. Near the low')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Aktier inom 10 % från 52-veckorslägsta får poäng eftersom läget kan indikera ett potentiellt stödområde.', 'Shares within 10% of their 52-week low earn a point because the level may indicate a potential support area.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('5. Översåld RSI', '5. Oversold RSI')}</Text>
-              <Text style={styles.criteriaDesc}>{t('RSI under 35 ger poäng. RSI under 20 ger dessutom en extra bonuspoäng.', 'RSI below 35 earns a point. RSI below 20 also earns an extra bonus point.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('6. Under SMA 125', '6. Below SMA 125')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Kurs under 125-dagars glidande medelvärde ger poäng som möjlig rabatt- eller rekylsignal.', 'A price below the 125-day moving average earns a point as a possible discount or pullback signal.')}</Text>
-            </View>
-            <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>{t('Bonusar', 'Bonuses')}</Text>
-              <Text style={styles.criteriaDesc}>{t('Extra poäng kan ges när kursen ligger nära nedre Bollinger-bandet eller när MACD visar positiv momentumvändning.', 'Extra points may be awarded when price is near the lower Bollinger Band or MACD shows a positive momentum turn.')}</Text>
-            </View>
-
-            <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>{t('Rekylläge A', 'Pullback grade A')}</Text>
-              <Text style={styles.gradeDesc}>{t('Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30.', 'Requires a high score plus positive earnings and a dividend, or at least five core criteria with RSI below 30.')}</Text>
-            </View>
-            <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>{t('Rekylläge B/C/D', 'Pullback grade B/C/D')}</Text>
-              <Text style={styles.gradeDesc}>{t('B ges från 5 poäng, C från 3 poäng och D från 1 poäng. F betyder att inga tydliga signaler hittas.', 'B starts at 5 points, C at 3 and D at 1. F means no clear signals were found.')}</Text>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>📊 Screener</Text>
@@ -198,22 +129,7 @@ export function FilterBar({
         ))}
       </ScrollView>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-        {FILTERS.map((f) => (
-          <HintedTouchable
-            key={f.id}
-            style={[styles.chip, filter === f.id && styles.activeChip]}
-            onPress={() => onFilterChange(f.id)}
-            accessibilityLabel={`${t('Snabbfilter', 'Quick filter')}: ${t(f.sv, f.en)}`}
-            hint={t(f.hintSv, f.hintEn)}
-          >
-            <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{t(f.sv, f.en)}</Text>
-          </HintedTouchable>
-        ))}
-        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel={t('Förklaring av rekylläget', 'Pullback grade explanation')} hint={t('Öppnar en förklaring av hur skalan A till F räknas fram och vad den faktiskt mäter.', 'Explains how the A-to-F scale is calculated and what it measures.')}>
-          <Text style={styles.infoBtnText}>❔ {t('Rekyl', 'Pullback')}</Text>
-        </HintedTouchable>
-      </ScrollView>
+
 
       {market === 'watchlist' && (
         <View style={styles.searchSection}>

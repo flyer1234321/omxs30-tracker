@@ -408,8 +408,6 @@ export default function HomeScreen() {
       <FilterBar
         market={market}
         onMarketChange={onMarketChange}
-        filter={filter}
-        onFilterChange={setFilter}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         searchResults={searchResults}
@@ -444,6 +442,8 @@ export default function HomeScreen() {
       <ProFilterPanel
         activeFilter={proFilter}
         onFilterChange={setProFilter}
+        quickFilter={filter}
+        onQuickFilterChange={setFilter}
         isExpanded={proFilterExpanded}
         onToggleExpand={() => setProFilterExpanded(!proFilterExpanded)}
         onShowResults={() => setProFilterExpanded(false)}
