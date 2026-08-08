@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useAppLanguage } from '@/components/AppLanguage';
 import type { PortfolioSummary } from '@/lib/holdings';
 import { portfolioWeight } from '@/lib/holdings';
@@ -69,27 +69,29 @@ export function HoldingsOverview({ portfolio }: HoldingsOverviewProps) {
       </View>
 
       <Text style={styles.sectionTitle}>{t('Portföljfördelning', 'Portfolio Distribution')}</Text>
-      <View style={styles.distribution}>
-        {sortedPositions.map((pos) => {
-          const weight = portfolioWeight(pos, portfolio);
-          const isConcentrated = weight > 25;
-          return (
-            <View key={pos.ticker} style={styles.barRow}>
-              <Text style={styles.barLabel}>{pos.ticker}</Text>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${Math.max(1, Math.min(100, weight))}%` },
-                    isConcentrated ? { backgroundColor: colors.warning } : null,
-                  ]}
-                />
+      <ScrollView style={styles.distributionScroll} showsVerticalScrollIndicator={true}>
+        <View style={styles.distribution}>
+          {sortedPositions.map((pos) => {
+            const weight = portfolioWeight(pos, portfolio);
+            const isConcentrated = weight > 25;
+            return (
+              <View key={pos.ticker} style={styles.barRow}>
+                <Text style={styles.barLabel}>{pos.ticker}</Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      { width: `${Math.max(1, Math.min(100, weight))}%` },
+                      isConcentrated ? { backgroundColor: colors.warning } : null,
+                    ]}
+                  />
+                </View>
+                <Text style={styles.barValue}>{weight.toFixed(1)}%</Text>
               </View>
-              <Text style={styles.barValue}>{weight.toFixed(1)}%</Text>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -152,8 +154,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 12,
   },
+  distributionScroll: {
+    maxHeight: 150,
+  },
   distribution: {
     gap: 8,
+    paddingBottom: 8,
   },
   barRow: {
     flexDirection: 'row',
