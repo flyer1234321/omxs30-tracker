@@ -1,13 +1,28 @@
 import { buildQuantAnalystReport, isAnalystReport, type AnalystReport } from '@/lib/analyst-engine';
 import { buildAnalystContext } from '@/lib/analyst-context';
 import { getAuthenticatedUser, requireAuthenticatedUser } from '@/lib/app-auth';
-import { claimAiRequest } from '@/lib/ai-quota';
+import { claimAiRequest, getAiQuotaStatus, type AiQuotaResult } from '@/lib/ai-quota';
 import { normalizeLanguage, type AppLanguage } from '@/lib/language';
 import type { StockData } from '@/types/stock';
 
 const CACHE_TTL = 10 * 60 * 1000;
 type AiStatus = 'available' | 'disabled' | 'unconfigured' | 'quota-exhausted' | 'request-failed';
 const cache = new Map<string, { report: AnalystReport; cachedAt: number; aiStatus: AiStatus }>();
+
+function statusForQuota(aiEntitled: boolean, aiConfigured: boolean, quota: AiQuotaResult): AiStatus {
+  if (!aiEntitled) return 'disabled';
+  if (!aiConfigured) return 'unconfigured';
+  if (!quota.available) return 'request-failed';
+  return quota.allowed ? 'available' : 'quota-exhausted';
+}
+
+function quotaResponse(quota: AiQuotaResult) {
+  return {
+    aiQuotaRemaining: quota.remaining,
+    aiQuotaUsed: quota.used,
+    aiDailyLimit: quota.dailyLimit,
+  };
+}
 
 interface OpenAIResponse {
   output?: { content?: { type?: string; text?: string }[] }[];
@@ -121,6 +136,23 @@ async function createAiNarrative(stock: StockData, quantReport: AnalystReport, l
   }
 }
 
+export async function GET(request: Request) {
+  const authenticationError = await requireAuthenticatedUser(request);
+  if (authenticationError) return authenticationError;
+
+  const user = await getAuthenticatedUser(request);
+  const aiEntitled = Boolean(user?.canUseAi);
+  const aiConfigured = Boolean(process.env.OPENAI_API_KEY);
+  const quota = aiEntitled && aiConfigured
+    ? await getAiQuotaStatus(user?.email ?? null, user?.aiDailyLimit ?? 0)
+    : { allowed: false, remaining: null, used: 0, dailyLimit: user?.aiDailyLimit ?? 0, available: true };
+
+  return Response.json({
+    aiStatus: statusForQuota(aiEntitled, aiConfigured, quota),
+    ...quotaResponse(quota),
+  });
+}
+
 export async function POST(request: Request) {
   const authenticationError = await requireAuthenticatedUser(request);
   if (authenticationError) return authenticationError;
@@ -142,18 +174,23 @@ export async function POST(request: Request) {
     const key = cacheKey(stock, user?.email ?? user?.id ?? 'anonymous', language);
     const cached = cache.get(key);
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+      const quota = aiEntitled && aiConfigured
+        ? await getAiQuotaStatus(user?.email ?? null, user?.aiDailyLimit ?? 0)
+        : { allowed: false, remaining: null, used: 0, dailyLimit: user?.aiDailyLimit ?? 0, available: true };
+      const quotaStatus = statusForQuota(aiEntitled, aiConfigured, quota);
       return Response.json({
         report: cached.report,
         cached: true,
         aiAvailable: cached.report.source === 'ai',
-        aiStatus: cached.aiStatus,
+        aiStatus: quotaStatus === 'available' ? cached.aiStatus : quotaStatus,
+        ...quotaResponse(quota),
       });
     }
 
     const quantReport = buildQuantAnalystReport(stock, language);
     const quota = aiEntitled && aiConfigured
       ? await claimAiRequest(user?.email ?? null, user?.aiDailyLimit ?? 0)
-      : { allowed: false, remaining: null };
+      : { allowed: false, remaining: null, used: 0, dailyLimit: user?.aiDailyLimit ?? 0, available: true };
     const aiAllowed = aiEntitled && aiConfigured && quota.allowed;
     const narrative = aiAllowed ? await createAiNarrative(stock, quantReport, language) : null;
     const report: AnalystReport = narrative
@@ -164,7 +201,9 @@ export async function POST(request: Request) {
       ? 'disabled'
       : !aiConfigured
         ? 'unconfigured'
-        : !quota.allowed
+        : !quota.available
+          ? 'request-failed'
+          : !quota.allowed
           ? 'quota-exhausted'
           : narrative
             ? 'available'
@@ -175,7 +214,7 @@ export async function POST(request: Request) {
       cached: false,
       aiAvailable: Boolean(narrative),
       aiStatus,
-      aiQuotaRemaining: quota.remaining,
+      ...quotaResponse(quota),
     });
   } catch (error) {
     console.error('Analyst API Error:', error);
