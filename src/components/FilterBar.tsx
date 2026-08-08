@@ -38,6 +38,7 @@ const MARKETS: { id: MarketId; sv: string; en: string; hintSv: string; hintEn: s
   { id: 'tech', sv: 'Tech', en: 'Tech', hintSv: 'Visar ett urval av stora teknikaktier.', hintEn: 'Shows a selection of large technology companies.' },
   { id: 'swe_fastigheter', sv: 'Fastigheter', en: 'Real estate', hintSv: 'Visar svenska fastighetsbolag.', hintEn: 'Shows Swedish real-estate companies.' },
   { id: 'watchlist', sv: 'Min Lista', en: 'My List', hintSv: 'Visar dina personliga favoriter. Varje inloggad användare har sin egen lista.', hintEn: 'Shows your personal favourites. Each signed-in user has a separate list.' },
+  { id: 'holdings', sv: 'Mitt Innehav', en: 'My Holdings', hintSv: 'Visar bolag där du har registrerat ett innehav. Varje användare har sin egen lista.', hintEn: 'Shows companies where you have registered a holding. Each user has a separate list.' },
 ];
 
 const FILTERS = [

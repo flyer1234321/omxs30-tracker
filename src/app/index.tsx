@@ -12,6 +12,7 @@ import type { StockData } from '../components/ProTableView';
 import { StockDetailModal } from '../components/StockDetailModal';
 import ProFilterPanel, { applyProFilter, type ProFilter } from '../components/ProFilterPanel';
 import { WorkspaceBar } from '../components/WorkspaceBar';
+import { HoldingsOverview } from '../components/HoldingsOverview';
 import {
   ACTIVE_WORKSPACE_STORAGE_KEY,
   DEFAULT_WORKSPACES,
@@ -26,7 +27,7 @@ import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { loadCloudHoldings, removeCloudHolding, saveCloudHolding } from '../lib/cloud-holdings';
 import { buildPosition, summarisePortfolio, type Holding } from '../lib/holdings';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getSupabaseAccessToken, isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
 import { AdminPanel } from '../components/AdminPanel';
 import { anyMarketOpen, anyMarketWorthPolling, regionForMarket, regionsForTickers } from '../lib/market-hours';
@@ -269,13 +270,16 @@ export default function HomeScreen() {
   };
 
   // ─── DATA FETCHING ─────────────────────────
-  const fetchData = useCallback(async (m: MarketId, wl: string[]) => {
+  const fetchData = useCallback(async (m: MarketId, wl: string[], hl: string[]) => {
     setLoading(true);
     try {
       let url = `/api/analyze?t=${Date.now()}`;
       if (m === 'watchlist') {
         if (wl.length === 0) { setData([]); setError(null); return; }
         url += `&tickers=${wl.join(',')}`;
+      } else if (m === 'holdings') {
+        if (hl.length === 0) { setData([]); setError(null); return; }
+        url += `&tickers=${hl.join(',')}`;
       } else { url += `&market=${m}`; }
       const response = await authenticatedFetch(url);
       if (!response.ok) throw new Error(t('Nätverksfel', 'Network error'));
@@ -303,15 +307,23 @@ export default function HomeScreen() {
   useEffect(() => { watchlistRef.current = watchlist; }, [watchlist]);
   const watchlistKey = market === 'watchlist' ? watchlist.join(',') : '';
 
+  const holdingsRef = useRef(holdings);
+  useEffect(() => { holdingsRef.current = holdings; }, [holdings]);
+  const holdingsKey = market === 'holdings' ? holdings.map(h => h.ticker).join(',') : '';
+
   useEffect(() => {
-    fetchData(market, watchlistRef.current);
-  }, [market, watchlistKey, fetchData]);
+    fetchData(market, watchlistRef.current, holdingsRef.current.map(h => h.ticker));
+  }, [market, watchlistKey, holdingsKey, fetchData]);
 
   // Favoritlistan kan blanda svenska och amerikanska bolag, och då styr den
   // börs som fortfarande handlar.
   const activeRegions = useMemo(
-    () => (market === 'watchlist' ? regionsForTickers(watchlist) : [regionForMarket(market)]),
-    [market, watchlist],
+    () => {
+      if (market === 'watchlist') return regionsForTickers(watchlist);
+      if (market === 'holdings') return regionsForTickers(holdings.map(h => h.ticker));
+      return [regionForMarket(market)];
+    },
+    [market, watchlist, holdings],
   );
   const regionKey = activeRegions.join(',');
   const marketOpen = anyMarketOpen(activeRegions);
@@ -322,14 +334,14 @@ export default function HomeScreen() {
       // Stängd börs ger inga nya avslut. Undantaget är strax efter stängning,
       // då slutkursen fortfarande kan justeras.
       if (!anyMarketWorthPolling(regions)) return;
-      fetchData(market, watchlistRef.current);
+      fetchData(market, watchlistRef.current, holdingsRef.current.map(h => h.ticker));
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [market, regionKey, fetchData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData(market, watchlistRef.current);
+    fetchData(market, watchlistRef.current, holdingsRef.current.map(h => h.ticker));
   }, [market, fetchData]);
 
   // ─── FILTERING (useMemo for performance) ───
@@ -457,15 +469,20 @@ export default function HomeScreen() {
           <Text style={s.loadingText}>{t('Analyserar marknaden...', 'Analyzing the market...')}</Text>
         </View>
       ) : (
-        <ProTableView
-          holdings={holdingsByTicker}
-          portfolio={portfolio}
-          data={filteredData}
-          visibleColumns={activeWorkspace?.columns ?? DEFAULT_WORKSPACES[0].columns}
-          onStockPress={setSelectedTicker}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
+        <>
+          {market === 'holdings' && (
+            <HoldingsOverview portfolio={portfolio} />
+          )}
+          <ProTableView
+            holdings={holdingsByTicker}
+            portfolio={portfolio}
+            data={filteredData}
+            visibleColumns={activeWorkspace?.columns ?? DEFAULT_WORKSPACES[0].columns}
+            onStockPress={setSelectedTicker}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        </>
       )}
 
       </View>

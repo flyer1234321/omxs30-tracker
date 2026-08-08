@@ -75,7 +75,7 @@ export interface TradePlan {
 }
 
 /** De marknadsurval som screenern kan visa. */
-export type MarketId = 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
+export type MarketId = 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist' | 'holdings';
 
 export type TableColumnId =
   | 'ticker'
