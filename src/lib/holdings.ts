@@ -146,11 +146,11 @@ export type HoldingMismatch = 'currency' | 'split' | null;
  * får en avvikelse som ligger nära kursen, inte nära två.
  */
 const PLAUSIBLE_FX_RATES = [
-  { code: 'USD', rate: 10 },
-  { code: 'EUR', rate: 11.5 },
+  { code: 'USD', rate: 10.45 },
+  { code: 'EUR', rate: 11.45 },
   { code: 'GBP', rate: 13 },
   { code: 'NOK', rate: 1 },
-  { code: 'DKK', rate: 1.5 },
+  { code: 'DKK', rate: 1.53 },
 ];
 
 /**

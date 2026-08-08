@@ -121,20 +121,34 @@ export function HoldingEditor({ item, holding, portfolio, onSave, onRemove }: Ho
           <View style={styles.figures}>
             <Figure
               label={t('Värde', 'Value')}
-              value={price(position.marketValue, 0)}
-              note={item.currency && item.currency.toUpperCase() !== 'SEK' ? formatPrice(approximateSekValue(position.marketValue, item.currency), 'SEK', 0) : undefined}
+              value={item.currency && item.currency.toUpperCase() !== 'SEK' 
+                ? formatPrice(approximateSekValue(position.marketValue, item.currency), 'SEK', 0)
+                : price(position.marketValue, 0)}
+              note={item.currency && item.currency.toUpperCase() !== 'SEK' 
+                ? price(position.marketValue, 2)
+                : undefined}
             />
             <Figure
               label={t('Orealiserat', 'Unrealised')}
-              value={`${position.unrealisedAmount >= 0 ? '+' : ''}${price(position.unrealisedAmount, 0)}`}
+              value={item.currency && item.currency.toUpperCase() !== 'SEK'
+                ? `${position.unrealisedAmount >= 0 ? '+' : ''}${formatPrice(approximateSekValue(position.unrealisedAmount, item.currency), 'SEK', 0)}`
+                : `${position.unrealisedAmount >= 0 ? '+' : ''}${price(position.unrealisedAmount, 0)}`}
               tone={position.unrealisedAmount >= 0 ? 'positive' : 'negative'}
-              note={`${item.currency && item.currency.toUpperCase() !== 'SEK' ? (position.unrealisedAmount >= 0 ? '+' : '') + formatPrice(approximateSekValue(position.unrealisedAmount, item.currency), 'SEK', 0) + '\n' : ''}${formatSignedPercent(position.unrealisedPercent)}`}
+              note={`${item.currency && item.currency.toUpperCase() !== 'SEK' 
+                ? `${position.unrealisedAmount >= 0 ? '+' : ''}${price(position.unrealisedAmount, 2)}\n`
+                : ''}${formatSignedPercent(position.unrealisedPercent)}`}
             />
             <Figure
               label={t('I dag', 'Today')}
-              value={position.dayChangeAmount == null ? '-' : `${position.dayChangeAmount >= 0 ? '+' : ''}${price(position.dayChangeAmount, 0)}`}
+              value={position.dayChangeAmount == null 
+                ? '-' 
+                : item.currency && item.currency.toUpperCase() !== 'SEK'
+                  ? `${position.dayChangeAmount >= 0 ? '+' : ''}${formatPrice(approximateSekValue(position.dayChangeAmount, item.currency), 'SEK', 0)}`
+                  : `${position.dayChangeAmount >= 0 ? '+' : ''}${price(position.dayChangeAmount, 0)}`}
               tone={(position.dayChangeAmount ?? 0) >= 0 ? 'positive' : 'negative'}
-              note={item.currency && item.currency.toUpperCase() !== 'SEK' && position.dayChangeAmount != null ? `${position.dayChangeAmount >= 0 ? '+' : ''}${formatPrice(approximateSekValue(position.dayChangeAmount, item.currency), 'SEK', 0)}` : undefined}
+              note={item.currency && item.currency.toUpperCase() !== 'SEK' && position.dayChangeAmount != null 
+                ? `${position.dayChangeAmount >= 0 ? '+' : ''}${price(position.dayChangeAmount, 2)}` 
+                : undefined}
             />
           </View>
 
