@@ -6,7 +6,7 @@ export const ACTIVE_WORKSPACE_STORAGE_KEY = '@active_table_workspace_v1';
 /** Etiketterna här, förklaringarna i src/lib/glossary.ts. */
 export const TABLE_COLUMNS: { id: TableColumnId; label: string }[] = [
   { id: 'ticker', label: 'Ticker' },
-  { id: 'grade', label: 'Betyg' },
+  { id: 'grade', label: 'Rekyl' },
   { id: 'price', label: 'Pris' },
   { id: 'change', label: '% idag' },
   { id: 'rsi', label: 'RSI' },
@@ -16,7 +16,6 @@ export const TABLE_COLUMNS: { id: TableColumnId; label: string }[] = [
   { id: 'volatility', label: 'Volatilitet' },
   { id: 'beta', label: 'Beta' },
   { id: 'drawdown', label: 'Max DD' },
-  { id: 'riskReward', label: 'Risk/Reward' },
   { id: 'relativeStrength', label: 'Mot index' },
   { id: 'quality', label: 'Kvalitet' },
   { id: 'trend', label: '7d trend' },
@@ -27,7 +26,7 @@ const now = new Date().toISOString();
 export const DEFAULT_WORKSPACES: Workspace[] = [
   { id: 'overview', name: 'Översikt', columns: ['ticker', 'grade', 'price', 'change', 'rsi', 'volume', 'pe', 'sma', 'trend'], isDefault: true, createdAt: now, updatedAt: now },
   { id: 'momentum', name: 'Momentum', columns: ['ticker', 'price', 'change', 'rsi', 'volume', 'relativeStrength', 'sma', 'volatility', 'trend'], isDefault: true, createdAt: now, updatedAt: now },
-  { id: 'risk', name: 'Risk', columns: ['ticker', 'price', 'change', 'volatility', 'beta', 'drawdown', 'riskReward', 'sma'], isDefault: true, createdAt: now, updatedAt: now },
+  { id: 'risk', name: 'Risk', columns: ['ticker', 'price', 'change', 'volatility', 'beta', 'drawdown', 'quality', 'sma'], isDefault: true, createdAt: now, updatedAt: now },
   { id: 'value', name: 'Värde', columns: ['ticker', 'grade', 'quality', 'price', 'pe', 'volume', 'sma'], isDefault: true, createdAt: now, updatedAt: now },
 ];
 

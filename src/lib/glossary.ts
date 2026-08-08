@@ -29,10 +29,10 @@ export const GLOSSARY = {
     detail: 'Den korta beteckning aktien handlas under. Klicka på raden för att öppna hela analysen med graf, nyckeltal och handelsplan.',
   },
   grade: {
-    term: 'Betyg',
-    short: 'Appens samlade hälsobetyg, A till F.',
-    detail: 'Väger sex grundkriterier och tre tekniska bonusar till en poäng av nio, som översätts till en bokstav. Öppna aktien för att se exakt vilka kriterier som slog in.',
-    caution: 'Betyget premierar rekyler och rabatt, inte kvalitet. En stark aktie i uppåttrend får sällan A, eftersom flera kriterier kräver att kursen fallit.',
+    term: 'Rekylläge',
+    short: 'Hur tydligt aktien fallit tillbaka, A till F.',
+    detail: 'Måttet letar efter aktier som gått ned mycket: stort fall från toppen, nära årslägsta, lågt RSI och kurs under halvårssnittet. Fyra av de sex grundkriterierna mäter alltså samma nedgång från olika håll. A betyder starkast rekylläge, inte bästa bolag.',
+    caution: 'Ett tydligt rekylläge säger ingenting om varför kursen fallit. Läs det tillsammans med Kvalitet: stort fall och svag ekonomi är den kombination som gör rekylmodeller farliga.',
   },
   price: {
     term: 'Pris',
@@ -87,12 +87,6 @@ export const GLOSSARY = {
     detail: 'Den djupaste nedgången från topp till botten under det senaste året. Visar hur mycket man behövt uthärda för att behålla aktien.',
     caution: 'Historisk drawdown är ett golv man vet har inträffat, inte ett tak för vad som kan hända.',
   },
-  riskReward: {
-    term: 'Risk/Reward',
-    short: 'Intern poäng 0 till 100.',
-    detail: 'Väger låg volatilitet, kurs över glidande medelvärden och hälsobetyget till ett urvalsmått. Använd den för att sortera, inte för att bestämma.',
-    caution: 'Poängen är inte en risk/vinst-kvot. Vill du ha en sådan finns handelsplanen i detaljvyn, med stop loss och riktkurs i kronor.',
-  },
   relativeStrength: {
     term: 'Mot index',
     short: 'Avkastning minus indexets, tre månader.',
@@ -102,7 +96,7 @@ export const GLOSSARY = {
   quality: {
     term: 'Kvalitet',
     short: 'Bolagets ekonomi, 0 till 10.',
-    detail: 'Väger skuldsättning, avkastning på eget kapital, rörelsemarginal, fritt kassaflöde och omsättningstillväxt. Måttet är avsiktligt skilt från betyget: betyget mäter om kursen fallit, kvalitet om fallet är befogat.',
+    detail: 'Väger skuldsättning, avkastning på eget kapital, rörelsemarginal, fritt kassaflöde och omsättningstillväxt. Måttet är avsiktligt skilt från rekylläget: rekylläget mäter om kursen fallit, kvalitet om fallet är befogat.',
     caution: 'Siffrorna är ett kvartal gamla och ersätter inte rapporten. För banker och fastighetsbolag utgår skuldsättningen, eftersom hög belåning hör till affärsmodellen.',
   },
   trend: {
@@ -115,7 +109,7 @@ export const GLOSSARY = {
   workspaceOverview: {
     term: 'Översikt',
     short: 'Balanserad grundvy.',
-    detail: 'Betyg, prisrörelse, RSI, volym, värdering och trend i samma tabell. Utgångspunkten när du inte letar efter något särskilt.',
+    detail: 'Rekylläge, prisrörelse, RSI, volym, värdering och trend i samma tabell. Utgångspunkten när du inte letar efter något särskilt.',
   },
   workspaceMomentum: {
     term: 'Momentum',
@@ -126,12 +120,12 @@ export const GLOSSARY = {
   workspaceRisk: {
     term: 'Risk',
     short: 'Nedsida och svängningar.',
-    detail: 'Volatilitet, beta, största historiska nedgång och intern risk/reward-poäng. Vyn för frågan: hur mycket kan det svänga om jag äger detta?',
+    detail: 'Volatilitet, beta, största historiska nedgång och bolagets ekonomiska kvalitet. Vyn för frågan: hur mycket kan det svänga, och tål bolaget att det gör det?',
   },
   workspaceValue: {
     term: 'Värde',
     short: 'Värdering och kvalitet.',
-    detail: 'Hälsobetyg, P/E, volym och risk/reward. Vyn för frågan: får jag mycket bolag för pengarna?',
+    detail: 'Rekylläge, kvalitet, P/E och volym. Vyn för frågan: får jag mycket bolag för pengarna, och är rabatten befogad?',
     caution: 'Låg värdering och bra bolag är två olika saker. Det billigaste i listan är ofta billigt av en anledning.',
   },
 

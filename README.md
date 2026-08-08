@@ -7,8 +7,8 @@ Appen är beslutsstöd. Den ger inte personlig investeringsrådgivning, och all 
 ## Vad appen gör
 
 - **Screener** över OMXS30, ett bredare svenskt urval, svenska fastighetsbolag, Dow Jones, storbolag inom teknik samt en egen favoritlista.
-- **Hälsobetyg A–F** som väger sex grundkriterier och tre tekniska bonusar. Betyget premierar rekyler och rabatt, inte kvalitet i sig: en aktie i stark uppåttrend får sällan A.
-- **Kvalitetsmått 0–10** ur balans- och resultaträkningen: skuldsättning, avkastning på eget kapital, marginal, fritt kassaflöde och tillväxt. Avsiktligt skilt från betyget — betyget mäter om kursen fallit, kvalitet om fallet är befogat. Kombinationen stort fall och svag ekonomi är den som gör rekylmodeller farliga, och den markeras särskilt.
+- **Rekylläge A–F** som väger sex grundkriterier och tre tekniska bonusar. Skalan mäter hur tydligt en aktie fallit tillbaka — fyra av de sex kriterierna reagerar på samma nedgång. Ett A betyder att kursen fallit mycket, inte att bolaget är bäst.
+- **Kvalitetsmått 0–10** ur balans- och resultaträkningen: skuldsättning, avkastning på eget kapital, marginal, fritt kassaflöde och tillväxt. Avsiktligt skilt från rekylläget — rekylläget mäter om kursen fallit, kvalitet om fallet är befogat. Kombinationen stort fall och svag ekonomi är den som gör rekylmodeller farliga, och den markeras särskilt.
 - **Handelsplan** per aktie: stop loss och riktkurs härledda ur ATR och närliggande stöd och motstånd, uttryckta i kronor, procent och R-multipel.
 - **Pro Filter** med sparbara vyer (workspaces) och färdiga strategier.
 - **Analyst AI** som sammanfattar styrkor, risker och katalysatorer. Utan `OPENAI_API_KEY` används en regelbaserad analys i stället.

@@ -80,27 +80,6 @@ function median(values: number[]) {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
-function calculateRiskRewardScore(item: {
-  currentPrice: number;
-  sma50: number | null;
-  sma125: number | null;
-  volatility: number | null;
-  healthCheck: { gradeScore: number };
-}) {
-  if (item.volatility == null) return null;
-
-  let score = 0;
-  if (item.volatility <= 20) score += 40;
-  else if (item.volatility <= 30) score += 28;
-  else if (item.volatility <= 40) score += 15;
-
-  if (item.sma50 != null && item.currentPrice > item.sma50) score += 20;
-  if (item.sma125 != null && item.currentPrice > item.sma125) score += 20;
-  score += Math.min(item.healthCheck.gradeScore, 10) * 2;
-
-  return Math.min(score, 100);
-}
-
 export async function GET(request: Request) {
   const authenticationError = await requireAuthenticatedUser(request);
   if (authenticationError) return authenticationError;
@@ -264,7 +243,6 @@ export async function GET(request: Request) {
         const stock: StockData = {
           ...itemData,
           healthCheck,
-          riskRewardScore: calculateRiskRewardScore({ ...itemData, healthCheck }),
           tradePlan: buildTradePlan({
             currentPrice,
             atr,

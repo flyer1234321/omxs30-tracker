@@ -80,7 +80,7 @@ function buildScoreExplanation(score: number, basePassed: number, baseTotal: num
 
   // Den vanligaste missuppfattningen: att en hög poäng betyder ett bra bolag.
   if (score >= 5) {
-    parts.push('Kom ihåg vad kriterierna mäter. Fyra av de sex belönar att kursen fallit: stort fall från toppen, nära årslägsta, lågt RSI och kurs under snittet. En hög poäng betyder därför främst att aktien gått ned mycket, inte att bolaget är bra.');
+    parts.push('Skalan mäter fall, inte kvalitet. Fyra av de sex kriterierna belönar att kursen gått ned: stort fall från toppen, nära årslägsta, lågt RSI och kurs under snittet. En hög poäng betyder därför främst att aktien gått ned mycket, inte att bolaget är bra.');
   } else if (score <= 2) {
     parts.push('Låg poäng betyder oftast att aktien inte fallit tillräckligt för att modellen ska reagera. Det är lika förenligt med en stark aktie i uppåttrend som med en medioker aktie som står stilla.');
   } else {

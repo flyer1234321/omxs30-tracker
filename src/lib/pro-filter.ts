@@ -5,7 +5,6 @@ export interface ProFilter {
   peMin?: number;
   divYieldMin?: number;
   volatilityMax?: number;
-  riskRewardMin?: number;
   aboveSMA50?: boolean;
   aboveSMA125?: boolean;
   aboveSMA200?: boolean;
@@ -28,7 +27,6 @@ export interface FilterableStock {
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
   volatility?: number | null;
-  riskRewardScore?: number | null;
 }
 
 export function applyProFilter<T extends FilterableStock>(data: T[], filter: ProFilter): T[] {
@@ -42,7 +40,6 @@ export function applyProFilter<T extends FilterableStock>(data: T[], filter: Pro
       if (yieldPct < filter.divYieldMin) return false;
     }
     if (filter.volatilityMax != null && (item.volatility == null || item.volatility > filter.volatilityMax)) return false;
-    if (filter.riskRewardMin != null && (item.riskRewardScore == null || item.riskRewardScore < filter.riskRewardMin)) return false;
     if (filter.aboveSMA50 && !(item.sma50 && item.currentPrice > item.sma50)) return false;
     if (filter.aboveSMA125 && !(item.sma125 && item.currentPrice > item.sma125)) return false;
     if (filter.aboveSMA200 && !(item.sma200 && item.currentPrice > item.sma200)) return false;
@@ -62,7 +59,6 @@ export function getActiveFilterCount(filter: ProFilter): number {
   if (filter.peMin != null) count++;
   if (filter.divYieldMin != null) count++;
   if (filter.volatilityMax != null) count++;
-  if (filter.riskRewardMin != null) count++;
   if (filter.aboveSMA50) count++;
   if (filter.aboveSMA125) count++;
   if (filter.aboveSMA200) count++;

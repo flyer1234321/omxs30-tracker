@@ -88,14 +88,28 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
     risks.push(`Historisk max drawdown är ${percent(stock.maxDrawdown)}.`);
   }
 
-  if (stock.riskRewardScore != null) {
+  // Handelsplanens R-multipel ersätter den tidigare interna poängen: den mäter
+  // samma sak men i en enhet som går att agera på.
+  if (stock.tradePlan) {
     observedSignals += 1;
-    if (stock.riskRewardScore >= 70) {
+    const { rMultiple } = stock.tradePlan;
+    if (rMultiple >= 2) {
       score += 7;
-      strengths.push(`Risk/Reward-score är ${stock.riskRewardScore.toFixed(0)}/100.`);
-    } else if (stock.riskRewardScore < 40) {
+      strengths.push(`Avståndet till närmaste motstånd är ${rMultiple.toFixed(1)} gånger avståndet till stoppnivån.`);
+    } else if (rMultiple < 1) {
       score -= 6;
-      risks.push(`Risk/Reward-score är svag (${stock.riskRewardScore.toFixed(0)}/100).`);
+      risks.push(`Närmaste motstånd ligger närmare än stoppnivån (${rMultiple.toFixed(1)}R).`);
+    }
+  }
+
+  if (stock.quality) {
+    observedSignals += 1;
+    if (stock.quality.score >= 7) {
+      score += 6;
+      strengths.push(`Bolagets ekonomi är stark (kvalitet ${stock.quality.score.toFixed(0)} av 10).`);
+    } else if (stock.quality.score < 4) {
+      score -= 8;
+      risks.push(`Bolagets ekonomi är svag (kvalitet ${stock.quality.score.toFixed(0)} av 10).`);
     }
   }
 

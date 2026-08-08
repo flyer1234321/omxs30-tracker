@@ -12,7 +12,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     regularMarketOpen: null, regularMarketDayHigh: null, regularMarketDayLow: null,
     regularMarketPreviousClose: null, epsTrailingTwelveMonths: null,
     latestVolume: null, avgVolume20: null, volatility: 20, beta: 1,
-    maxDrawdown: 15, riskRewardScore: 80, healthCheck: null,
+    maxDrawdown: 15, healthCheck: null,
     currency: 'SEK', atr: 2.2, tradePlan: null, relativeStrength63: null,
     earningsTimestamp: null, priceToBook: null, bookValue: null,
     quality: null,
@@ -30,7 +30,7 @@ test('gives a positive analysis when trend, valuation and risk signals align', (
 test('waits when trend, valuation and risk metrics deteriorate', () => {
   const report = buildQuantAnalystReport(stock({
     currentPrice: 80, sma125: 100, sma200: 110, rsi: 75, trailingPE: 45,
-    volatility: 55, maxDrawdown: 40, riskRewardScore: 25,
+    volatility: 55, maxDrawdown: 40,
   }));
   assert.equal(report.verdict, 'Avvakta');
   assert.ok(report.risks.length > 0);

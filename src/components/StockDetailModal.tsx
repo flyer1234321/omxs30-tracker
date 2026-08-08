@@ -225,7 +225,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
         </View>
 
         <View style={s.checklist}>
-          <Text style={s.checklistTitle}>Hälsokoll — tryck på en rad för förklaring</Text>
+          <Text style={s.checklistTitle}>Rekylkriterier — tryck på en rad för förklaring</Text>
           {hc.checklist.map((ci, i) => {
             const checkKey = `${item.ticker}-${i}`;
             const isOpen = expandedCheck === checkKey;
@@ -256,7 +256,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
           <View style={s.checkResult}>
             <Text style={s.checkResultText}>
-              {hc.gradeScore}/{MAX_GRADE_SCORE} poäng → Betyg {hc.grade}
+              {hc.gradeScore}/{MAX_GRADE_SCORE} poäng → Rekylläge {hc.grade}
             </Text>
           </View>
 
@@ -364,7 +364,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <DetailStat width={statWidth} label="VPA" term="eps" value={price(item.epsTrailingTwelveMonths)} />
             <DetailStat width={statWidth} label="Volatilitet" term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
             <DetailStat width={statWidth} label="Max drawdown" term="drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} valueColor={colors.red} />
-            <DetailStat width={statWidth} label="Risk/Reward" term="riskReward" value={item.riskRewardScore?.toFixed(0) || '-'} valueColor={item.riskRewardScore != null && item.riskRewardScore >= 70 ? colors.green : undefined} />
             <DetailStat
               width={statWidth}
               label="Mot index 3m"

@@ -37,7 +37,7 @@ interface ColumnDefinition {
 
 const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
   ticker: { id: 'ticker', label: 'Ticker', flex: 1.55, align: 'flex-start' },
-  grade: { id: 'grade', label: 'Betyg', flex: 0.65, align: 'center' },
+  grade: { id: 'grade', label: 'Rekyl', flex: 0.7, align: 'center' },
   price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end' },
   change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end' },
   rsi: { id: 'rsi', label: 'RSI', flex: 0.65, align: 'flex-end' },
@@ -47,7 +47,6 @@ const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
   volatility: { id: 'volatility', label: 'Volat.', flex: 0.85, align: 'flex-end' },
   beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end' },
   drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end' },
-  riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end' },
   relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end' },
   quality: { id: 'quality', label: 'Kvalitet', flex: 0.75, align: 'flex-end' },
   trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center' },
@@ -80,7 +79,6 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
     case 'volatility': return item.volatility ?? -1;
     case 'beta': return item.beta ?? -1;
     case 'drawdown': return item.maxDrawdown ?? -1;
-    case 'riskReward': return item.riskRewardScore ?? -1;
     case 'relativeStrength': return item.relativeStrength63 ?? -999;
     case 'quality': return item.quality?.score ?? -1;
     case 'trend': return item.chartHistory.at(-1)?.close ?? -1;
@@ -132,7 +130,6 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       case 'volatility': return <Text style={[styles.numeric, item.volatility != null && item.volatility > 35 && styles.warning]}>{item.volatility != null ? `${item.volatility.toFixed(0)}%` : '-'}</Text>;
       case 'beta': return <Text style={styles.numeric}>{item.beta != null ? item.beta.toFixed(2) : '-'}</Text>;
       case 'drawdown': return <Text style={[styles.numeric, item.maxDrawdown != null && styles.negative]}>{item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'}</Text>;
-      case 'riskReward': return <Text style={[styles.numeric, item.riskRewardScore != null && item.riskRewardScore >= 70 && styles.positive]}>{item.riskRewardScore != null ? item.riskRewardScore.toFixed(0) : '-'}</Text>;
       case 'relativeStrength': {
         const relative = item.relativeStrength63;
         return <Text style={[styles.numeric, relative != null && relative > 0 && styles.positive, relative != null && relative < 0 && styles.negative]}>{relative != null ? `${relative > 0 ? '+' : ''}${relative.toFixed(1)}` : '-'}</Text>;

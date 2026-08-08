@@ -15,7 +15,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     marketCap: null, regularMarketChangePercent: 1, regularMarketOpen: null,
     regularMarketDayHigh: null, regularMarketDayLow: null, regularMarketPreviousClose: null,
     epsTrailingTwelveMonths: null, latestVolume: 2_000, avgVolume20: 900,
-    volatility: 20, beta: 1, maxDrawdown: 15, riskRewardScore: 80, healthCheck: null,
+    volatility: 20, beta: 1, maxDrawdown: 15, healthCheck: null,
     currency: 'SEK', atr: 2, tradePlan: null, relativeStrength63: null,
     earningsTimestamp: null, priceToBook: null, bookValue: null,
     quality: null,

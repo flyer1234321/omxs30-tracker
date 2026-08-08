@@ -87,7 +87,6 @@ export type TableColumnId =
   | 'volatility'
   | 'beta'
   | 'drawdown'
-  | 'riskReward'
   | 'relativeStrength'
   | 'quality'
   | 'trend';
@@ -129,7 +128,6 @@ export interface StockData {
   volatility: number | null;
   beta: number | null;
   maxDrawdown: number | null;
-  riskRewardScore: number | null;
   healthCheck: HealthCheck | null;
   valuation?: ValuationSnapshot;
   signals?: StockSignal[];
@@ -144,8 +142,8 @@ export interface StockData {
   priceToBook: number | null;
   bookValue: number | null;
   /**
-   * Kvalitet ur balans- och resultaträkningen, skild från hälsobetyget.
-   * Hälsobetyget mäter om kursen fallit; det här måttet om fallet är befogat.
+   * Kvalitet ur balans- och resultaträkningen, skild från rekylläget.
+   * Rekylläget mäter om kursen fallit; det här måttet om fallet är befogat.
    */
   quality: QualityScore | null;
 }

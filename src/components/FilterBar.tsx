@@ -40,8 +40,8 @@ const MARKETS: { id: MarketId; label: string; hint: string }[] = [
 
 const FILTERS = [
   { id: 'all', label: 'Alla', hint: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.' },
-  { id: 'gradeA', label: 'Betyg A', hint: 'Visar endast aktier med appens högsta samlade hälsobetyg.' },
-  { id: 'gradeAB', label: 'A + B', hint: 'Visar aktier med antingen A- eller B-betyg.' },
+  { id: 'gradeA', label: 'Rekyl A', hint: 'Visar endast aktier med det tydligaste rekylläget. Det betyder att kursen fallit mycket, inte att bolaget är bäst.' },
+  { id: 'gradeAB', label: 'A + B', hint: 'Visar aktier med rekylläge A eller B.' },
   { id: 'underSMA', label: 'Under SMA', hint: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.' },
   { id: 'oversold', label: 'RSI < 30', hint: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.' },
 ];
@@ -84,11 +84,14 @@ export function FilterBar({
             <HintedTouchable style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)} accessibilityLabel="Stäng betygsförklaringen" hint="Stänger förklaringen av betygssystemet.">
               <Text style={styles.modalCloseText}>✕</Text>
             </HintedTouchable>
-            <Text style={styles.modalTitle}>Betygssystemet Förklarat</Text>
+            <Text style={styles.modalTitle}>Rekylläget förklarat</Text>
           </View>
           <ScrollView style={styles.modalBody}>
             <Text style={styles.modalText}>
-              Betyget (A, B, C, D, F) baseras på en teknisk och fundamental hälsokontroll. Varje aktie kan få upp till 9 poäng från grundkriterier och tekniska bonusar.
+              Rekylläget (A till F) mäter hur tydligt en aktie fallit tillbaka. Varje aktie kan få upp till 9 poäng från sex grundkriterier och tre tekniska bonusar.
+            </Text>
+            <Text style={styles.modalText}>
+              Läs skalan för vad den är. Fyra av de sex grundkriterierna — fall från toppen, nära årslägsta, lågt RSI och kurs under snittet — reagerar alla på samma sak: att kursen gått ned. Ett A betyder därför att aktien fallit mycket, inte att bolaget är bra. Om fallet är befogat svarar kolumnen Kvalitet på, och den bygger på skuldsättning, kassaflöde och lönsamhet.
             </Text>
             
             <View style={styles.criteriaBox}>
@@ -121,11 +124,11 @@ export function FilterBar({
             </View>
 
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>🏆 Betyg A</Text>
-              <Text style={styles.gradeDesc}>Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30.</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>Rekylläge A</Text>
+              <Text style={styles.gradeDesc}>Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30. I praktiken: ett utdelande bolag med vinst som rasat.</Text>
             </View>
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>✅ Betyg B/C/D</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>Rekylläge B/C/D</Text>
               <Text style={styles.gradeDesc}>B ges från 5 poäng, C från 3 poäng och D från 1 poäng. F betyder att inga tydliga signaler hittas.</Text>
             </View>
           </ScrollView>
@@ -154,7 +157,7 @@ export function FilterBar({
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, marketOpen ? styles.statusDotOpen : styles.statusDotClosed]} />
           <Text style={styles.subtitle}>
-            {marketOpen ? 'Börsen öppen' : 'Börsen stängd'} • Uppdaterad {formattedTime} • {gradeACount} A-betyg
+            {marketOpen ? 'Börsen öppen' : 'Börsen stängd'} • Uppdaterad {formattedTime} • {gradeACount} med rekylläge A
           </Text>
         </View>
         <Text style={styles.delayNote}>Kursdata kommer från Yahoo Finance och kan vara fördröjd.</Text>
@@ -186,8 +189,8 @@ export function FilterBar({
             <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{f.label}</Text>
           </HintedTouchable>
         ))}
-        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel="Förklaring av betyg" hint="Öppnar en förklaring av hur A till F-betygen räknas fram.">
-          <Text style={styles.infoBtnText}>❔ Betyg</Text>
+        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel="Förklaring av rekylläget" hint="Öppnar en förklaring av hur skalan A till F räknas fram och vad den faktiskt mäter.">
+          <Text style={styles.infoBtnText}>❔ Rekyl</Text>
         </HintedTouchable>
       </ScrollView>
 

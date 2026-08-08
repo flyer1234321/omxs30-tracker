@@ -75,7 +75,6 @@ const FILTER_HELP = [
   ['P/E max', 'Visar bara bolag med positivt trailing P/E på eller under gränsen. Bolag med negativ vinst eller saknat P/E utesluts.'],
   ['Utdelning min', 'Minsta direktavkastning i procent. Exempel: 4 visar bara aktier med minst 4 % direktavkastning enligt tillgänglig marknadsdata.'],
   ['Volatilitet max', 'Årsomräknad volatilitet baserad på de senaste 20 handelsdagarnas logavkastning. Lägre tal betyder historiskt mindre kursrörelser, inte lägre framtida risk.'],
-  ['Risk/Reward min', 'Appens interna poäng 0-100. Den väger låg volatilitet, kurs över SMA 50 och SMA 125 samt hälsokontrollens poäng. Det är en urvalssignal, inte en prognos.'],
   ['SMA 50 / 125 / 200', 'Kurs över respektive enkelt glidande medelvärde. SMA 50 fångar kortare trend, SMA 125 cirka ett halvår och SMA 200 cirka ett år.'],
   ['Hög volym', 'Senaste handelsvolymen måste överstiga 150 % av snittet för de föregående 20 handelsdagarna.'],
   ['Nära 52v High / Low', 'Inom 5 % från 52-veckorshögsta respektive lägsta. High används ofta för trendstyrka, Low för möjliga vändnings- eller värdecases.'],
@@ -141,7 +140,6 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
     activeFilter.peMin != null ? `P/E >= ${activeFilter.peMin}` : null,
     activeFilter.divYieldMin != null ? `Utdelning >= ${activeFilter.divYieldMin}%` : null,
     activeFilter.volatilityMax != null ? `Volatilitet <= ${activeFilter.volatilityMax}%` : null,
-    activeFilter.riskRewardMin != null ? `Risk/Reward >= ${activeFilter.riskRewardMin}` : null,
     activeFilter.aboveSMA50 ? 'Över SMA 50' : null,
     activeFilter.aboveSMA125 ? 'Över SMA 125' : null,
     activeFilter.aboveSMA200 ? 'Över SMA 200' : null,
@@ -223,7 +221,7 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
           <Text style={st.sectionTitle}>RISKFILTER</Text>
           <View style={st.filterRow}>
             <NumberInput label="Volatilitet max %" value={activeFilter.volatilityMax} onChange={v => updateFilter({ volatilityMax: v })} placeholder="t.ex. 30" />
-            <NumberInput label="Risk/Reward min" value={activeFilter.riskRewardMin} onChange={v => updateFilter({ riskRewardMin: v })} placeholder="t.ex. 70" />
+            <NumberInput label="RSI min" value={activeFilter.rsiMin} onChange={v => updateFilter({ rsiMin: v })} placeholder="t.ex. 20" />
           </View>
 
           {/* Toggle filters */}
