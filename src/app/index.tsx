@@ -24,7 +24,7 @@ import { authenticatedFetch } from '../lib/auth-client';
 import { useAppAuth } from '../components/AuthGate';
 import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
 import { AdminPanel } from '../components/AdminPanel';
 import { anyMarketOpen, anyMarketWorthPolling, regionForMarket, regionsForTickers } from '../lib/market-hours';
@@ -47,6 +47,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [favoriteSyncError, setFavoriteSyncError] = useState<string | null>(null);
   const [market, setMarket] = useState<MarketId>('omxs30');
   const [filter, setFilter] = useState<string>('all');
   const [watchlist, setWatchlist] = useState<string[]>([]);
@@ -64,23 +65,58 @@ export default function HomeScreen() {
 
   // ─── WATCHLIST PERSISTENCE ─────────────────
   useEffect(() => {
-    (async () => {
+    let active = true;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let syncInProgress = false;
+    let syncRequested = false;
+
+    const localReady = (async () => {
       try {
         const stored = await AsyncStorage.getItem('@watchlist');
         const localWatchlist = stored ? normalizeFavoriteTickers(JSON.parse(stored)) : [];
-        if (!isSupabaseConfigured) {
-          setWatchlist(localWatchlist);
-          return;
-        }
-        try {
-          const cloudWatchlist = await loadCloudFavorites();
-          setWatchlist(cloudWatchlist ?? localWatchlist);
-        } catch {
-          setWatchlist(localWatchlist);
-          setError('Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.');
-        }
+        if (active) setWatchlist(localWatchlist);
       } catch {}
     })();
+
+    const syncFromCloud = async (attempt = 0) => {
+      if (!isSupabaseConfigured || !active) return;
+      if (syncInProgress) {
+        syncRequested = true;
+        return;
+      }
+      syncInProgress = true;
+      await localReady;
+      try {
+        const cloudWatchlist = await loadCloudFavorites();
+        if (active && cloudWatchlist !== null) {
+          setWatchlist(cloudWatchlist);
+          setFavoriteSyncError(null);
+        }
+      } catch {
+        if (active && attempt === 0) {
+          retryTimer = setTimeout(() => { void syncFromCloud(1); }, 1_200);
+        } else if (active) {
+          setFavoriteSyncError('Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.');
+        }
+      } finally {
+        syncInProgress = false;
+        if (active && syncRequested) {
+          syncRequested = false;
+          setTimeout(() => { void syncFromCloud(); }, 0);
+        }
+      }
+    };
+
+    void syncFromCloud();
+    const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (session) setTimeout(() => { void syncFromCloud(); }, 0);
+    });
+
+    return () => {
+      active = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      authListener?.data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -110,9 +146,10 @@ export default function HomeScreen() {
     try { await AsyncStorage.setItem('@watchlist', JSON.stringify(normalized)); } catch {}
     if (isSupabaseConfigured) {
       try {
-        await saveCloudFavorites(normalized);
+        const synced = await saveCloudFavorites(normalized);
+        if (synced) setFavoriteSyncError(null);
       } catch {
-        setError('Favoriten sparades lokalt men kunde inte synkas till ditt konto.');
+        setFavoriteSyncError('Favoriten sparades lokalt men kunde inte synkas till ditt konto.');
       }
     }
   };
@@ -331,6 +368,12 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {favoriteSyncError && (
+        <View style={s.errorWrap}>
+          <Text style={s.errorText}>{favoriteSyncError}</Text>
+        </View>
+      )}
+
       {loading && !refreshing && data.length === 0 ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -361,8 +404,8 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { flex: 1, width: '100%', maxWidth: maxContentWidth, alignSelf: 'center' },
-  errorWrap: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#3D0A0A' },
-  errorText: { color: '#FF3B30', fontSize: 13 },
+  errorWrap: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.negativeBg },
+  errorText: { color: colors.negative, fontSize: 13 },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: colors.textSecondary, marginTop: 12, fontSize: 14 },
 });

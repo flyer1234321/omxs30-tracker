@@ -256,10 +256,10 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             const explanation = getExplanation(ci.label, item);
             return (
               <HintedTouchable key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)} accessibilityLabel={`${isOpen ? 'Dölj' : 'Visa'} förklaring: ${ci.label}`} hint={explanation || `${isOpen ? 'Döljer' : 'Visar'} hur kontrollpunkten ${ci.label.toLowerCase()} påverkar analysen.`}>
-                <View style={[s.checkRow, isOpen && { backgroundColor: '#1a2332', borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
+                <View style={[s.checkRow, isOpen && { backgroundColor: palette.accentBg, borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
                   <Text style={s.checkIcon}>{ci.passed ? '✅' : '❌'}</Text>
-                  <Text style={[s.checkLabel, !ci.passed && { color: '#666' }]}>{ci.label}</Text>
-                  <Text style={[s.checkDetail, ci.passed ? { color: '#34C759' } : { color: '#666' }]}>{ci.detail}</Text>
+                  <Text style={[s.checkLabel, !ci.passed && { color: palette.textMuted }]}>{ci.label}</Text>
+                  <Text style={[s.checkDetail, ci.passed ? { color: colors.green } : { color: palette.textMuted }]}>{ci.detail}</Text>
                 </View>
                 {isOpen && explanation ? (
                   <View style={s.checkExplain}>
@@ -273,8 +273,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           {hc.bonuses.map((bonus, index) => (
             <View key={`bonus-${index}`} style={s.checkRow}>
               <Text style={s.checkIcon}>{bonus.passed ? '✅' : '❌'}</Text>
-              <Text style={[s.checkLabel, !bonus.passed && { color: '#666' }]}>{bonus.label}</Text>
-              <Text style={[s.checkDetail, bonus.passed ? { color: colors.green } : { color: '#666' }]}>{bonus.detail}</Text>
+              <Text style={[s.checkLabel, !bonus.passed && { color: palette.textMuted }]}>{bonus.label}</Text>
+              <Text style={[s.checkDetail, bonus.passed ? { color: colors.green } : { color: palette.textMuted }]}>{bonus.detail}</Text>
             </View>
           ))}
 
@@ -486,9 +486,9 @@ const s = StyleSheet.create({
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   printButton: { borderWidth: 1, borderColor: '#3b82f6', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 5 },
-  printButtonText: { color: '#93c5fd', fontSize: 10, fontWeight: '800' },
+  printButtonText: { color: palette.accent, fontSize: 10, fontWeight: '800' },
   headerBtnText: {
-    color: '#007AFF',
+    color: palette.accent,
     fontSize: 24,
     fontWeight: '300',
   },
@@ -546,7 +546,7 @@ const s = StyleSheet.create({
   },
   modeButtonActive: { backgroundColor: palette.accentBg },
   modeButtonText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
-  modeButtonTextActive: { color: '#93c5fd' },
+  modeButtonTextActive: { color: palette.accent },
   sectionHeading: { marginBottom: 10 },
   sectionTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
   sectionIntro: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4, maxWidth: 760 },
@@ -633,7 +633,7 @@ const s = StyleSheet.create({
     fontFamily: 'monospace',
   },
   riskCurrency: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
-  planSizing: { color: '#EBEBF5', fontSize: 13, lineHeight: 19, marginTop: 16 },
+  planSizing: { color: colors.text, fontSize: 13, lineHeight: 19, marginTop: 16 },
   planDisclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 10 },
   valuationNote: {
     marginTop: -10,
@@ -643,7 +643,7 @@ const s = StyleSheet.create({
     borderLeftColor: palette.accent,
     backgroundColor: palette.accentBg,
   },
-  valuationNoteTitle: { color: '#bfdbfe', fontSize: 12, fontWeight: '800', marginBottom: 4 },
+  valuationNoteTitle: { color: palette.accent, fontSize: 12, fontWeight: '800', marginBottom: 4 },
   valuationNoteText: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
   bullBearContainer: {
     flexDirection: 'row',
@@ -707,7 +707,7 @@ const s = StyleSheet.create({
     fontWeight: 'bold',
   },
   trendText: {
-    color: '#EBEBF5',
+    color: colors.text,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -746,7 +746,7 @@ const s = StyleSheet.create({
     flex: 1,
   },
   healthSummary: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '500',
     lineHeight: 20,
@@ -761,18 +761,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: palette.surfaceAlt,
   },
   pillLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#EBEBF5',
+    color: colors.text,
   },
   checklist: {
     marginTop: 8,
   },
   checklistTitle: {
-    color: '#8E8E93',
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -791,7 +791,7 @@ const s = StyleSheet.create({
   },
   checkLabel: {
     flex: 1,
-    color: '#EBEBF5',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -800,17 +800,17 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   checkExplain: {
-    backgroundColor: 'rgba(0,122,255,0.1)',
+    backgroundColor: palette.accentBg,
     padding: 12,
     borderRadius: 8,
     marginTop: 4,
     marginBottom: 12,
     marginLeft: 30,
     borderLeftWidth: 2,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: palette.accent,
   },
   checkExplainText: {
-    color: '#EBEBF5',
+    color: colors.text,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -826,16 +826,16 @@ const s = StyleSheet.create({
   qualityScore: { fontSize: 20, fontWeight: '700', fontFamily: 'monospace' },
   qualityLabel: { fontSize: 10, fontWeight: '700', marginTop: 1 },
   qualityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  qualityRowLabel: { color: '#EBEBF5', fontSize: 13, flex: 1.1 },
+  qualityRowLabel: { color: colors.text, fontSize: 13, flex: 1.1 },
   qualityRowDetail: { color: colors.textMuted, fontSize: 11, flex: 1.3, textAlign: 'right' },
   qualityRowPoints: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'], width: 34, textAlign: 'right' },
   interpretation: { marginTop: 18, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
-  interpretationScore: { color: '#EBEBF5', fontSize: 13, lineHeight: 19 },
+  interpretationScore: { color: colors.text, fontSize: 13, lineHeight: 19 },
   interpretationBlock: { marginTop: 14, borderLeftWidth: 2, borderLeftColor: '#3b82f6', paddingLeft: 12 },
-  interpretationLabel: { color: '#93c5fd', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  interpretationText: { color: '#EBEBF5', fontSize: 13, lineHeight: 19 },
+  interpretationLabel: { color: palette.accent, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  interpretationText: { color: colors.text, fontSize: 13, lineHeight: 19 },
   checkResultText: {
-    color: '#8E8E93',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },

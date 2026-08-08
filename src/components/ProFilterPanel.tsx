@@ -374,7 +374,7 @@ const st = StyleSheet.create({
   activeSummaryLabel: { color: C.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.1, marginBottom: 6 },
   activeSummaryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   activeSummaryChip: { backgroundColor: C.accentBg, borderWidth: 1, borderColor: C.accentBorder, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 5 },
-  activeSummaryText: { color: '#93c5fd', fontSize: 11, fontWeight: '600' },
+  activeSummaryText: { color: C.accent, fontSize: 11, fontWeight: '600' },
   filterActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   showResultsBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 40, borderRadius: 6, backgroundColor: C.accent },
   showResultsText: { color: '#fff', fontSize: 13, fontWeight: '700' },

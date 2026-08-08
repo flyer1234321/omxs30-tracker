@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   email: { color: palette.textPrimary, fontSize: 13, fontWeight: '600', flex: 1 },
   selfTag: { color: palette.textMuted, fontSize: 11, fontStyle: 'italic' },
   remove: { paddingVertical: 4, paddingHorizontal: 8 },
-  removeText: { color: '#fca5a5', fontSize: 12, fontWeight: '600' },
+  removeText: { color: palette.negative, fontSize: 12, fontWeight: '600' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 },
   toggleLabel: { color: palette.textSecondary, fontSize: 12 },
   note: { color: palette.textMuted, fontSize: 11, lineHeight: 16, marginTop: 10 },

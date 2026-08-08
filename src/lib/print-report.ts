@@ -35,24 +35,59 @@ function chartSvg(stock: StockData) {
   const data = stock.chartHistory.slice(-126);
   if (data.length < 2) return '<p class="muted">Kurshistorik saknas i rapporten.</p>';
   const values = data.flatMap((point) => [point.close, point.sma50, point.sma125, point.sma200].filter((value): value is number => value != null));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const padding = Math.max((rawMax - rawMin) * 0.06, rawMax * 0.01, 0.5);
+  const min = Math.max(0, rawMin - padding);
+  const max = rawMax + padding;
   const range = Math.max(max - min, 0.01);
-  const width = 720;
-  const height = 170;
+  const width = 760;
+  const plotLeft = 58;
+  const plotRight = 14;
+  const plotTop = 16;
+  const plotHeight = 248;
+  const plotBottom = plotTop + plotHeight;
+  const plotWidth = width - plotLeft - plotRight;
+  const volumeTop = 302;
+  const volumeHeight = 46;
+  const dateY = 377;
+  const totalHeight = 392;
+  const xForIndex = (index: number) => plotLeft + (index / (data.length - 1)) * plotWidth;
+  const yForValue = (value: number) => plotBottom - ((value - min) / range) * plotHeight;
   const pointsFor = (key: 'close' | 'sma50' | 'sma125' | 'sma200') => data.flatMap((point, index) => {
     const value = point[key];
     if (value == null) return [];
-    const x = (index / (data.length - 1)) * width;
-    const y = height - ((value - min) / range) * height;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    return `${xForIndex(index).toFixed(1)},${yForValue(value).toFixed(1)}`;
   }).join(' ');
   const closingPrices = data.map((point) => point.close);
   const positive = closingPrices.at(-1)! >= closingPrices[0] ? '#14804a' : '#c84040';
+  const closePoints = pointsFor('close');
+  const areaPoints = `${plotLeft},${plotBottom} ${closePoints} ${plotLeft + plotWidth},${plotBottom}`;
   const firstDate = new Date(data[0].date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
   const lastDate = new Date(data.at(-1)!.date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
   const returnPct = ((closingPrices.at(-1)! - closingPrices[0]) / closingPrices[0]) * 100;
-  return `<div class="chart-meta"><span>Senaste sex månaderna: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}</span><strong class="${returnPct >= 0 ? 'positive' : 'negative'}">${returnPct >= 0 ? '+' : ''}${number(returnPct, 1)} %</strong></div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Kursutveckling med SMA 50, SMA 125 och SMA 200"><line x1="0" y1="42" x2="${width}" y2="42" class="grid"/><line x1="0" y1="85" x2="${width}" y2="85" class="grid"/><line x1="0" y1="128" x2="${width}" y2="128" class="grid"/><polyline points="${pointsFor('sma50')}" fill="none" stroke="#7c3aed" stroke-width="1.8"/><polyline points="${pointsFor('sma125')}" fill="none" stroke="#d97706" stroke-width="1.8"/><polyline points="${pointsFor('sma200')}" fill="none" stroke="#e11d48" stroke-width="1.8"/><polyline points="${pointsFor('close')}" fill="none" stroke="${positive}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="chart-legend"><span><i class="price-line"></i>Kurs</span><span><i class="sma50-line"></i>SMA 50</span><span><i class="sma125-line"></i>SMA 125</span><span><i class="sma200-line"></i>SMA 200</span></div>`;
+  const yTicks = Array.from({ length: 5 }, (_, index) => {
+    const value = max - (range * index) / 4;
+    const y = plotTop + (plotHeight * index) / 4;
+    return `<line x1="${plotLeft}" y1="${y.toFixed(1)}" x2="${plotLeft + plotWidth}" y2="${y.toFixed(1)}" class="grid"/><text x="${plotLeft - 9}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="axis-label">${escapeHtml(number(value, value >= 100 ? 0 : 1))}</text>`;
+  }).join('');
+  const dateTickIndexes = Array.from(new Set([0, Math.round((data.length - 1) * 0.25), Math.round((data.length - 1) * 0.5), Math.round((data.length - 1) * 0.75), data.length - 1]));
+  const dateTicks = dateTickIndexes.map((index) => {
+    const label = new Date(data[index].date).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+    return `<text x="${xForIndex(index).toFixed(1)}" y="${dateY}" text-anchor="middle" class="axis-label">${escapeHtml(label)}</text>`;
+  }).join('');
+  const volumeValues = data.map((point) => Math.max(point.volume ?? 0, 0));
+  const maximumVolume = Math.max(...volumeValues, 0);
+  const barWidth = Math.max(1.3, (plotWidth / data.length) * 0.72);
+  const volumeBars = maximumVolume > 0 ? volumeValues.map((value, index) => {
+    const height = Math.max(1, (value / maximumVolume) * volumeHeight);
+    return `<rect x="${(xForIndex(index) - barWidth / 2).toFixed(1)}" y="${(volumeTop + volumeHeight - height).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${height.toFixed(1)}" rx="0.8" fill="${positive}" opacity="0.48"/>`;
+  }).join('') : `<text x="${plotLeft}" y="${volumeTop + 25}" class="axis-label">Volymdata saknas</text>`;
+  const periodLow = Math.min(...closingPrices);
+  const periodHigh = Math.max(...closingPrices);
+  const intervalPosition = periodHigh > periodLow ? ((closingPrices.at(-1)! - periodLow) / (periodHigh - periodLow)) * 100 : 50;
+
+  return `<div class="chart-meta"><span>Senaste sex månaderna: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}</span><strong class="${returnPct >= 0 ? 'positive' : 'negative'}">${returnPct >= 0 ? '+' : ''}${number(returnPct, 1)} %</strong></div><div class="chart-shell"><svg viewBox="0 0 ${width} ${totalHeight}" role="img" aria-label="Kursutveckling med SMA 50, SMA 125, SMA 200 och handelsvolym">${yTicks}<line x1="${plotLeft}" y1="${plotTop}" x2="${plotLeft}" y2="${plotBottom}" class="axis"/><line x1="${plotLeft}" y1="${plotBottom}" x2="${plotLeft + plotWidth}" y2="${plotBottom}" class="axis"/><polygon points="${areaPoints}" fill="${positive}" opacity="0.10"/><polyline points="${pointsFor('sma50')}" fill="none" stroke="#7c3aed" stroke-width="2"/><polyline points="${pointsFor('sma125')}" fill="none" stroke="#d97706" stroke-width="2"/><polyline points="${pointsFor('sma200')}" fill="none" stroke="#e11d48" stroke-width="2"/><polyline points="${closePoints}" fill="none" stroke="${positive}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><text x="${plotLeft}" y="${volumeTop - 8}" class="volume-title">VOLYM</text>${volumeBars}${dateTicks}</svg></div><div class="chart-legend"><span><i style="background:${positive}"></i>Kurs</span><span><i class="sma50-line"></i>SMA 50</span><span><i class="sma125-line"></i>SMA 125</span><span><i class="sma200-line"></i>SMA 200</span></div><div class="chart-summary"><div><span>Periodens lägsta</span><strong>${number(periodLow, 2)} kr</strong></div><div><span>Periodens högsta</span><strong>${number(periodHigh, 2)} kr</strong></div><div><span>Läge i intervallet</span><strong>${number(intervalPosition, 0)} %</strong></div><div><span>Senaste volym</span><strong>${volume(stock.latestVolume)}</strong></div></div>`;
 }
 
 function list(items: string[]) {
@@ -99,18 +134,18 @@ export function buildPrintReportHtml(stock: StockData, report: AnalystReport | n
 <html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(stock.ticker)} analysrapport</title>
 <style>
   @page { margin: 16mm; size: A4; }
-  * { box-sizing: border-box; } body { color: #172033; font: 11pt -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.45; margin: 0; }
+  * { box-sizing: border-box; } body { color: #172033; font: 11pt -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.45; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   h1, h2, h3, p { margin-top: 0; } h1 { font-size: 27pt; letter-spacing: 0; margin-bottom: 2px; } h2 { font-size: 15pt; border-bottom: 1px solid #d9e1ea; margin: 26px 0 10px; padding-bottom: 5px; } h3 { font-size: 11pt; margin: 0 0 4px; }
   .muted { color: #65758b; } .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid #1677c8; padding-bottom: 16px; } .ticker { color: #65758b; font-size: 13pt; font-weight: 600; }
   .quote { text-align: right; white-space: nowrap; } .price { font-size: 25pt; font-weight: 750; } .positive { color: #14804a; } .negative { color: #c84040; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #d9e1ea; border-radius: 6px; overflow: hidden; } .stat { border-right: 1px solid #d9e1ea; border-bottom: 1px solid #d9e1ea; min-height: 59px; padding: 9px; } .stat:nth-child(4n) { border-right: 0; } .stat:nth-last-child(-n+4) { border-bottom: 0; } .label { color: #65758b; display: block; font-size: 9pt; margin-bottom: 3px; } .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
-  svg { display: block; height: auto; width: 100%; } .grid { stroke: #e4ebf2; stroke-width: 1; } .chart-meta { color: #65758b; display: flex; font-size: 9pt; justify-content: space-between; margin: 0 0 8px; } .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 8.5pt; margin-top: 8px; } .chart-legend span { align-items: center; display: inline-flex; gap: 5px; } .chart-legend i { display: inline-block; height: 2px; width: 15px; } .price-line { background: #14804a; } .sma50-line { background: #7c3aed; } .sma125-line { background: #d97706; } .sma200-line { background: #e11d48; } .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; } .panel { border: 1px solid #d9e1ea; border-radius: 6px; padding: 12px; } .panel-positive { border-left: 4px solid #14804a; } .panel-negative { border-left: 4px solid #c84040; } .panel-attention { border-left: 4px solid #c57b00; } ul { margin: 6px 0 0; padding-left: 18px; } li { margin-bottom: 4px; } .signals { display: flex; flex-wrap: wrap; gap: 6px; } .signal { background: #e8f1fb; border-radius: 12px; color: #135b95; font-size: 9pt; padding: 3px 8px; } .grade { background: #edf7ef; border-radius: 5px; color: #16703a; display: inline-block; font-weight: 700; padding: 4px 8px; } .footer { border-top: 1px solid #d9e1ea; color: #65758b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
-  @media print { .page-break-avoid { break-inside: avoid; } .long-section { break-inside: auto; } }
+  svg { display: block; height: auto; width: 100%; } .grid { stroke: #e1e7ee; stroke-dasharray: 4 5; stroke-width: 1; } .axis { stroke: #aab6c3; stroke-width: 1; } .axis-label { fill: #65758b; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } .volume-title { fill: #65758b; font-size: 9px; font-weight: 700; letter-spacing: 1px; } .chart-shell { background: #f7f9fb; border: 1px solid #d9e1ea; border-radius: 6px; overflow: hidden; padding: 8px; } .chart-meta { color: #65758b; display: flex; font-size: 9pt; justify-content: space-between; margin: 0 0 8px; } .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 8.5pt; margin-top: 8px; } .chart-legend span { align-items: center; display: inline-flex; gap: 5px; } .chart-legend i { display: inline-block; height: 3px; width: 18px; } .sma50-line { background: #7c3aed; } .sma125-line { background: #d97706; } .sma200-line { background: #e11d48; } .chart-summary { border: 1px solid #d9e1ea; border-radius: 6px; display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 10px; overflow: hidden; } .chart-summary div { border-right: 1px solid #d9e1ea; padding: 8px 10px; } .chart-summary div:last-child { border-right: 0; } .chart-summary span { color: #65758b; display: block; font-size: 8pt; } .chart-summary strong { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10pt; margin-top: 2px; } .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; } .panel { border: 1px solid #d9e1ea; border-radius: 6px; padding: 12px; } .panel-positive { border-left: 4px solid #14804a; } .panel-negative { border-left: 4px solid #c84040; } .panel-attention { border-left: 4px solid #c57b00; } ul { margin: 6px 0 0; padding-left: 18px; } li { margin-bottom: 4px; } .signals { display: flex; flex-wrap: wrap; gap: 6px; } .signal { background: #e8f1fb; border-radius: 12px; color: #135b95; font-size: 9pt; padding: 3px 8px; } .grade { background: #edf7ef; border-radius: 5px; color: #16703a; display: inline-block; font-weight: 700; padding: 4px 8px; } .footer { border-top: 1px solid #d9e1ea; color: #65758b; font-size: 8.5pt; margin-top: 28px; padding-top: 10px; }
+  @media print { .page-break-avoid { break-inside: avoid; } .chart-section { break-before: page; break-inside: avoid; } .long-section { break-inside: auto; } }
 </style></head><body>
 <header class="header"><div><h1>${escapeHtml(stock.ticker.replace('.ST', ''))}</h1><p class="ticker">${escapeHtml(stock.companyName)} · Analysrapport</p><p class="muted">Skapad ${escapeHtml(generatedAt)}</p></div><div class="quote"><div class="price">${number(stock.currentPrice, 2)} kr</div><div class="${changeClass}">${change == null ? '-' : `${change >= 0 ? '+' : ''}${number(change, 2)} % idag`}</div>${health ? `<p class="grade">Rekylläge ${health.grade} · ${health.gradeScore}/9</p>` : ''}</div></header>
 <section class="page-break-avoid"><h2>Nyckeltal</h2><div class="stats">${stats.map(([label, value]) => `<div class="stat"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join('')}</div></section>
 <section class="page-break-avoid"><h2>Relativ värdering</h2><div class="panel panel-attention"><h3>${escapeHtml(valuation.label)}</h3><p>${escapeHtml(valuation.summary)}</p>${valuation.evidence.length ? list(valuation.evidence) : ''}<p class="muted">Jämförelsen bygger på ${valuation.availableComparisons} av ${valuation.totalComparisons} möjliga referenser. Ett lågt P/E är inte i sig ett bevis på att aktien är billig.</p></div></section>
-<section class="page-break-avoid"><h2>Kursutveckling</h2>${chartSvg(stock)}</section>
+<section class="page-break-avoid chart-section"><h2>Kursutveckling</h2>${chartSvg(stock)}</section>
 ${stock.signals?.length ? `<section class="page-break-avoid"><h2>Aktiva signaler</h2><div class="signals">${stock.signals.map((signal) => `<span class="signal">${escapeHtml(signal.label)}: ${escapeHtml(signal.detail)}</span>`).join('')}</div></section>` : ''}
 ${trend ? `<section class="page-break-avoid"><h2>Trendbedömning</h2><div class="panel panel-${trend.color}"><h3>${escapeHtml(trend.title)}</h3><p>${escapeHtml(trend.text)}</p></div></section>` : ''}
 <section class="page-break-avoid"><h2>Styrkor och svagheter</h2><div class="two-col"><div class="panel panel-positive"><h3>Styrkor</h3>${bullPoints.length ? list(bullPoints) : '<p class="muted">Inga tydliga styrkor just nu.</p>'}</div><div class="panel panel-negative"><h3>Svagheter</h3>${bearPoints.length ? list(bearPoints) : '<p class="muted">Inga tydliga svagheter just nu.</p>'}</div></div></section>

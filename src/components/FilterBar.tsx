@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { useAppTheme } from '@/components/AppTheme';
 import { colors, fonts, spacing, radius } from '../theme';
 import type { MarketId } from '@/types/stock';
 
@@ -69,6 +70,7 @@ export function FilterBar({
   onOpenAdmin,
 }: FilterBarProps) {
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const { mode, toggleMode } = useAppTheme();
 
   const formattedTime = lastUpdated ? new Date(lastUpdated).toLocaleTimeString('sv-SE', {
     hour: '2-digit',
@@ -138,6 +140,14 @@ export function FilterBar({
         <View style={styles.titleRow}>
           <Text style={styles.title}>📊 Screener</Text>
           <View style={styles.headerActions}>
+            <HintedTouchable
+              style={styles.themeButton}
+              onPress={toggleMode}
+              accessibilityLabel={mode === 'dark' ? 'Byt till ljust tema' : 'Byt till mörkt tema'}
+              hint={mode === 'dark' ? 'Visar appen med ljus bakgrund och mörk text.' : 'Visar appen med mörk bakgrund och ljus text.'}
+            >
+              <Text style={styles.themeButtonText}>{mode === 'dark' ? 'Ljust' : 'Mörkt'}</Text>
+            </HintedTouchable>
             <View style={styles.countBadge}>
               <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
             </View>
@@ -267,7 +277,16 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: fonts.sans,
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: spacing.sm },
+  themeButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+  },
+  themeButtonText: { color: colors.textPrimary, fontSize: 11, fontFamily: fonts.sans, fontWeight: '700' },
   countBadge: {
     backgroundColor: colors.surfaceAlt,
     paddingHorizontal: spacing.sm,

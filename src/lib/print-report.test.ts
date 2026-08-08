@@ -31,4 +31,7 @@ test('builds a printable report and escapes market data text', () => {
   assert.match(html, /Senaste sex månaderna/);
   assert.match(html, /SMA 50/);
   assert.match(html, /Relativ värdering/);
+  assert.match(html, /Läge i intervallet/);
+  assert.match(html, /VOLYM/);
+  assert.match(html, /chart-section/);
 });

@@ -335,5 +335,5 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: palette.border },
   dividerText: { color: palette.textSecondary, fontSize: 12 },
   message: { color: palette.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 16 },
-  error: { color: '#fca5a5', fontSize: 13, lineHeight: 19, marginTop: 16 },
+  error: { color: palette.negative, fontSize: 13, lineHeight: 19, marginTop: 16 },
 });

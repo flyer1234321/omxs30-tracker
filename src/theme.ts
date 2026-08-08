@@ -1,22 +1,26 @@
 import { Platform } from 'react-native';
 
+function themedColor(variable: string, fallback: string) {
+  return Platform.OS === 'web' ? `var(--${variable}, ${fallback})` : fallback;
+}
+
 export const colors = {
   // Backgrounds
-  bg: '#08080f',
-  surface: '#111118',
-  surfaceAlt: '#16161f',
-  surfaceHover: '#1c1c28',
-  border: '#1e1e2e',
-  borderSubtle: '#151520',
-  borderStrong: '#2a2a35',
+  bg: themedColor('color-bg', '#08080f'),
+  surface: themedColor('color-surface', '#111118'),
+  surfaceAlt: themedColor('color-surface-alt', '#16161f'),
+  surfaceHover: themedColor('color-surface-hover', '#1c1c28'),
+  border: themedColor('color-border', '#1e1e2e'),
+  borderSubtle: themedColor('color-border-subtle', '#151520'),
+  borderStrong: themedColor('color-border-strong', '#2a2a35'),
   
   // Text
-  textStrong: '#ffffff',
-  textPrimary: '#e2e2ea',
-  textBody: '#d1d1d6',
-  textSecondary: '#a3a3b7',
-  textMuted: '#7f7f95',
-  textInverse: '#08080f',
+  textStrong: themedColor('color-text-strong', '#ffffff'),
+  textPrimary: themedColor('color-text-primary', '#e2e2ea'),
+  textBody: themedColor('color-text-body', '#d1d1d6'),
+  textSecondary: themedColor('color-text-secondary', '#a3a3b7'),
+  textMuted: themedColor('color-text-muted', '#7f7f95'),
+  textInverse: themedColor('color-text-inverse', '#08080f'),
   
   // Semantic colors - muted for pro trader look
   positive: '#22c55e',
@@ -31,8 +35,8 @@ export const colors = {
   
   // Accent
   accent: '#3b82f6',
-  accentBg: 'rgba(59,130,246,0.10)',
-  accentBorder: 'rgba(59,130,246,0.25)',
+  accentBg: themedColor('color-accent-bg', 'rgba(59,130,246,0.10)'),
+  accentBorder: themedColor('color-accent-border', 'rgba(59,130,246,0.25)'),
   
   warning: '#f59e0b',
   warningBright: '#fbbf24',
@@ -42,14 +46,14 @@ export const colors = {
   sma50: '#8b5cf6',
   sma125: '#f59e0b',
   sma200: '#fb2c55',
-  grid: '#20202a',
+  grid: themedColor('color-grid', '#20202a'),
   
   // Grades
-  gradeA: { bg: '#0a2e1a', text: '#22c55e', border: '#16a34a' },
-  gradeB: { bg: '#1a2e0a', text: '#84cc16', border: '#65a30d' },
-  gradeC: { bg: '#2e2a0a', text: '#eab308', border: '#ca8a04' },
-  gradeD: { bg: '#2e1a0a', text: '#f97316', border: '#ea580c' },
-  gradeF: { bg: '#2e0a0a', text: '#ef4444', border: '#dc2626' },
+  gradeA: { bg: themedColor('color-grade-a-bg', '#0a2e1a'), text: '#22c55e', border: '#16a34a' },
+  gradeB: { bg: themedColor('color-grade-b-bg', '#1a2e0a'), text: themedColor('color-grade-b-text', '#84cc16'), border: '#65a30d' },
+  gradeC: { bg: themedColor('color-grade-c-bg', '#2e2a0a'), text: themedColor('color-grade-c-text', '#eab308'), border: '#ca8a04' },
+  gradeD: { bg: themedColor('color-grade-d-bg', '#2e1a0a'), text: '#f97316', border: '#ea580c' },
+  gradeF: { bg: themedColor('color-grade-f-bg', '#2e0a0a'), text: '#ef4444', border: '#dc2626' },
 };
 
 export const gradeColorMap: Record<string, { bg: string; text: string; border: string }> = {
