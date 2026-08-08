@@ -54,6 +54,7 @@ function calculateHistoricalReturn(portfolio: PortfolioSummary, data: StockData[
 export function HoldingsOverview({ portfolio, data }: HoldingsOverviewProps) {
   const { t } = useAppLanguage();
   const [isExpanded, setIsExpanded] = useState(true);
+  const [distMode, setDistMode] = useState<'percent' | 'amount'>('percent');
   
   const horizons = ['today', '1m', '1y', 'total'] as const;
   const [horizonIndex, setHorizonIndex] = useState(0);
@@ -130,14 +131,29 @@ export function HoldingsOverview({ portfolio, data }: HoldingsOverviewProps) {
         </View>
       </View>
 
-      <TouchableOpacity 
-        style={styles.sectionHeader} 
-        onPress={() => setIsExpanded(!isExpanded)}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.sectionTitle}>{t('Portföljfördelning', 'Portfolio Distribution')}</Text>
-        <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
-      </TouchableOpacity>
+      <View style={styles.sectionHeaderRow}>
+        <TouchableOpacity 
+          style={styles.sectionHeader} 
+          onPress={() => setIsExpanded(!isExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sectionTitle}>{t('Portföljfördelning', 'Portfolio Distribution')}</Text>
+          <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <TouchableOpacity 
+            style={styles.distModeToggle} 
+            onPress={() => setDistMode(m => m === 'percent' ? 'amount' : 'percent')}
+            activeOpacity={0.7}
+            accessibilityLabel={t('Byt mellan procent och belopp', 'Toggle between percent and amount')}
+          >
+            <Text style={styles.distModeText}>
+              {distMode === 'percent' ? '%' : portfolio.currency}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
       
       {isExpanded && (
         <ScrollView style={styles.distributionScroll} showsVerticalScrollIndicator={true}>
@@ -157,7 +173,11 @@ export function HoldingsOverview({ portfolio, data }: HoldingsOverviewProps) {
                       ]}
                     />
                   </View>
-                  <Text style={styles.barValue}>{weight.toFixed(1)}%</Text>
+                  <Text style={styles.barValue}>
+                    {distMode === 'percent' 
+                      ? `${weight.toFixed(1)}%` 
+                      : formatPrice(approximateSekValue(pos.marketValue, pos.currency), portfolio.currency, 0)}
+                  </Text>
                 </View>
               );
             })}
@@ -223,10 +243,15 @@ const styles = StyleSheet.create({
   negative: {
     color: colors.negative,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     gap: 8,
   },
   sectionTitle: {
@@ -236,6 +261,19 @@ const styles = StyleSheet.create({
   },
   expandIcon: {
     fontSize: 12,
+    color: colors.textSecondary,
+  },
+  distModeToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  distModeText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   distributionScroll: {
