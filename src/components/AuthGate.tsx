@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authenticatedFetch, signOut as endSession } from '@/lib/auth-client';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { useAppLanguage } from '@/components/AppLanguage';
 import { colors as palette } from '@/theme';
 
 const EMAIL_STORAGE_KEY = '@login_email';
@@ -43,6 +44,7 @@ interface Notice {
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  const { language, toggleLanguage, t } = useAppLanguage();
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -103,7 +105,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       if (!next.authenticated && hasSupabaseSession) {
         setNotice({
           tone: 'error',
-          text: 'Kontot är inloggat men saknar åtkomst till den här screenern. Be administratören lägga till adressen i listan över godkända konton.',
+          text: t('Kontot är inloggat men saknar åtkomst till den här screenern. Be administratören lägga till adressen i listan över godkända konton.', 'The account is signed in but does not have access to this screener. Ask the administrator to add the address to the approved accounts.'),
         });
         await supabase?.auth.signOut();
       }
@@ -117,11 +119,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setNotice({
         tone: 'error',
         text: aborted
-          ? 'Inloggningstjänsten svarade inte. Kontrollera anslutningen och försök igen.'
-          : 'Kunde inte kontakta inloggningstjänsten.',
+          ? t('Inloggningstjänsten svarade inte. Kontrollera anslutningen och försök igen.', 'The sign-in service did not respond. Check your connection and try again.')
+          : t('Kunde inte kontakta inloggningstjänsten.', 'Could not contact the sign-in service.'),
       });
     }
-  }, [readStatus]);
+  }, [readStatus, t]);
 
   useEffect(() => {
     void syncSession(false);
@@ -159,12 +161,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setNotice({
           tone: 'error',
           text: data.retryAfterSeconds
-            ? `${data.error} Vänta cirka ${Math.ceil(data.retryAfterSeconds / 60)} minuter.`
-            : data.error || 'Inloggningen misslyckades.',
+            ? `${data.error} ${t('Vänta cirka', 'Wait approximately')} ${Math.ceil(data.retryAfterSeconds / 60)} ${t('minuter.', 'minutes.')}`
+            : data.error || t('Inloggningen misslyckades.', 'Sign-in failed.'),
         });
       }
     } catch {
-      setNotice({ tone: 'error', text: 'Kunde inte kontakta inloggningstjänsten.' });
+      setNotice({ tone: 'error', text: t('Kunde inte kontakta inloggningstjänsten.', 'Could not contact the sign-in service.') });
     } finally {
       setSubmitting(false);
     }
@@ -187,14 +189,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setCooldown(RESEND_COOLDOWN_SECONDS);
         setNotice({
           tone: 'info',
-          text: 'Länken är skickad. Öppna den i den här webbläsaren, så loggas du in automatiskt. Kolla skräpposten om den dröjer.',
+          text: t('Länken är skickad. Öppna den i den här webbläsaren, så loggas du in automatiskt. Kolla skräpposten om den dröjer.', 'The link has been sent. Open it in this browser to sign in automatically. Check your spam folder if it is delayed.'),
         });
       } else {
         if (data.retryAfterSeconds) setCooldown(Math.min(data.retryAfterSeconds, 300));
-        setNotice({ tone: 'error', text: data.error || 'Kunde inte skicka inloggningslänken.' });
+        setNotice({ tone: 'error', text: data.error || t('Kunde inte skicka inloggningslänken.', 'Could not send the sign-in link.') });
       }
     } catch {
-      setNotice({ tone: 'error', text: 'Kunde inte kontakta inloggningstjänsten.' });
+      setNotice({ tone: 'error', text: t('Kunde inte kontakta inloggningstjänsten.', 'Could not contact the sign-in service.') });
     } finally {
       setSubmitting(false);
     }
@@ -204,7 +206,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (supabase) await supabase.auth.signOut();
     await endSession();
     setStatus((current) => (current ? { ...current, authenticated: false, isAdmin: false, canUseAi: false, email: null } : current));
-    setNotice({ tone: 'info', text: 'Du är utloggad.' });
+    setNotice({ tone: 'info', text: t('Du är utloggad.', 'You are signed out.') });
   };
 
   if (!status) {
@@ -225,18 +227,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.card}>
-        <Text style={styles.title}>OMX30 Screener</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>OMX30 Screener</Text>
+          <HintedTouchable style={styles.languageButton} onPress={toggleLanguage} accessibilityLabel={t('Byt språk till engelska', 'Switch language to Swedish')} hint={t('Visar inloggningen på engelska.', 'Shows the sign-in page in Swedish.')}>
+            <Text style={styles.languageButtonText}>{language === 'sv' ? 'English' : 'Svenska'}</Text>
+          </HintedTouchable>
+        </View>
 
         {!status.configured && (
           <Text style={styles.error}>
-            Inloggning är inte konfigurerad. Lägg till antingen `EXPO_PUBLIC_SUPABASE_URL` och
-            `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, eller `APP_ACCESS_PASSWORD` och `APP_SESSION_SECRET`.
+            {t('Inloggning är inte konfigurerad. Lägg till antingen Supabase-variablerna eller lösenordsvariablerna i miljöinställningarna.', 'Sign-in is not configured. Add either the Supabase variables or the password variables to the environment settings.')}
           </Text>
         )}
 
         {showMagicLink && (
           <View style={styles.section}>
-            <Text style={styles.subtitle}>Ange din e-postadress för en säker inloggningslänk.</Text>
+            <Text style={styles.subtitle}>{t('Ange din e-postadress för en säker inloggningslänk.', 'Enter your email address to receive a secure sign-in link.')}</Text>
             <TextInput
               style={styles.input}
               value={email}
@@ -247,20 +253,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               textContentType="emailAddress"
               keyboardType="email-address"
               onSubmitEditing={sendMagicLink}
-              placeholder="E-postadress"
+              placeholder={t('E-postadress', 'Email address')}
               placeholderTextColor={palette.textSecondary}
-              accessibilityLabel="E-postadress för inloggning"
-              accessibilityHint="En säker engångslänk skickas till en godkänd e-postadress."
+              accessibilityLabel={t('E-postadress för inloggning', 'Email address for sign-in')}
+              accessibilityHint={t('En säker engångslänk skickas till en godkänd e-postadress.', 'A secure one-time link is sent to an approved email address.')}
             />
             <HintedTouchable
               style={[styles.button, (submitting || cooldown > 0) && styles.buttonDisabled]}
               disabled={submitting || cooldown > 0}
               onPress={sendMagicLink}
-              accessibilityLabel="Skicka inloggningslänk"
-              hint="Skickar en säker engångslänk till den angivna godkända e-postadressen."
+              accessibilityLabel={t('Skicka inloggningslänk', 'Send sign-in link')}
+              hint={t('Skickar en säker engångslänk till den angivna godkända e-postadressen.', 'Sends a secure one-time link to the approved email address.')}
             >
               <Text style={styles.buttonText}>
-                {submitting ? 'Skickar...' : cooldown > 0 ? `Skicka igen om ${cooldown} s` : 'Skicka inloggningslänk'}
+                {submitting ? t('Skickar...', 'Sending...') : cooldown > 0 ? `${t('Skicka igen om', 'Send again in')} ${cooldown} s` : t('Skicka inloggningslänk', 'Send sign-in link')}
               </Text>
             </HintedTouchable>
           </View>
@@ -269,7 +275,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         {showMagicLink && showPassword && (
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>eller</Text>
+            <Text style={styles.dividerText}>{t('eller', 'or')}</Text>
             <View style={styles.dividerLine} />
           </View>
         )}
@@ -278,8 +284,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <View style={styles.section}>
             <Text style={styles.subtitle}>
               {showMagicLink
-                ? 'Kommer länken inte fram går det att logga in med åtkomstlösenordet.'
-                : 'Ange åtkomstlösenordet för att öppna din privata screener.'}
+                ? t('Kommer länken inte fram går det att logga in med åtkomstlösenordet.', 'If the link does not arrive, you can sign in with the access password.')
+                : t('Ange åtkomstlösenordet för att öppna din privata screener.', 'Enter the access password to open your private screener.')}
             </Text>
             <TextInput
               style={styles.input}
@@ -291,19 +297,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               autoComplete="current-password"
               textContentType="password"
               onSubmitEditing={submitPassword}
-              placeholder="Åtkomstlösenord"
+              placeholder={t('Åtkomstlösenord', 'Access password')}
               placeholderTextColor={palette.textSecondary}
-              accessibilityLabel="Åtkomstlösenord"
-              accessibilityHint="Ange lösenordet som administratören har valt för den privata screenern."
+              accessibilityLabel={t('Åtkomstlösenord', 'Access password')}
+              accessibilityHint={t('Ange lösenordet som administratören har valt för den privata screenern.', 'Enter the password selected by the administrator for the private screener.')}
             />
             <HintedTouchable
               style={[styles.button, submitting && styles.buttonDisabled]}
               disabled={submitting}
               onPress={submitPassword}
-              accessibilityLabel="Logga in"
-              hint="Kontrollerar åtkomstlösenordet och öppnar screenern."
+              accessibilityLabel={t('Logga in', 'Sign in')}
+              hint={t('Kontrollerar åtkomstlösenordet och öppnar screenern.', 'Checks the access password and opens the screener.')}
             >
-              <Text style={styles.buttonText}>{submitting ? 'Kontrollerar...' : 'Logga in'}</Text>
+              <Text style={styles.buttonText}>{submitting ? t('Kontrollerar...', 'Checking...') : t('Logga in', 'Sign in')}</Text>
             </HintedTouchable>
           </View>
         )}
@@ -321,7 +327,10 @@ const styles = StyleSheet.create({
     width: '100%', maxWidth: 400, alignSelf: 'center', backgroundColor: palette.surface,
     borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 8, padding: 24,
   },
-  title: { color: palette.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 16 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 },
+  title: { color: palette.textPrimary, fontSize: 24, fontWeight: '700', flexShrink: 1 },
+  languageButton: { borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 6 },
+  languageButtonText: { color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
   section: { marginBottom: 4 },
   subtitle: { color: palette.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 14 },
   input: {

@@ -29,6 +29,8 @@ import { NoviceOverview } from '@/components/NoviceOverview';
 import type { GlossaryKey } from '@/lib/glossary';
 import { parseNumericInput } from '@/lib/numeric-input';
 import { assessValuation } from '@/lib/valuation';
+import { useAppLanguage } from '@/components/AppLanguage';
+import { healthDetail, healthLabel, healthSummary } from '@/lib/health-language';
 
 export type { StockData } from '@/types/stock';
 
@@ -67,6 +69,7 @@ function DetailStat({ label, value, term, valueColor, width }: DetailStatProps) 
 }
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
+  const { language, t } = useAppLanguage();
   const { width: viewportWidth } = useWindowDimensions();
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
   const [analystReport, setAnalystReport] = useState<AnalystReport | null>(null);
@@ -78,7 +81,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     setAnalystReport(null);
     setPrintError(null);
     setDetailMode('simple');
-  }, [item?.ticker]);
+  }, [item?.ticker, language]);
 
   if (!item) return null;
 
@@ -94,26 +97,26 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     switch (label) {
       case 'Tjänar företaget pengar?':
         return stock.trailingPE != null && stock.trailingPE > 0
-          ? `${stock.companyName} har positiv vinst de senaste tolv månaderna. P/E är ${stock.trailingPE.toFixed(1)}, men nivån måste jämföras med bolagets historik och sektor för att säga något om relativ värdering.`
-          : 'Positiv vinst eller ett användbart P/E-tal saknas. Det säger inte ensamt att bolaget går med förlust just nu; kontrollera senaste rapporten.';
+          ? t(`${stock.companyName} har positiv vinst de senaste tolv månaderna. P/E är ${stock.trailingPE.toFixed(1)}, men nivån måste jämföras med bolagets historik och sektor för att säga något om relativ värdering.`, `${stock.companyName} has reported positive earnings over the last twelve months. P/E is ${stock.trailingPE.toFixed(1)}, but it must be compared with company history and sector peers to assess relative valuation.`)
+          : t('Positiv vinst eller ett användbart P/E-tal saknas. Det säger inte ensamt att bolaget går med förlust just nu; kontrollera senaste rapporten.', 'Positive earnings or a usable P/E figure is unavailable. This alone does not prove that the company is currently loss-making; check the latest report.');
       case 'Betalar utdelning?':
-        return `Uppgiven direktavkastning är ${stock.dividendYield != null ? `${(stock.dividendYield * 100).toFixed(1)} %` : 'okänd'}. Den bygger på nuvarande kurs och senast kända utdelning; framtida utdelning kan höjas, sänkas eller ställas in.`;
+        return t(`Uppgiven direktavkastning är ${stock.dividendYield != null ? `${(stock.dividendYield * 100).toFixed(1)} %` : 'okänd'}. Den bygger på nuvarande kurs och senast kända utdelning; framtida utdelning kan höjas, sänkas eller ställas in.`, `The stated dividend yield is ${stock.dividendYield != null ? `${(stock.dividendYield * 100).toFixed(1)}%` : 'unknown'}. It is based on the current price and latest known dividend; future dividends may be raised, cut or cancelled.`);
       case 'Har aktien fallit kraftigt?':
-        return `Ett kraftigt fall beskriver bara prisrörelsen. Orsaken kan vara tillfällig oro eller försämrade framtidsutsikter och behöver kontrolleras i rapporter och nyheter. ${stock.companyName} handlas nu på ${price(stock.currentPrice)}.`;
+        return t(`Ett kraftigt fall beskriver bara prisrörelsen. Orsaken kan vara tillfällig oro eller försämrade framtidsutsikter och behöver kontrolleras i rapporter och nyheter. ${stock.companyName} handlas nu på ${price(stock.currentPrice)}.`, `A sharp decline describes only the price move. It may reflect temporary concern or deteriorating prospects and should be checked against reports and news. ${stock.companyName} currently trades at ${price(stock.currentPrice)}.`);
       case 'Nära botten?':
-        return `52-veckorslägsta var ${price(stock.fiftyTwoWeekLow)} och nuvarande pris är ${price(stock.currentPrice)}. En tidigare botten kan fungera som stöd, men ett nytt lägsta visar i stället fortsatt svaghet.`;
+        return t(`52-veckorslägsta var ${price(stock.fiftyTwoWeekLow)} och nuvarande pris är ${price(stock.currentPrice)}. En tidigare botten kan fungera som stöd, men ett nytt lägsta visar i stället fortsatt svaghet.`, `The 52-week low was ${price(stock.fiftyTwoWeekLow)} and the current price is ${price(stock.currentPrice)}. A previous low may act as support, while a new low instead signals continued weakness.`);
       case 'Översåld (RSI)?':
-        return `RSI sammanfattar de senaste fjorton dagarnas momentum. Under 30 kallas ofta översålt, men en fallande aktie kan förbli där länge. ${stock.companyName} har RSI ${stock.rsi?.toFixed(1) || 'okänt'}.`;
+        return t(`RSI sammanfattar de senaste fjorton dagarnas momentum. Under 30 kallas ofta översålt, men en fallande aktie kan förbli där länge. ${stock.companyName} har RSI ${stock.rsi?.toFixed(1) || 'okänt'}.`, `RSI summarizes momentum over the last fourteen sessions. Below 30 is commonly called oversold, but a falling share can remain there for a long time. ${stock.companyName} has RSI ${stock.rsi?.toFixed(1) || 'unknown'}.`);
       case 'Under glidande medelvärde?':
-        return `Genomsnittskursen de senaste 6 månaderna (SMA 125) ligger på ${price(stock.sma125)}. ${stock.companyName} ligger just nu ${stock.sma125 && stock.currentPrice && stock.currentPrice < stock.sma125 ? 'under detta snitt (svag kortsiktig trend)' : 'över detta snitt (stark trend)'}.`;
+        return t(`Genomsnittskursen de senaste 6 månaderna (SMA 125) ligger på ${price(stock.sma125)}. ${stock.companyName} ligger just nu ${stock.sma125 && stock.currentPrice && stock.currentPrice < stock.sma125 ? 'under detta snitt (svag kortsiktig trend)' : 'över detta snitt (stark trend)'}.`, `The six-month average price (SMA 125) is ${price(stock.sma125)}. ${stock.companyName} currently trades ${stock.sma125 && stock.currentPrice && stock.currentPrice < stock.sma125 ? 'below this average (weak trend)' : 'above this average (strong trend)'}.`);
       default:
         return '';
     }
   };
 
   const earningsDays = daysUntilEarnings(item.earningsTimestamp);
-  const interpretation = interpretHealth(item);
-  const valuationAssessment = assessValuation(item);
+  const interpretation = interpretHealth(item, undefined, language);
+  const valuationAssessment = assessValuation(item, language);
 
   const renderTradePlan = () => {
     const plan = item.tradePlan;
@@ -127,8 +130,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     return (
       <View style={s.planCard}>
         <View style={s.planHeader}>
-          <Text style={s.planTitle}>Handelsplan</Text>
-          <Text style={s.planSubtitle}>Nivåer ur ATR och närliggande stöd/motstånd</Text>
+          <Text style={s.planTitle}>{t('Handelsplan', 'Trade plan')}</Text>
+          <Text style={s.planSubtitle}>{t('Nivåer ur ATR och närliggande stöd/motstånd', 'Levels based on ATR and nearby support/resistance')}</Text>
         </View>
 
         <View style={s.planRow}>
@@ -139,21 +142,21 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <Text style={s.planBasis}>{plan.stopBasis}</Text>
           </View>
           <View style={s.planCell}>
-            <InfoTip term="target"><Text style={s.planLabel}>Riktkurs</Text></InfoTip>
+            <InfoTip term="target"><Text style={s.planLabel}>{t('Riktkurs', 'Target')}</Text></InfoTip>
             <Text style={[s.planValue, { color: colors.green }]}>{price(plan.target)}</Text>
             <Text style={[s.planDelta, { color: colors.green }]}>+{formatPercent(plan.rewardPercent)}</Text>
             <Text style={s.planBasis}>{plan.targetBasis}</Text>
           </View>
           <View style={s.planCell}>
-            <InfoTip term="rMultiple"><Text style={s.planLabel}>Risk/vinst</Text></InfoTip>
+            <InfoTip term="rMultiple"><Text style={s.planLabel}>{t('Risk/vinst', 'Risk/reward')}</Text></InfoTip>
             <Text style={[s.planValue, { color: rColor }]}>{formatNumber(plan.rMultiple, 1)}R</Text>
-            <Text style={s.planDelta}>{plan.rMultiple >= 1 ? 'Vinstpotential > risk' : 'Risk > vinstpotential'}</Text>
-            <Text style={s.planBasis}>Avstånd till riktkurs delat med avstånd till stop</Text>
+            <Text style={s.planDelta}>{plan.rMultiple >= 1 ? t('Vinstpotential > risk', 'Reward potential > risk') : t('Risk > vinstpotential', 'Risk > reward potential')}</Text>
+            <Text style={s.planBasis}>{t('Avstånd till riktkurs delat med avstånd till stop', 'Distance to target divided by distance to stop')}</Text>
           </View>
         </View>
 
         <View style={s.riskExample}>
-          <Text style={s.riskExampleLabel}>Räkneexempel: maximal förlust om stoppen träffas</Text>
+          <Text style={s.riskExampleLabel}>{t('Räkneexempel: maximal förlust om stoppen träffas', 'Example: maximum loss if the stop is hit')}</Text>
           <View style={s.riskInputRow}>
             <TextInput
               style={s.riskInput}
@@ -161,21 +164,21 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               onChangeText={setRiskAmountText}
               keyboardType="decimal-pad"
               inputMode="decimal"
-              placeholder="t.ex. 1000"
+              placeholder={t('t.ex. 1000', 'e.g. 1000')}
               placeholderTextColor={palette.textMuted}
-              accessibilityLabel="Maximal förlust i räkneexemplet"
+              accessibilityLabel={t('Maximal förlust i räkneexemplet', 'Maximum loss in the example')}
             />
             <Text style={s.riskCurrency}>kr</Text>
           </View>
         </View>
         {shares != null && shares > 0 && riskAmount != null && (
           <Text style={s.planSizing}>
-            En maximal förlust på {formatNumber(riskAmount, 0)} kr till stoppen motsvarar {formatNumber(shares, 0)} aktier
-            {' '}({price(shares * item.currentPrice, 0)} investerat).
+            {t('En maximal förlust på', 'A maximum loss of')} {formatNumber(riskAmount, 0)} kr {t('till stoppen motsvarar', 'at the stop corresponds to')} {formatNumber(shares, 0)} {t('aktier', 'shares')}
+            {' '}({price(shares * item.currentPrice, 0)} {t('investerat', 'invested')}).
           </Text>
         )}
         <Text style={s.planDisclaimer}>
-          Nivåerna är mekaniska och bygger enbart på kurshistorik. De tar inte hänsyn till rapporter, nyheter eller likviditet.
+          {t('Nivåerna är mekaniska och bygger enbart på kurshistorik. De tar inte hänsyn till rapporter, nyheter eller likviditet.', 'The levels are mechanical and based only on price history. They do not account for reports, news or liquidity.')}
         </Text>
       </View>
     );
@@ -190,19 +193,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
       <View style={s.planCard}>
         <View style={s.qualityHeader}>
           <View style={s.planHeader}>
-            <Text style={s.planTitle}>Bolagets ekonomi</Text>
-            <Text style={s.planSubtitle}>Skild från betyget: betyget mäter kursen, det här mäter bolaget</Text>
+            <Text style={s.planTitle}>{t('Bolagets ekonomi', 'Company fundamentals')}</Text>
+            <Text style={s.planSubtitle}>{t('Skild från betyget: betyget mäter kursen, det här mäter bolaget', 'Separate from the grade: the grade measures the share price, while this measures the business')}</Text>
           </View>
           <View style={[s.qualityBadge, { borderColor: color }]}>
             <Text style={[s.qualityScore, { color }]}>{quality.score.toFixed(0)}</Text>
-            <Text style={[s.qualityLabel, { color }]}>{quality.label}</Text>
+            <Text style={[s.qualityLabel, { color }]}>{language === 'en' ? ({ Stark: 'Strong', Godtagbar: 'Acceptable', Svag: 'Weak', 'Otillräckligt underlag': 'Insufficient data' }[quality.label] ?? quality.label) : quality.label}</Text>
           </View>
         </View>
 
         {quality.components.map((component) => (
           <View key={component.id} style={s.qualityRow}>
-            <Text style={s.qualityRowLabel}>{component.label}</Text>
-            <Text style={s.qualityRowDetail}>{component.detail}</Text>
+            <Text style={s.qualityRowLabel}>{language === 'en' ? ({ debt: 'Leverage', profitability: 'Return on equity', margin: 'Operating margin', cashflow: 'Free cash flow', growth: 'Revenue growth' }[component.id] ?? component.label) : component.label}</Text>
+            <Text style={s.qualityRowDetail}>{language === 'en' ? component.detail.replace('Underlag saknas', 'Data unavailable').replace('ansträngt', 'stretched').replace('lågt', 'low').replace('förlust', 'loss').replace('Negativt: bolaget förbrukar kassa', 'Negative: the company is consuming cash').replace(' av börsvärdet', ' of market cap').replace('Positivt', 'Positive').replace(' mot samma kvartal i fjol', ' versus the same quarter last year').replace('krympande', 'contracting').replace('Utgår: hög skuldsättning hör till affärsmodellen i den här sektorn', 'Excluded: high leverage is part of the business model in this sector') : component.detail}</Text>
             <Text style={[
               s.qualityRowPoints,
               component.points == null ? { color: colors.textMuted } : component.points === 2 ? { color: colors.green } : component.points === 1 ? { color: colors.yellow } : { color: colors.red },
@@ -213,8 +216,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
         ))}
 
         <Text style={s.planDisclaimer}>
-          Siffrorna kommer från senaste kvartalsrapporten och är alltså upp till tre månader gamla.
-          {quality.debtNotComparable ? ' Skuldsättningen utgår här, eftersom hög belåning hör till affärsmodellen i den här sektorn.' : ''}
+          {t('Siffrorna kommer från senaste kvartalsrapporten och är alltså upp till tre månader gamla.', 'Figures come from the latest quarterly report and may therefore be up to three months old.')}
+          {quality.debtNotComparable ? t(' Skuldsättningen utgår här, eftersom hög belåning hör till affärsmodellen i den här sektorn.', ' Debt is excluded here because high leverage is part of the business model in this sector.') : ''}
         </Text>
       </View>
     );
@@ -235,21 +238,21 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <Text style={[s.gradeSubText, { color: gc.text }]}>{hc.gradeScore}/{MAX_GRADE_SCORE}</Text>
           </View>
           <View style={s.healthSummaryWrap}>
-            <Text style={s.healthSummary}>{hc.summary}</Text>
+            <Text style={s.healthSummary}>{healthSummary(item, language)}</Text>
           </View>
         </View>
 
         <View style={s.pillRow}>
           <View style={[s.pill, { borderColor: riskCol }]}>
-            <Text style={[s.pillLabel, { color: riskCol }]}>Risk: {hc.riskLevel}</Text>
+            <Text style={[s.pillLabel, { color: riskCol }]}>{t('Risk', 'Risk')}: {language === 'en' ? ({ Låg: 'Low', Medel: 'Medium', Hög: 'High' }[hc.riskLevel] ?? hc.riskLevel) : hc.riskLevel}</Text>
           </View>
           <View style={[s.pill, { borderColor: '#8E8E93' }]}>
-            <Text style={s.pillLabel}>{momIcon} Momentum: {hc.momentum}</Text>
+            <Text style={s.pillLabel}>{momIcon} Momentum: {language === 'en' ? ({ Uppåt: 'Up', Nedåt: 'Down', Sidledes: 'Sideways' }[hc.momentum] ?? hc.momentum) : hc.momentum}</Text>
           </View>
         </View>
 
         <View style={s.checklist}>
-          <Text style={s.checklistTitle}>Rekylkriterier — tryck på en rad för förklaring</Text>
+          <Text style={s.checklistTitle}>{t('Rekylkriterier — tryck på en rad för förklaring', 'Pullback criteria — select a row for an explanation')}</Text>
           {hc.checklist.map((ci, i) => {
             const checkKey = `${item.ticker}-${i}`;
             const isOpen = expandedCheck === checkKey;
@@ -258,8 +261,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               <HintedTouchable key={i} activeOpacity={0.7} onPress={() => setExpandedCheck(isOpen ? null : checkKey)} accessibilityLabel={`${isOpen ? 'Dölj' : 'Visa'} förklaring: ${ci.label}`} hint={explanation || `${isOpen ? 'Döljer' : 'Visar'} hur kontrollpunkten ${ci.label.toLowerCase()} påverkar analysen.`}>
                 <View style={[s.checkRow, isOpen && { backgroundColor: palette.accentBg, borderRadius: 8, padding: 8, marginHorizontal: -8 }]}>
                   <Text style={s.checkIcon}>{ci.passed ? '✅' : '❌'}</Text>
-                  <Text style={[s.checkLabel, !ci.passed && { color: palette.textMuted }]}>{ci.label}</Text>
-                  <Text style={[s.checkDetail, ci.passed ? { color: colors.green } : { color: palette.textMuted }]}>{ci.detail}</Text>
+                  <Text style={[s.checkLabel, !ci.passed && { color: palette.textMuted }]}>{healthLabel(ci.label, language)}</Text>
+                  <Text style={[s.checkDetail, ci.passed ? { color: colors.green } : { color: palette.textMuted }]}>{healthDetail(ci.detail, language)}</Text>
                 </View>
                 {isOpen && explanation ? (
                   <View style={s.checkExplain}>
@@ -269,18 +272,18 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               </HintedTouchable>
             );
           })}
-          <Text style={[s.checklistTitle, { marginTop: 18 }]}>Tekniska bonuspoäng</Text>
+          <Text style={[s.checklistTitle, { marginTop: 18 }]}>{t('Tekniska bonuspoäng', 'Technical bonus points')}</Text>
           {hc.bonuses.map((bonus, index) => (
             <View key={`bonus-${index}`} style={s.checkRow}>
               <Text style={s.checkIcon}>{bonus.passed ? '✅' : '❌'}</Text>
-              <Text style={[s.checkLabel, !bonus.passed && { color: palette.textMuted }]}>{bonus.label}</Text>
-              <Text style={[s.checkDetail, bonus.passed ? { color: colors.green } : { color: palette.textMuted }]}>{bonus.detail}</Text>
+              <Text style={[s.checkLabel, !bonus.passed && { color: palette.textMuted }]}>{healthLabel(bonus.label, language)}</Text>
+              <Text style={[s.checkDetail, bonus.passed ? { color: colors.green } : { color: palette.textMuted }]}>{healthDetail(bonus.detail, language)}</Text>
             </View>
           ))}
 
           <View style={s.checkResult}>
             <Text style={s.checkResultText}>
-              {hc.gradeScore}/{MAX_GRADE_SCORE} poäng → Rekylläge {hc.grade}
+              {hc.gradeScore}/{MAX_GRADE_SCORE} {t('poäng → Rekylläge', 'points → Pullback grade')} {hc.grade}
             </Text>
           </View>
 
@@ -293,12 +296,12 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               )}
 
               <View style={s.interpretationBlock}>
-                <Text style={s.interpretationLabel}>Om du äger aktien</Text>
+                <Text style={s.interpretationLabel}>{t('Om du äger aktien', 'If you own the stock')}</Text>
                 <Text style={s.interpretationText}>{interpretation.ifYouOwn}</Text>
               </View>
 
               <View style={s.interpretationBlock}>
-                <Text style={s.interpretationLabel}>Om du överväger att köpa</Text>
+                <Text style={s.interpretationLabel}>{t('Om du överväger att köpa', 'If you are considering buying')}</Text>
                 <Text style={s.interpretationText}>{interpretation.ifYouConsiderBuying}</Text>
               </View>
             </View>
@@ -309,7 +312,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
   };
 
   const renderTrendAnalysis = () => {
-    const trend = getTrendInsight(item);
+    const trend = getTrendInsight(item, language);
     if (!trend) return null;
     const color = trend.color === 'positive' ? colors.green : trend.color === 'negative' ? colors.red : colors.yellow;
 
@@ -326,17 +329,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
   const dayChange = item.regularMarketChangePercent;
   const dayColor = dayChange != null && dayChange >= 0 ? colors.green : colors.red;
-  const bullPoints = getBullPoints(item);
-  const bearPoints = getBearPoints(item);
+  const bullPoints = getBullPoints(item, language);
+  const bearPoints = getBearPoints(item, language);
   const printReport = () => {
-    setPrintError(openPrintReport(item, analystReport) ? null : 'Kunde inte öppna utskriftsdialogen. Tillåt popup-fönster för den här sidan och försök igen.');
+    setPrintError(openPrintReport(item, analystReport, language) ? null : t('Kunde inte öppna utskriftsdialogen. Tillåt popup-fönster för den här sidan och försök igen.', 'Could not open the print dialog. Allow pop-up windows for this site and try again.'));
   };
 
   return (
     <Modal visible={!!item} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={s.safeArea}>
         <View style={s.header}>
-          <HintedTouchable style={s.headerBtn} onPress={onClose} accessibilityLabel="Tillbaka till screenern" hint="Stänger detaljvyn och återgår till aktietabellen.">
+          <HintedTouchable style={s.headerBtn} onPress={onClose} accessibilityLabel={t('Tillbaka till screenern', 'Back to screener')} hint={t('Stänger detaljvyn och återgår till aktietabellen.', 'Closes the detail view and returns to the stock table.')}>
             <Text style={s.headerBtnText}>←</Text>
           </HintedTouchable>
           <View style={s.headerTitleWrap}>
@@ -344,10 +347,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <Text style={s.headerName} numberOfLines={1}>{item.companyName}</Text>
           </View>
           <View style={s.headerActions}>
-            <HintedTouchable style={s.printButton} onPress={printReport} accessibilityLabel="Skriv ut eller spara som PDF" hint="Öppnar en utskriftsvänlig aktierapport. Välj Spara som PDF i webbläsarens utskriftsdialog.">
+            <HintedTouchable style={s.printButton} onPress={printReport} accessibilityLabel={t('Skriv ut eller spara som PDF', 'Print or save as PDF')} hint={t('Öppnar en utskriftsvänlig aktierapport. Välj Spara som PDF i webbläsarens utskriftsdialog.', 'Opens a print-friendly stock report. Select Save as PDF in your browser’s print dialog.')}>
               <Text style={s.printButtonText}>PDF</Text>
             </HintedTouchable>
-            <HintedTouchable style={s.headerBtn} onPress={onToggleWatchlist} accessibilityLabel={isWatchlisted ? `Ta bort ${item.ticker.replace('.ST', '')} från favoriter` : `Lägg till ${item.ticker.replace('.ST', '')} i favoriter`} hint={isWatchlisted ? 'Tar bort aktien från din personliga favoritlista.' : 'Lägger till aktien i din personliga favoritlista.'}>
+            <HintedTouchable
+              style={s.headerBtn}
+              onPress={onToggleWatchlist}
+              accessibilityLabel={isWatchlisted
+                ? `${t('Ta bort', 'Remove')} ${item.ticker.replace('.ST', '')} ${t('från favoriter', 'from favourites')}`
+                : `${t('Lägg till', 'Add')} ${item.ticker.replace('.ST', '')} ${t('i favoriter', 'to favourites')}`}
+              hint={isWatchlisted
+                ? t('Tar bort aktien från din personliga favoritlista.', 'Removes the share from your personal favourites.')
+                : t('Lägger till aktien i din personliga favoritlista.', 'Adds the share to your personal favourites.')}
+            >
               <Text style={[s.starIcon, isWatchlisted && s.starIconActive]}>
                 {isWatchlisted ? '★' : '☆'}
               </Text>
@@ -378,20 +390,20 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               onPress={() => setDetailMode('simple')}
               accessibilityRole="tab"
               accessibilityState={{ selected: detailMode === 'simple' }}
-              accessibilityLabel="Visa enkel aktieöversikt"
-              hint="Visar de viktigaste slutsatserna med mindre fackspråk."
+              accessibilityLabel={t('Visa enkel aktieöversikt', 'Show simple stock overview')}
+              hint={t('Visar de viktigaste slutsatserna med mindre fackspråk.', 'Shows the most important conclusions using less technical language.')}
             >
-              <Text style={[s.modeButtonText, detailMode === 'simple' && s.modeButtonTextActive]}>Enkel vy</Text>
+              <Text style={[s.modeButtonText, detailMode === 'simple' && s.modeButtonTextActive]}>{t('Enkel vy', 'Simple view')}</Text>
             </HintedTouchable>
             <HintedTouchable
               style={[s.modeButton, detailMode === 'analysis' && s.modeButtonActive]}
               onPress={() => setDetailMode('analysis')}
               accessibilityRole="tab"
               accessibilityState={{ selected: detailMode === 'analysis' }}
-              accessibilityLabel="Visa fullständig analysvy"
-              hint="Visar samtliga nyckeltal, handelsplan, rapportdata och rekyllogik."
+              accessibilityLabel={t('Visa fullständig analysvy', 'Show full analysis view')}
+              hint={t('Visar samtliga nyckeltal, handelsplan, rapportdata och rekyllogik.', 'Shows all metrics, the trade plan, report data and pullback logic.')}
             >
-              <Text style={[s.modeButtonText, detailMode === 'analysis' && s.modeButtonTextActive]}>Analysvy</Text>
+              <Text style={[s.modeButtonText, detailMode === 'analysis' && s.modeButtonTextActive]}>{t('Analysvy', 'Analysis view')}</Text>
             </HintedTouchable>
           </View>
 
@@ -402,31 +414,31 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           {detailMode === 'analysis' && (
             <>
               <View style={s.sectionHeading}>
-                <Text style={s.sectionTitle}>Marknadsdata</Text>
-                <Text style={s.sectionIntro}>Nyckeltalen beskriver pris, värdering och historisk risk. Tryck eller håll över ett värde för en full förklaring.</Text>
+                <Text style={s.sectionTitle}>{t('Marknadsdata', 'Market data')}</Text>
+                <Text style={s.sectionIntro}>{t('Nyckeltalen beskriver pris, värdering och historisk risk. Tryck eller håll över ett värde för en full förklaring.', 'The metrics describe price, valuation and historical risk. Select or hover over a value for a full explanation.')}</Text>
               </View>
               <View style={s.statsGrid}>
-                <DetailStat width={statWidth} label="Öppning" term="open" value={price(item.regularMarketOpen)} />
-                <DetailStat width={statWidth} label="Högsta" term="dayHigh" value={price(item.regularMarketDayHigh)} />
-                <DetailStat width={statWidth} label="Lägsta" term="dayLow" value={price(item.regularMarketDayLow)} />
-                <DetailStat width={statWidth} label="Volym" term="volume" value={formatVol(item.latestVolume)} />
+                <DetailStat width={statWidth} label={t('Öppning', 'Open')} term="open" value={price(item.regularMarketOpen)} />
+                <DetailStat width={statWidth} label={t('Högsta', 'High')} term="dayHigh" value={price(item.regularMarketDayHigh)} />
+                <DetailStat width={statWidth} label={t('Lägsta', 'Low')} term="dayLow" value={price(item.regularMarketDayLow)} />
+                <DetailStat width={statWidth} label={t('Volym', 'Volume')} term="volume" value={formatVol(item.latestVolume)} />
                 <DetailStat width={statWidth} label="P/E" term="pe" value={item.trailingPE?.toFixed(1) || '-'} />
-                <DetailStat width={statWidth} label="Börsvärde" term="marketCap" value={formatMCap(item.marketCap)} />
-                <DetailStat width={statWidth} label="52v Hög" term="fiftyTwoWeekHigh" value={price(item.fiftyTwoWeekHigh)} />
-                <DetailStat width={statWidth} label="52v Låg" term="fiftyTwoWeekLow" value={price(item.fiftyTwoWeekLow)} />
-                <DetailStat width={statWidth} label="Snittvolym" term="avgVolume" value={formatVol(item.avgVolume20)} />
-                <DetailStat width={statWidth} label="Direktavk." term="dividendYield" value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} />
+                <DetailStat width={statWidth} label={t('Börsvärde', 'Market cap')} term="marketCap" value={formatMCap(item.marketCap)} />
+                <DetailStat width={statWidth} label={t('52v Hög', '52w High')} term="fiftyTwoWeekHigh" value={price(item.fiftyTwoWeekHigh)} />
+                <DetailStat width={statWidth} label={t('52v Låg', '52w Low')} term="fiftyTwoWeekLow" value={price(item.fiftyTwoWeekLow)} />
+                <DetailStat width={statWidth} label={t('Snittvolym', 'Avg volume')} term="avgVolume" value={formatVol(item.avgVolume20)} />
+                <DetailStat width={statWidth} label={t('Direktavk.', 'Dividend yield')} term="dividendYield" value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} />
                 <DetailStat width={statWidth} label="Beta" term="beta" value={item.beta?.toFixed(2) || '-'} />
                 <DetailStat width={statWidth} label="VPA" term="eps" value={price(item.epsTrailingTwelveMonths)} />
-                <DetailStat width={statWidth} label="Volatilitet" term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
+                <DetailStat width={statWidth} label={t('Volatilitet', 'Volatility')} term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
                 <DetailStat width={statWidth} label="Max drawdown" term="drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} valueColor={colors.red} />
-                <DetailStat width={statWidth} label="Mot index 3m" term="relativeStrength" value={formatSignedPercent(item.relativeStrength63)} valueColor={item.relativeStrength63 == null ? undefined : item.relativeStrength63 >= 0 ? colors.green : colors.red} />
+                <DetailStat width={statWidth} label={t('Mot index 3m', 'Vs index 3m')} term="relativeStrength" value={formatSignedPercent(item.relativeStrength63)} valueColor={item.relativeStrength63 == null ? undefined : item.relativeStrength63 >= 0 ? colors.green : colors.red} />
                 <DetailStat width={statWidth} label="ATR (14)" term="atr" value={item.atr != null ? `${formatNumber(item.atr, 2)} (${formatNumber((item.atr / item.currentPrice) * 100, 1)}%)` : '-'} />
                 <DetailStat width={statWidth} label="P/B" term="priceToBook" value={item.priceToBook != null ? formatNumber(item.priceToBook, 2) : '-'} />
-                <DetailStat width={statWidth} label="Rapport" term="earnings" value={earningsDays == null ? '-' : earningsDays === 0 ? 'I dag' : earningsDays < 0 ? 'Nyligen' : `Om ${earningsDays} d`} valueColor={earningsDays != null && earningsDays >= 0 && earningsDays <= 7 ? colors.yellow : undefined} />
+                <DetailStat width={statWidth} label={t('Rapport', 'Earnings')} term="earnings" value={earningsDays == null ? '-' : earningsDays === 0 ? t('I dag', 'Today') : earningsDays < 0 ? t('Nyligen', 'Recently') : `${t('Om', 'In')} ${earningsDays} d`} valueColor={earningsDays != null && earningsDays >= 0 && earningsDays <= 7 ? colors.yellow : undefined} />
               </View>
               <View style={s.valuationNote}>
-                <Text style={s.valuationNoteTitle}>Relativ värdering: {valuationAssessment.label}</Text>
+                <Text style={s.valuationNoteTitle}>{t('Relativ värdering', 'Relative valuation')}: {valuationAssessment.label}</Text>
                 <Text style={s.valuationNoteText}>{valuationAssessment.summary} {valuationAssessment.evidence.join(' · ')}</Text>
               </View>
               {renderTradePlan()}
@@ -439,17 +451,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
             <>
               <MarketChart item={item} />
               <View style={s.sectionHeading}>
-                <Text style={s.sectionTitle}>Faktorer i modellen</Text>
-                <Text style={s.sectionIntro}>Listorna visar vad aktuell data talar för och emot. De är observationer, inte en prognos.</Text>
+                <Text style={s.sectionTitle}>{t('Faktorer i modellen', 'Model factors')}</Text>
+                <Text style={s.sectionIntro}>{t('Listorna visar vad aktuell data talar för och emot. De är observationer, inte en prognos.', 'The lists show what current data supports and contradicts. They are observations, not a forecast.')}</Text>
               </View>
               <View style={s.bullBearContainer}>
                 <View style={[s.bullBearColumn, s.bullColumn]}>
-                  <Text style={s.bullTitle}>Styrkor</Text>
-                  {bullPoints.length > 0 ? bullPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>Inga tydliga styrkor just nu</Text>}
+                  <Text style={s.bullTitle}>{t('Styrkor', 'Strengths')}</Text>
+                  {bullPoints.length > 0 ? bullPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>{t('Inga tydliga styrkor just nu', 'No clear strengths at present')}</Text>}
                 </View>
                 <View style={[s.bullBearColumn, s.bearColumn]}>
-                  <Text style={s.bearTitle}>Svagheter</Text>
-                  {bearPoints.length > 0 ? bearPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>Inga tydliga svagheter just nu</Text>}
+                  <Text style={s.bearTitle}>{t('Svagheter', 'Weaknesses')}</Text>
+                  {bearPoints.length > 0 ? bearPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>{t('Inga tydliga svagheter just nu', 'No clear weaknesses at present')}</Text>}
                 </View>
               </View>
               {renderQualityCard()}

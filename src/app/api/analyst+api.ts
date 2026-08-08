@@ -1,10 +1,13 @@
 import { buildQuantAnalystReport, isAnalystReport, type AnalystReport } from '@/lib/analyst-engine';
 import { buildAnalystContext } from '@/lib/analyst-context';
 import { getAuthenticatedUser, requireAuthenticatedUser } from '@/lib/app-auth';
+import { claimAiRequest } from '@/lib/ai-quota';
+import { normalizeLanguage, type AppLanguage } from '@/lib/language';
 import type { StockData } from '@/types/stock';
 
 const CACHE_TTL = 10 * 60 * 1000;
-const cache = new Map<string, { report: AnalystReport; cachedAt: number }>();
+type AiStatus = 'available' | 'disabled' | 'unconfigured' | 'quota-exhausted' | 'request-failed';
+const cache = new Map<string, { report: AnalystReport; cachedAt: number; aiStatus: AiStatus }>();
 
 interface OpenAIResponse {
   output?: { content?: { type?: string; text?: string }[] }[];
@@ -30,25 +33,27 @@ function validStock(value: unknown): value is StockData {
     && Number.isFinite(stock.currentPrice);
 }
 
-function cacheKey(stock: StockData) {
-  return `${stock.ticker}:${stock.currentPrice}:${stock.regularMarketChangePercent ?? 'none'}`;
+function cacheKey(stock: StockData, userKey: string, language: AppLanguage) {
+  return `${userKey}:${language}:${stock.ticker}:${stock.currentPrice}:${stock.regularMarketChangePercent ?? 'none'}`;
 }
 
-const reportSchema = {
+function reportSchema(language: AppLanguage) {
+  return {
   type: 'object',
   additionalProperties: false,
   required: ['verdict', 'thesis', 'strengths', 'risks', 'catalysts', 'invalidation'],
   properties: {
-    verdict: { type: 'string', enum: ['Positiv analys', 'Bevaka', 'Avvakta'] },
+    verdict: { type: 'string', enum: language === 'en' ? ['Positive', 'Watch', 'Wait'] : ['Positiv analys', 'Bevaka', 'Avvakta'] },
     thesis: { type: 'string' },
     strengths: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     risks: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     catalysts: { type: 'array', items: { type: 'string' }, maxItems: 3 },
     invalidation: { type: 'string' },
   },
-};
+  };
+}
 
-async function createAiNarrative(stock: StockData, quantReport: AnalystReport) {
+async function createAiNarrative(stock: StockData, quantReport: AnalystReport, language: AppLanguage) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
@@ -63,8 +68,9 @@ async function createAiNarrative(stock: StockData, quantReport: AnalystReport) {
         model: process.env.OPENAI_ANALYST_MODEL || 'gpt-5-mini',
         store: false,
         instructions: [
-          'Du ar en forsiktig aktieanalytiker for en privat analysapp.',
-          'Skriv pa svenska och anvand bara de strukturerade fakta som skickas in.',
+          language === 'en'
+            ? 'You are a cautious equity analyst for a private analysis app. Write in clear English and use only the structured facts provided.'
+            : 'Du ar en forsiktig aktieanalytiker for en privat analysapp. Skriv pa svenska och anvand bara de strukturerade fakta som skickas in.',
           'Ge generell bolagsanalys, aldrig personlig placeringsradgivning.',
           'Hitta inte pa nyheter, konsensus, riktkurser eller data som saknas.',
           'Var tydlig med osakerhet och lat risker vaga tungt nar data ar blandad.',
@@ -88,7 +94,7 @@ async function createAiNarrative(stock: StockData, quantReport: AnalystReport) {
             type: 'json_schema',
             name: 'stock_analyst_report',
             strict: true,
-            schema: reportSchema,
+            schema: reportSchema(language),
           },
         },
       }),
@@ -124,27 +130,53 @@ export async function POST(request: Request) {
   // ändå, fast med den regelbaserade analysen: hellre en enklare analys än ett
   // felmeddelande.
   const user = await getAuthenticatedUser(request);
-  const aiAllowed = Boolean(user?.canUseAi) && Boolean(process.env.OPENAI_API_KEY);
+  const aiEntitled = Boolean(user?.canUseAi);
+  const aiConfigured = Boolean(process.env.OPENAI_API_KEY);
 
   try {
-    const body = await request.json() as { stock?: unknown };
+    const body = await request.json() as { stock?: unknown; language?: unknown };
     if (!validStock(body.stock)) return Response.json({ error: 'Invalid stock payload' }, { status: 400 });
 
     const stock = body.stock;
-    const key = cacheKey(stock);
+    const language = normalizeLanguage(body.language);
+    const key = cacheKey(stock, user?.email ?? user?.id ?? 'anonymous', language);
     const cached = cache.get(key);
-    if (cached && Date.now() - cached.cachedAt < CACHE_TTL && (cached.report.source === 'quant' || aiAllowed)) {
-      return Response.json({ report: cached.report, cached: true, aiAvailable: aiAllowed });
+    if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+      return Response.json({
+        report: cached.report,
+        cached: true,
+        aiAvailable: cached.report.source === 'ai',
+        aiStatus: cached.aiStatus,
+      });
     }
 
-    const quantReport = buildQuantAnalystReport(stock);
-    const narrative = aiAllowed ? await createAiNarrative(stock, quantReport) : null;
+    const quantReport = buildQuantAnalystReport(stock, language);
+    const quota = aiEntitled && aiConfigured
+      ? await claimAiRequest(user?.email ?? null, user?.aiDailyLimit ?? 0)
+      : { allowed: false, remaining: null };
+    const aiAllowed = aiEntitled && aiConfigured && quota.allowed;
+    const narrative = aiAllowed ? await createAiNarrative(stock, quantReport, language) : null;
     const report: AnalystReport = narrative
       ? { ...narrative, score: quantReport.score, dataCoverage: quantReport.dataCoverage, source: 'ai', generatedAt: new Date().toISOString() }
       : quantReport;
 
-    cache.set(key, { report, cachedAt: Date.now() });
-    return Response.json({ report, cached: false, aiAvailable: aiAllowed });
+    const aiStatus: AiStatus = !aiEntitled
+      ? 'disabled'
+      : !aiConfigured
+        ? 'unconfigured'
+        : !quota.allowed
+          ? 'quota-exhausted'
+          : narrative
+            ? 'available'
+            : 'request-failed';
+    cache.set(key, { report, cachedAt: Date.now(), aiStatus });
+    return Response.json({
+      report,
+      cached: false,
+      aiAvailable: Boolean(narrative),
+      aiStatus,
+      aiQuotaRemaining: quota.remaining,
+    });
   } catch (error) {
     console.error('Analyst API Error:', error);
     return Response.json({ error: 'Failed to create analyst report' }, { status: 500 });

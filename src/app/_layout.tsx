@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AppThemeProvider, useAppTheme } from '@/components/AppTheme';
+import { AppLanguageProvider } from '@/components/AppLanguage';
 import { AuthGate } from '@/components/AuthGate';
 import { TooltipProvider } from '@/components/Tooltip';
 import './global.css';
@@ -30,8 +31,10 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AppThemeProvider>
-      <ThemedApplication />
-    </AppThemeProvider>
+    <AppLanguageProvider>
+      <AppThemeProvider>
+        <ThemedApplication />
+      </AppThemeProvider>
+    </AppLanguageProvider>
   );
 }

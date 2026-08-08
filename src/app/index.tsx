@@ -28,6 +28,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
 import { AdminPanel } from '../components/AdminPanel';
 import { anyMarketOpen, anyMarketWorthPolling, regionForMarket, regionsForTickers } from '../lib/market-hours';
+import { useAppLanguage } from '../components/AppLanguage';
 
 interface SearchResult { symbol: string; shortname: string; exchange: string; }
 
@@ -41,6 +42,7 @@ const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export default function HomeScreen() {
   const { signOut, isAdmin, email: currentEmail } = useAppAuth();
+  const { t } = useAppLanguage();
   // ─── STATE ─────────────────────────────────
   const [data, setData] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,6 +195,15 @@ export default function HomeScreen() {
     saveWorkspaces(next.length > 0 ? next : DEFAULT_WORKSPACES, nextActiveWorkspaceId);
   };
 
+  const resetWorkspace = (id: string) => {
+    const original = DEFAULT_WORKSPACES.find((workspace) => workspace.id === id);
+    if (!original) return;
+    const next = workspaces.map((workspace) => workspace.id === id
+      ? normalizeWorkspace({ ...original, createdAt: workspace.createdAt, updatedAt: new Date().toISOString() })
+      : workspace);
+    void saveWorkspaces(next, id);
+  };
+
   // ─── SEARCH ────────────────────────────────
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
@@ -224,7 +235,7 @@ export default function HomeScreen() {
         url += `&tickers=${wl.join(',')}`;
       } else { url += `&market=${m}`; }
       const response = await authenticatedFetch(url);
-      if (!response.ok) throw new Error('Nätverksfel');
+      if (!response.ok) throw new Error(t('Nätverksfel', 'Network error'));
       const json = await response.json();
       if (json.error) throw new Error(json.error);
       setData(json.data || []); setLastUpdated(json.timestamp); setError(null);
@@ -232,7 +243,7 @@ export default function HomeScreen() {
     // Både loading och refreshing nollställs här. Tidigare låg de i grenarna
     // ovan, så en tom favoritlista lämnade pull-to-refresh snurrande.
     finally { setLoading(false); setRefreshing(false); }
-  }, []);
+  }, [t]);
 
   const onMarketChange = (tab: MarketId) => {
     if (tab !== market) {
@@ -301,6 +312,17 @@ export default function HomeScreen() {
   // ─── MODAL ─────────────────────────────────
   const selectedItem = useMemo(() => data.find(d => d.ticker === selectedTicker) || null, [data, selectedTicker]);
   const isWatchlisted = selectedTicker ? watchlist.includes(selectedTicker) : false;
+  const favoriteSyncMessage = favoriteSyncError === 'Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.'
+    ? t(
+      'Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.',
+      'Favorites could not be synced. The local list is used until the connection works again.',
+    )
+    : favoriteSyncError === 'Favoriten sparades lokalt men kunde inte synkas till ditt konto.'
+      ? t(
+        'Favoriten sparades lokalt men kunde inte synkas till ditt konto.',
+        'The favorite was saved locally but could not be synced to your account.',
+      )
+      : favoriteSyncError;
 
   const toggleWatchlist = () => {
     if (!selectedTicker) return;
@@ -350,6 +372,7 @@ export default function HomeScreen() {
         onUpdateColumns={updateWorkspaceColumns}
         onCreate={createWorkspace}
         onDelete={deleteWorkspace}
+        onReset={resetWorkspace}
       />
 
       <ProFilterPanel
@@ -368,16 +391,16 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {favoriteSyncError && (
+      {favoriteSyncMessage && (
         <View style={s.errorWrap}>
-          <Text style={s.errorText}>{favoriteSyncError}</Text>
+          <Text style={s.errorText}>{favoriteSyncMessage}</Text>
         </View>
       )}
 
       {loading && !refreshing && data.length === 0 ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={s.loadingText}>Analyserar marknaden...</Text>
+          <Text style={s.loadingText}>{t('Analyserar marknaden...', 'Analyzing the market...')}</Text>
         </View>
       ) : (
         <ProTableView

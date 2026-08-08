@@ -6,6 +6,7 @@ import { InfoTip } from '@/components/Tooltip';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import type { StockData, TableColumnId } from '@/types/stock';
 import { colors as palette } from '@/theme';
+import { useAppLanguage } from '@/components/AppLanguage';
 
 export type { StockData } from '@/types/stock';
 
@@ -31,25 +32,26 @@ interface ProTableViewProps {
 interface ColumnDefinition {
   id: TableColumnId;
   label: string;
+  labelEn: string;
   flex: number;
   align?: 'flex-start' | 'center' | 'flex-end';
 }
 
 const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
-  ticker: { id: 'ticker', label: 'Ticker', flex: 1, align: 'flex-start' },
-  grade: { id: 'grade', label: 'Rekyl', flex: 0.7, align: 'center' },
-  price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end' },
-  change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end' },
-  rsi: { id: 'rsi', label: 'RSI', flex: 0.65, align: 'flex-end' },
-  volume: { id: 'volume', label: 'Vol', flex: 0.85, align: 'flex-end' },
-  pe: { id: 'pe', label: 'P/E', flex: 0.7, align: 'flex-end' },
-  sma: { id: 'sma', label: 'SMA', flex: 0.55, align: 'center' },
-  volatility: { id: 'volatility', label: 'Volat.', flex: 0.85, align: 'flex-end' },
-  beta: { id: 'beta', label: 'Beta', flex: 0.7, align: 'flex-end' },
-  drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end' },
-  relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end' },
-  quality: { id: 'quality', label: 'Kvalitet', flex: 0.75, align: 'flex-end' },
-  trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center' },
+  ticker: { id: 'ticker', label: 'Ticker', labelEn: 'Ticker', flex: 1, align: 'flex-start' },
+  grade: { id: 'grade', label: 'Rekyl', labelEn: 'Pullback', flex: 0.7, align: 'center' },
+  price: { id: 'price', label: 'Pris', labelEn: 'Price', flex: 0.95, align: 'flex-end' },
+  change: { id: 'change', label: '% idag', labelEn: '% today', flex: 0.95, align: 'flex-end' },
+  rsi: { id: 'rsi', label: 'RSI', labelEn: 'RSI', flex: 0.65, align: 'flex-end' },
+  volume: { id: 'volume', label: 'Vol', labelEn: 'Vol', flex: 0.85, align: 'flex-end' },
+  pe: { id: 'pe', label: 'P/E', labelEn: 'P/E', flex: 0.7, align: 'flex-end' },
+  sma: { id: 'sma', label: 'SMA', labelEn: 'SMA', flex: 0.55, align: 'center' },
+  volatility: { id: 'volatility', label: 'Volat.', labelEn: 'Volat.', flex: 0.85, align: 'flex-end' },
+  beta: { id: 'beta', label: 'Beta', labelEn: 'Beta', flex: 0.7, align: 'flex-end' },
+  drawdown: { id: 'drawdown', label: 'Max DD', labelEn: 'Max DD', flex: 0.8, align: 'flex-end' },
+  relativeStrength: { id: 'relativeStrength', label: 'Mot index', labelEn: 'vs index', flex: 0.9, align: 'flex-end' },
+  quality: { id: 'quality', label: 'Kvalitet', labelEn: 'Quality', flex: 0.75, align: 'flex-end' },
+  trend: { id: 'trend', label: '7d trend', labelEn: '7d trend', flex: 0.9, align: 'center' },
 };
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -86,6 +88,7 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
 }
 
 export default function ProTableView({ data, visibleColumns, onStockPress, refreshing, onRefresh }: ProTableViewProps) {
+  const { language, t } = useAppLanguage();
   const [sortColumn, setSortColumn] = useState<TableColumnId>('grade');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [availableWidth, setAvailableWidth] = useState(0);
@@ -166,10 +169,10 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
                 term={column.id}
                 style={[styles.headerCell, { flex: column.flex, alignItems: column.align }]}
                 onPress={() => handleSort(column.id)}
-                accessibilityLabel={`Sortera efter ${column.label}`}
+                accessibilityLabel={`${t('Sortera efter', 'Sort by')} ${language === 'en' ? column.labelEn : column.label}`}
               >
                 <Text style={[styles.headerText, { textAlign: column.align === 'flex-start' ? 'left' : column.align === 'center' ? 'center' : 'right' }]}>
-                  {column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}
+                  {language === 'en' ? column.labelEn : column.label}{sortColumn === column.id ? ` ${sortDirection === 'asc' ? '▲' : '▼'}` : ''}
                 </Text>
               </InfoTip>
             ))}
@@ -177,7 +180,7 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
           <FlatList
             data={sortedData}
             keyExtractor={(item) => item.ticker}
-            renderItem={({ item, index }) => <HintedTouchable style={[styles.row, index % 2 === 0 ? styles.rowEven : styles.rowOdd]} onPress={() => onStockPress(item.ticker)} accessibilityLabel={`Öppna analys för ${item.companyName}`} hint={`Öppnar detaljvyn för ${item.ticker.replace('.ST', '')} med nyckeltal, graf och analys.`}>{columns.map((column) => <View key={column.id} style={[styles.cell, { flex: column.flex, alignItems: column.align }]}>{renderCell(item, column.id)}</View>)}</HintedTouchable>}
+            renderItem={({ item, index }) => <HintedTouchable style={[styles.row, index % 2 === 0 ? styles.rowEven : styles.rowOdd]} onPress={() => onStockPress(item.ticker)} accessibilityLabel={`${t('Öppna analys för', 'Open analysis for')} ${item.companyName}`} hint={t(`Öppnar detaljvyn för ${item.ticker.replace('.ST', '')} med nyckeltal, graf och analys.`, `Opens the detail view for ${item.ticker.replace('.ST', '')} with metrics, chart and analysis.`)}>{columns.map((column) => <View key={column.id} style={[styles.cell, { flex: column.flex, alignItems: column.align }]}>{renderCell(item, column.id)}</View>)}</HintedTouchable>}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.textPrimary} colors={[COLORS.accent]} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}

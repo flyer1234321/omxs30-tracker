@@ -244,13 +244,53 @@ export const GLOSSARY = {
 
 export type GlossaryKey = keyof typeof GLOSSARY;
 
-export function glossaryEntry(key: GlossaryKey): GlossaryEntry {
-  return GLOSSARY[key];
+const GLOSSARY_EN: Partial<Record<GlossaryKey, GlossaryEntry>> = {
+  ticker: { term: 'Ticker', short: 'The share symbol used by the exchange.', detail: 'The short identifier under which the share trades. Select the row to open the full analysis.' },
+  grade: { term: 'Pullback grade', short: 'How clearly the share has pulled back, A to F.', detail: 'Combines the decline from the peak, proximity to the yearly low, RSI and price versus its average. A is the strongest pullback setup, not the best company.', caution: 'The grade does not explain why the price fell. Read it together with Quality.' },
+  price: { term: 'Price', short: 'Latest traded price.', detail: 'Latest price in the share’s trading currency. Yahoo Finance data may be delayed.' },
+  change: { term: '% today', short: 'Today’s price change.', detail: 'The move since the previous close, in percent.', caution: 'A large daily move does not explain its cause. Check for company news or results.' },
+  rsi: { term: 'RSI', short: 'Momentum on a scale from 0 to 100.', detail: 'Measures the balance of gains and losses over fourteen sessions. Below 30 is commonly called oversold and above 70 overbought.', caution: 'Low RSI means the fall has been steep, not that it has ended.' },
+  volume: { term: 'Volume', short: 'Turnover versus the 20-day average.', detail: 'Latest trading volume divided by the preceding 20-day average. 2.0x means twice the normal volume.', caution: 'High volume confirms activity, not direction.' },
+  pe: { term: 'P/E', short: 'Price divided by earnings per share.', detail: 'How many years of current annual earnings the share price represents.', caution: 'Low does not automatically mean cheap. Compare with history and sector peers.' },
+  sma: { term: 'SMA', short: 'Price versus its six-month average.', detail: 'The arrow shows whether price is above or below the 125-session simple moving average.', caution: 'A moving average describes past prices; it is not a forecast.' },
+  volatility: { term: 'Volatility', short: 'Annualised historical price variation.', detail: 'Annualised standard deviation based on the latest 20 sessions.', caution: 'This is backward-looking and is not a ceiling for future risk.' },
+  beta: { term: 'Beta', short: 'Sensitivity to the market index.', detail: 'How much the share has historically moved when the index moved one percent.', caution: 'Beta measures co-movement, not all company-specific risk.' },
+  drawdown: { term: 'Max DD', short: 'Largest decline from a previous peak.', detail: 'The deepest peak-to-trough fall over the measured period.', caution: 'Historical drawdown is not a limit on future losses.' },
+  relativeStrength: { term: 'vs index', short: 'Return minus the index over three months.', detail: 'The share’s 63-session return after subtracting the index return.', caution: 'Relative strength can reverse abruptly and says nothing about valuation.' },
+  quality: { term: 'Quality', short: 'Company fundamentals, 0 to 10.', detail: 'Combines leverage, return on equity, operating margin, free cash flow and revenue growth.', caution: 'Report data can be several months old and does not replace reading the accounts.' },
+  trend: { term: '7d trend', short: 'The latest seven closing prices.', detail: 'A miniature chart showing the direction over the past week.' },
+  workspaceOverview: { term: 'Overview', short: 'Balanced default view.', detail: 'Pullback grade, price move, RSI, volume, valuation and trend in one table.' },
+  workspaceMomentum: { term: 'Momentum', short: 'Strength of the current move.', detail: 'Daily change, RSI, relative volume, performance versus the index and volatility.', caution: 'Momentum describes what has happened, not what must happen next.' },
+  workspaceRisk: { term: 'Risk', short: 'Downside and price variation.', detail: 'Volatility, beta, maximum drawdown and fundamental quality in one view.' },
+  workspaceValue: { term: 'Value', short: 'Valuation and quality.', detail: 'Pullback grade, quality, P/E and volume help compare valuation and fundamentals.', caution: 'The cheapest share is often cheap for a reason.' },
+  open: { term: 'Open', short: 'The first traded price today.', detail: 'Compare with the previous close to identify an opening gap.' },
+  dayHigh: { term: 'High', short: 'Highest price today.', detail: 'The highest traded price in the current session.' },
+  dayLow: { term: 'Low', short: 'Lowest price today.', detail: 'The lowest traded price in the current session.' },
+  marketCap: { term: 'Market cap', short: 'Total market value of the company.', detail: 'Share price multiplied by shares outstanding. It indicates size, not valuation.' },
+  fiftyTwoWeekHigh: { term: '52w high', short: 'Highest price in the past year.', detail: 'A reference level that may act as resistance.' },
+  fiftyTwoWeekLow: { term: '52w low', short: 'Lowest price in the past year.', detail: 'A reference level that may act as support, while a break below it signals weakness.' },
+  avgVolume: { term: 'Avg volume', short: 'Average turnover over 20 sessions.', detail: 'The benchmark used to assess today’s volume and liquidity.' },
+  dividendYield: { term: 'Dividend yield', short: 'Dividend as a percentage of price.', detail: 'Annual dividend divided by the current share price.', caution: 'An unusually high yield may reflect a falling price or an expected dividend cut.' },
+  eps: { term: 'EPS', short: 'Earnings per share over twelve months.', detail: 'Profit allocated to each share over the latest four quarters.' },
+  priceToBook: { term: 'P/B', short: 'Price versus book equity.', detail: 'Below 1 means the market value is below reported book equity.', caution: 'Most useful for asset-heavy sectors such as banks and real estate.' },
+  atr: { term: 'ATR', short: 'Average daily trading range.', detail: 'Average True Range measures a typical daily move including gaps.', caution: 'A stop closer than one ATR is often hit by normal market noise.' },
+  earnings: { term: 'Results', short: 'Days until the next quarterly report.', detail: 'Around results, new information can outweigh technical levels.' },
+  stopLoss: { term: 'Stop loss', short: 'A mechanical level where the thesis is invalidated.', detail: 'Set using ATR and nearby technical levels.', caution: 'It does not account for gaps, news or liquidity.' },
+  target: { term: 'Target', short: 'Nearest technical resistance above price.', detail: 'Uses moving averages, the 52-week high or an ATR-based level.', caution: 'It is a reference level, not an analyst price forecast.' },
+  rMultiple: { term: 'R multiple', short: 'Potential reward divided by risk.', detail: 'Distance to target divided by distance to stop. 2R means two units of possible reward per unit at risk.' },
+  goldenCross: { term: 'Golden Cross', short: 'SMA 50 crossed above SMA 200.', detail: 'The shorter average has moved above the longer average.', caution: 'Both averages lag the market and do not guarantee a lasting uptrend.' },
+  volumeSpike: { term: 'Volume spike', short: 'At least twice normal volume.', detail: 'Unusually many shares have changed hands.', caution: 'The spike does not indicate whether buying or selling dominated.' },
+  valueDiscount: { term: 'Lower P/E proxy', short: 'P/E below a price-based 12-month reference.', detail: 'Compares today’s P/E with the median annual price divided by current EPS.', caution: 'This is a proxy, not the company’s true historical P/E series.' },
+  earningsSoon: { term: 'Results soon', short: 'Quarterly results within one week.', detail: 'The company is expected to report within seven days.', caution: 'Results can outweigh technical signals.' },
+};
+
+export function glossaryEntry(key: GlossaryKey, language: 'sv' | 'en' = 'sv'): GlossaryEntry {
+  return language === 'en' ? (GLOSSARY_EN[key] ?? GLOSSARY[key]) : GLOSSARY[key];
 }
 
 /** Slås ihop till en rad för skärmläsare och webbläsarens egen hovertext. */
-export function glossaryText(key: GlossaryKey) {
-  const entry = glossaryEntry(key);
+export function glossaryText(key: GlossaryKey, language: 'sv' | 'en' = 'sv') {
+  const entry = glossaryEntry(key, language);
   return [entry.short, entry.detail, entry.caution].filter(Boolean).join(' ');
 }
 

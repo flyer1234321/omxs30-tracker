@@ -3,7 +3,7 @@ import test from 'node:test';
 import { decideAccess, type AppUserRecord } from './app-users';
 
 function user(email: string, overrides: Partial<AppUserRecord> = {}): AppUserRecord {
-  return { email, isAdmin: false, canUseAi: false, createdAt: null, disabledAt: null, ...overrides };
+  return { email, isAdmin: false, canUseAi: false, aiDailyLimit: 0, createdAt: null, disabledAt: null, ...overrides };
 }
 
 test('an administrator in the environment always gets in', () => {
@@ -18,7 +18,7 @@ test('an administrator in the environment always gets in', () => {
 test('the table decides once it has rows', () => {
   const users = [user('a@example.com', { canUseAi: true }), user('b@example.com')];
   assert.deepEqual(decideAccess('a@example.com', users, [], []), {
-    allowed: true, isAdmin: false, canUseAi: true, source: 'database',
+    allowed: true, isAdmin: false, canUseAi: true, aiDailyLimit: 0, source: 'database',
   });
   assert.equal(decideAccess('okand@example.com', users, [], []).allowed, false);
 });
@@ -57,4 +57,9 @@ test('email matching ignores case and surrounding spaces', () => {
 
 test('a missing email is refused when the table is in charge', () => {
   assert.equal(decideAccess(null, [user('a@example.com')], [], []).allowed, false);
+});
+
+test('the database supplies the configured daily AI limit', () => {
+  const decision = decideAccess('a@example.com', [user('a@example.com', { canUseAi: true, aiDailyLimit: 4 })], [], []);
+  assert.equal(decision.aiDailyLimit, 4);
 });

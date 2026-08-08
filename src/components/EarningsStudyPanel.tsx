@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { useAppLanguage } from '@/components/AppLanguage';
 import { authenticatedFetch } from '@/lib/auth-client';
 import { formatNumber, formatSignedPercent } from '@/lib/format';
 import { SURPRISE_BUCKET_LABELS, type SurpriseBucket } from '@/lib/event-study';
@@ -33,6 +34,7 @@ const MINIMUM_OBSERVATIONS = 20;
 const MINIMUM_T_STAT = 2;
 
 export function EarningsStudyPanel() {
+  const { language, locale } = useAppLanguage();
   const [study, setStudy] = useState<Study | null>(null);
   const [loading, setLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
@@ -45,16 +47,16 @@ export function EarningsStudyPanel() {
       const response = await authenticatedFetch('/api/earnings-study?market=omxs30', {
         method: recompute ? 'POST' : 'GET',
       });
-      if (!response.ok) throw new Error('Kunde inte hämta studien.');
+      if (!response.ok) throw new Error(language === 'en' ? 'Could not load the study.' : 'Kunde inte hämta studien.');
       const payload = await response.json() as { study: Study };
       setStudy(payload.study);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Kunde inte hämta studien.');
+      setError(requestError instanceof Error ? requestError.message : language === 'en' ? 'Could not load the study.' : 'Kunde inte hämta studien.');
     } finally {
       setLoading(false);
       setRecomputing(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -65,15 +67,18 @@ export function EarningsStudyPanel() {
   return (
     <View>
       <Text style={styles.intro}>
-        För varje kvartalsrapport i OMXS30 jämförs vinsten mot analytikernas snitt. Sedan mäts hur kursen
-        gick de följande 20 och 60 handelsdagarna, med indexets rörelse borträknad.
+        {language === 'en'
+          ? 'For each OMXS30 quarterly report, earnings are compared with the analyst consensus. The share performance over the following 20 and 60 trading days is then measured relative to the index.'
+          : 'För varje kvartalsrapport i OMXS30 jämförs vinsten mot analytikernas snitt. Sedan mäts hur kursen gick de följande 20 och 60 handelsdagarna, med indexets rörelse borträknad.'}
       </Text>
 
       {study && (
         <>
           <Text style={styles.meta}>
-            {study.events.length} rapporter från {study.tickersWithData} av {study.tickersRequested} bolag
-            {' · '}Beräknad {new Date(study.generatedAt).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' })}
+            {language === 'en'
+              ? `${study.events.length} reports from ${study.tickersWithData} of ${study.tickersRequested} companies`
+              : `${study.events.length} rapporter från ${study.tickersWithData} av ${study.tickersRequested} bolag`}
+            {' · '}{language === 'en' ? 'Calculated' : 'Beräknad'} {new Date(study.generatedAt).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}
           </Text>
 
           {study.buckets.map((bucket) => {
@@ -84,32 +89,33 @@ export function EarningsStudyPanel() {
             return (
               <View key={bucket.bucket} style={styles.bucket}>
                 <View style={styles.bucketHeader}>
-                  <Text style={styles.bucketTitle}>{SURPRISE_BUCKET_LABELS[bucket.bucket]}</Text>
+                  <Text style={styles.bucketTitle}>{language === 'en' ? englishBucketLabels[bucket.bucket] : SURPRISE_BUCKET_LABELS[bucket.bucket]}</Text>
                   <Text style={styles.bucketCount}>n = {drift20?.n ?? 0}</Text>
                 </View>
 
                 <View style={styles.metrics}>
-                  <Metric label="Rapportdagen" summary={bucket.reaction} />
-                  <Metric label="20 dagar efter" summary={drift20} />
-                  <Metric label="60 dagar efter" summary={drift60} />
+                  <Metric label={language === 'en' ? 'Report day' : 'Rapportdagen'} summary={bucket.reaction} language={language} />
+                  <Metric label={language === 'en' ? '20 days later' : '20 dagar efter'} summary={drift20} language={language} />
+                  <Metric label={language === 'en' ? '60 days later' : '60 dagar efter'} summary={drift60} language={language} />
                 </View>
 
                 <Text style={[styles.verdict, solid ? styles.verdictSolid : styles.verdictWeak]}>
                   {solid
-                    ? `Skiljer sig från slumpen (t = ${formatNumber(drift20.tStat, 1)}), ${formatNumber(drift20.hitRate, 0)} % positiva`
+                    ? language === 'en'
+                      ? `Statistically distinguishable from chance (t = ${formatNumber(drift20.tStat, 1)}), ${formatNumber(drift20.hitRate, 0)}% positive`
+                      : `Skiljer sig från slumpen (t = ${formatNumber(drift20.tStat, 1)}), ${formatNumber(drift20.hitRate, 0)} % positiva`
                     : drift20 == null || drift20.n === 0
-                      ? 'Inga observationer i den här gruppen'
-                      : `Går inte att skilja från slumpen med ${drift20.n} observationer`}
+                      ? language === 'en' ? 'No observations in this group' : 'Inga observationer i den här gruppen'
+                      : language === 'en' ? `Not distinguishable from chance with ${drift20.n} observations` : `Går inte att skilja från slumpen med ${drift20.n} observationer`}
                 </Text>
               </View>
             );
           })}
 
           <Text style={styles.caveat}>
-            Läs siffrorna med tre reservationer. Listan innehåller dagens OMXS30-bolag, alltså de som klarade sig,
-            vilket gör utfallet för optimistiskt. Rapportdagen är uppskattad från volymtoppen eftersom Yahoo bara
-            lämnar ut kvartalets slutdatum. Och en handfull kvartal per bolag är ett litet underlag - grupper med
-            färre än {MINIMUM_OBSERVATIONS} observationer säger ingenting alls.
+            {language === 'en'
+              ? `Read the figures with three caveats. The list contains today's OMXS30 constituents, which creates survivorship bias. The report date is estimated from the volume peak because Yahoo only provides the quarter-end date. A handful of quarters per company is also a small sample; groups with fewer than ${MINIMUM_OBSERVATIONS} observations are inconclusive.`
+              : `Läs siffrorna med tre reservationer. Listan innehåller dagens OMXS30-bolag, alltså de som klarade sig, vilket gör utfallet för optimistiskt. Rapportdagen är uppskattad från volymtoppen eftersom Yahoo bara lämnar ut kvartalets slutdatum. Och en handfull kvartal per bolag är ett litet underlag - grupper med färre än ${MINIMUM_OBSERVATIONS} observationer säger ingenting alls.`}
           </Text>
         </>
       )}
@@ -120,16 +126,24 @@ export function EarningsStudyPanel() {
         style={[styles.action, recomputing && styles.actionDisabled]}
         disabled={recomputing}
         onPress={() => { void load(true); }}
-        accessibilityLabel="Räkna om studien"
-        hint="Hämtar rapporthistoriken på nytt från Yahoo och räknar om utfallet. Tar en stund och gör ett anrop per bolag."
+        accessibilityLabel={language === 'en' ? 'Recalculate study' : 'Räkna om studien'}
+        hint={language === 'en' ? 'Fetches report history from Yahoo again and recalculates the results. This takes a while and makes one request per company.' : 'Hämtar rapporthistoriken på nytt från Yahoo och räknar om utfallet. Tar en stund och gör ett anrop per bolag.'}
       >
-        <Text style={styles.actionText}>{recomputing ? 'Räknar om...' : 'Räkna om studien'}</Text>
+        <Text style={styles.actionText}>{recomputing ? (language === 'en' ? 'Recalculating...' : 'Räknar om...') : (language === 'en' ? 'Recalculate study' : 'Räkna om studien')}</Text>
       </HintedTouchable>
     </View>
   );
 }
 
-function Metric({ label, summary }: { label: string; summary: Summary | null }) {
+const englishBucketLabels: Record<SurpriseBucket, string> = {
+  stor_positiv: 'Large positive surprise (over 10%)',
+  positiv: 'Positive surprise (2-10%)',
+  neutral: 'In line (within 2%)',
+  negativ: 'Negative surprise (2-10%)',
+  stor_negativ: 'Large negative surprise (over 10%)',
+};
+
+function Metric({ label, summary, language }: { label: string; summary: Summary | null; language: 'sv' | 'en' }) {
   const value = summary?.mean ?? null;
   return (
     <View style={styles.metric}>
@@ -137,7 +151,7 @@ function Metric({ label, summary }: { label: string; summary: Summary | null }) 
       <Text style={[styles.metricValue, value == null ? styles.neutral : value >= 0 ? styles.positive : styles.negative]}>
         {formatSignedPercent(value)}
       </Text>
-      {summary && <Text style={styles.metricMedian}>median {formatSignedPercent(summary.median)}</Text>}
+      {summary && <Text style={styles.metricMedian}>{language === 'en' ? 'median' : 'median'} {formatSignedPercent(summary.median)}</Text>}
     </View>
   );
 }

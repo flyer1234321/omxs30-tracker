@@ -5,11 +5,12 @@ import { authenticatedFetch } from '@/lib/auth-client';
 import { formatSignedPercent } from '@/lib/format';
 import { colors as palette } from '@/theme';
 import type { StockData } from '@/types/stock';
+import { useAppLanguage } from '@/components/AppLanguage';
 
 interface EarningsEvent {
   quarter: string;
   period: string;
-  surprisePercent: number;
+  surprisePercent: number | null;
   announcementDate: string;
   volumeRatio: number;
   reactionPercent: number | null;
@@ -30,6 +31,7 @@ interface StudyResponse {
  * mot ett gratis-API vore slöseri på en vy som ofta bara ögnas.
  */
 export function EarningsHistory({ item }: { item: StockData }) {
+  const { t } = useAppLanguage();
   const [events, setEvents] = useState<EarningsEvent[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +42,11 @@ export function EarningsHistory({ item }: { item: StockData }) {
     setError(null);
     try {
       const response = await authenticatedFetch(`/api/earnings-study?ticker=${encodeURIComponent(item.ticker)}`);
-      if (!response.ok) throw new Error('Kunde inte hämta rapporthistoriken.');
+      if (!response.ok) throw new Error(t('Kunde inte hämta rapporthistoriken.', 'Could not load earnings history.'));
       const payload = await response.json() as StudyResponse;
       setEvents(payload.study?.events ?? []);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Kunde inte hämta rapporthistoriken.');
+      setError(requestError instanceof Error ? requestError.message : t('Kunde inte hämta rapporthistoriken.', 'Could not load earnings history.'));
     } finally {
       setLoading(false);
     }
@@ -52,9 +54,9 @@ export function EarningsHistory({ item }: { item: StockData }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.title}>Kursen efter rapport</Text>
+      <Text style={styles.title}>{t('Kursen efter rapport', 'Price after earnings')}</Text>
       <Text style={styles.subtitle}>
-        Vinstöverraskning mot analytikernas snitt, och hur kursen gick därefter jämfört med index.
+        {t('Vinstöverraskning mot analytikernas snitt, och hur kursen gick därefter jämfört med index.', 'Earnings surprise versus analyst consensus and subsequent price performance relative to the index.')}
       </Text>
 
       {events === null ? (
@@ -65,24 +67,27 @@ export function EarningsHistory({ item }: { item: StockData }) {
             <HintedTouchable
               style={styles.action}
               onPress={load}
-              accessibilityLabel="Hämta rapporthistorik"
-              hint="Hämtar bolagets senaste kvartalsrapporter och visar hur kursen utvecklades efter varje."
+              accessibilityLabel={t('Hämta rapporthistorik', 'Load earnings history')}
+              hint={t('Hämtar bolagets senaste kvartalsrapporter och visar hur kursen utvecklades efter varje.', 'Loads the company’s latest quarterly reports and shows subsequent price performance.')}
             >
-              <Text style={styles.actionText}>Visa rapporthistorik</Text>
+              <Text style={styles.actionText}>{t('Visa rapporthistorik', 'Show earnings history')}</Text>
             </HintedTouchable>
           )}
           {error && <Text style={styles.error}>{error}</Text>}
         </>
       ) : events.length === 0 ? (
         <Text style={styles.empty}>
-          Ingen rapporthistorik kunde matchas mot kursdatan för det här bolaget.
+          {t(
+            'Yahoo saknar tillräcklig rapport- eller volymhistorik för det här bolaget. Det är vanligt för mindre svenska bolag och betyder inte att bolaget saknar kvartalsrapporter.',
+            'Yahoo does not provide enough earnings or volume history for this company. This is common for smaller Swedish companies and does not mean that the company has no quarterly reports.'
+          )}
         </Text>
       ) : (
         <>
           <View style={styles.headerRow}>
-            <Text style={[styles.headerCell, styles.periodCell]}>Kvartal</Text>
-            <Text style={styles.headerCell}>Överrask.</Text>
-            <Text style={styles.headerCell}>Dagen</Text>
+            <Text style={[styles.headerCell, styles.periodCell]}>{t('Kvartal', 'Quarter')}</Text>
+            <Text style={styles.headerCell}>{t('Överrask.', 'Surprise')}</Text>
+            <Text style={styles.headerCell}>{t('Dagen', 'Day')}</Text>
             <Text style={styles.headerCell}>20 d</Text>
             <Text style={styles.headerCell}>60 d</Text>
           </View>
@@ -101,9 +106,10 @@ export function EarningsHistory({ item }: { item: StockData }) {
           ))}
 
           <Text style={styles.footnote}>
-            Kolumnerna 20 d och 60 d visar överavkastning: aktiens rörelse minus indexets under samma period.
-            Rapportdagen är uppskattad från volymtoppen, eftersom Yahoo bara lämnar ut kvartalets slutdatum.
-            Med så här få rapporter går inget mönster att belägga - siffrorna är sammanhang, inte bevis.
+            {t(
+              'Kolumnerna 20 d och 60 d visar överavkastning: aktiens rörelse minus indexets under samma period. Ett streck under Överrask. betyder att Yahoo saknar analytikerkonsensus för kvartalet. Rapportdagen är uppskattad från volymtoppen, eftersom Yahoo ofta bara lämnar ut kvartalets slutdatum. Med så här få rapporter går inget mönster att belägga - siffrorna är sammanhang, inte bevis.',
+              'The 20 d and 60 d columns show excess return: the stock move minus the index move over the same period. A dash under Surprise means that Yahoo has no analyst consensus for the quarter. The report date is estimated from the volume peak because Yahoo often provides only the quarter-end date. This small sample cannot establish a pattern; the figures provide context, not proof.'
+            )}
           </Text>
         </>
       )}

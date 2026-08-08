@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const databaseError = requireDatabase();
   if (databaseError) return databaseError;
 
-  let body: { email?: unknown; isAdmin?: unknown; canUseAi?: unknown };
+  let body: { email?: unknown; isAdmin?: unknown; canUseAi?: unknown; aiDailyLimit?: unknown };
   try {
     body = await request.json() as typeof body;
   } catch {
@@ -60,6 +60,10 @@ export async function POST(request: Request) {
   // och därmed låsa ut sig ur den här vyn.
   const editingSelf = user?.email != null && user.email === email;
   const isAdmin = editingSelf ? true : Boolean(body.isAdmin);
+  const parsedLimit = Number(body.aiDailyLimit);
+  const aiDailyLimit = Number.isFinite(parsedLimit)
+    ? Math.min(100, Math.max(0, Math.floor(parsedLimit)))
+    : 5;
 
   try {
     const admin = createSupabaseAdminClient();
@@ -69,19 +73,21 @@ export async function POST(request: Request) {
         email,
         is_admin: isAdmin,
         can_use_ai: Boolean(body.canUseAi),
+        ai_daily_limit: aiDailyLimit,
         disabled_at: null,
       }, { onConflict: 'email' })
-      .select('email, is_admin, can_use_ai, created_at, disabled_at')
+      .select('*')
       .single();
     if (upsertError) throw upsertError;
 
-    const row = data as { email: string; is_admin: boolean; can_use_ai: boolean; created_at: string | null; disabled_at: string | null };
+    const row = data as { email: string; is_admin: boolean; can_use_ai: boolean; ai_daily_limit?: number | null; created_at: string | null; disabled_at: string | null };
     refreshCaches();
     return Response.json({
       user: {
         email: row.email,
         isAdmin: row.is_admin,
         canUseAi: row.can_use_ai,
+        aiDailyLimit: row.ai_daily_limit ?? 0,
         createdAt: row.created_at,
         disabledAt: row.disabled_at,
       },
@@ -89,6 +95,9 @@ export async function POST(request: Request) {
     });
   } catch (upsertError) {
     console.error('Could not save app user:', upsertError);
+    if (String(upsertError).includes('ai_daily_limit')) {
+      return Response.json({ error: 'AI-dagsgränsen saknas i databasen. Kör uppgraderings-SQL i docs/supabase-users-setup.md.' }, { status: 503 });
+    }
     return Response.json({ error: 'Kunde inte spara användaren.' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { MAX_GRADE_SCORE } from '@/lib/stock-health';
 import { daysUntilEarnings } from '@/lib/stock-signals';
 import type { StockData } from '@/types/stock';
+import type { AppLanguage } from '@/lib/language';
 
 /**
  * Översätter hälsopoängen till vad den faktiskt innebär.
@@ -23,7 +24,7 @@ export interface HealthInterpretation {
   ifYouConsiderBuying: string;
 }
 
-export function interpretHealth(stock: StockData, now = Date.now()): HealthInterpretation | null {
+export function interpretHealth(stock: StockData, now = Date.now(), language: AppLanguage = 'sv'): HealthInterpretation | null {
   const health = stock.healthCheck;
   if (!health) return null;
 
@@ -34,14 +35,14 @@ export function interpretHealth(stock: StockData, now = Date.now()): HealthInter
   const earningsDays = daysUntilEarnings(stock.earningsTimestamp, now);
   const earningsImminent = earningsDays != null && earningsDays >= 0 && earningsDays <= 7;
 
-  const scoreExplanation = buildScoreExplanation(health.gradeScore, basePassed, health.checklist.length, bonusPassed, health.bonuses.length);
-  const qualityVerdict = buildQualityVerdict(stock, belowLongTrend);
+  const scoreExplanation = buildScoreExplanation(health.gradeScore, basePassed, health.checklist.length, bonusPassed, health.bonuses.length, language);
+  const qualityVerdict = buildQualityVerdict(stock, belowLongTrend, language);
 
   return {
     scoreExplanation,
     qualityVerdict,
-    ifYouOwn: buildOwnerText(stock, belowLongTrend, belowYearTrend, earningsImminent, earningsDays),
-    ifYouConsiderBuying: buildBuyerText(stock, belowLongTrend, earningsImminent, earningsDays),
+    ifYouOwn: buildOwnerText(stock, belowLongTrend, belowYearTrend, earningsImminent, earningsDays, language),
+    ifYouConsiderBuying: buildBuyerText(stock, belowLongTrend, earningsImminent, earningsDays, language),
   };
 }
 
@@ -51,7 +52,7 @@ export function interpretHealth(stock: StockData, now = Date.now()): HealthInter
  * ser identiska ut i kursgrafen, och det är skillnaden mellan ett tillfälle och
  * en värdefälla.
  */
-function buildQualityVerdict(stock: StockData, belowLongTrend: boolean): string | null {
+function buildQualityVerdict(stock: StockData, belowLongTrend: boolean, language: AppLanguage): string | null {
   const quality = stock.quality;
   const grade = stock.healthCheck?.grade;
   if (!quality) return null;
@@ -59,21 +60,36 @@ function buildQualityVerdict(stock: StockData, belowLongTrend: boolean): string 
   const fallenHard = belowLongTrend && (grade === 'A' || grade === 'B');
 
   if (fallenHard && quality.score < 4) {
-    return `Kursen har fallit mycket samtidigt som bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den kombination som gör rekylmodeller farliga: kriterierna slår in hela vägen ned, även när nedgången är befogad. Ta reda på varför siffrorna ser ut som de gör innan du tolkar fallet som ett tillfälle.`;
+    return language === 'en'
+      ? `The share has fallen sharply while company fundamentals look weak (quality ${quality.score.toFixed(0)} out of 10). This is the combination that makes pullback models risky: criteria keep triggering on the way down even when the decline is justified. Find out why the figures look this way before treating the decline as an opportunity.`
+      : `Kursen har fallit mycket samtidigt som bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den kombination som gör rekylmodeller farliga: kriterierna slår in hela vägen ned, även när nedgången är befogad. Ta reda på varför siffrorna ser ut som de gör innan du tolkar fallet som ett tillfälle.`;
   }
 
   if (fallenHard && quality.score >= 7) {
-    return `Kursen har fallit mycket, men bolagets ekonomi ser stark ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den mer intressanta varianten av ett rekylläge: marknaden har omprövat priset utan att räkenskaperna hittills ändrats. Frågan är om marknaden vet något som ännu inte syns i siffrorna.`;
+    return language === 'en'
+      ? `The share has fallen sharply, but company fundamentals look strong (quality ${quality.score.toFixed(0)} out of 10). This is the more interesting kind of pullback: the market has repriced the share while reported fundamentals have not yet changed. The question is whether the market knows something that is not yet visible in the figures.`
+      : `Kursen har fallit mycket, men bolagets ekonomi ser stark ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den mer intressanta varianten av ett rekylläge: marknaden har omprövat priset utan att räkenskaperna hittills ändrats. Frågan är om marknaden vet något som ännu inte syns i siffrorna.`;
   }
 
   if (quality.score < 4) {
-    return `Bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10), oavsett vad kursen gjort. Svaga finanser begränsar handlingsutrymmet när något går emot.`;
+    return language === 'en'
+      ? `Company fundamentals look weak (quality ${quality.score.toFixed(0)} out of 10), regardless of the price move. Weak finances reduce flexibility when conditions deteriorate.`
+      : `Bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10), oavsett vad kursen gjort. Svaga finanser begränsar handlingsutrymmet när något går emot.`;
   }
 
-  return `Kvalitet ${quality.score.toFixed(0)} av 10 utifrån skuldsättning, lönsamhet, marginal, kassaflöde och tillväxt.`;
+  return language === 'en'
+    ? `Quality ${quality.score.toFixed(0)} out of 10 based on leverage, profitability, margin, cash flow and growth.`
+    : `Kvalitet ${quality.score.toFixed(0)} av 10 utifrån skuldsättning, lönsamhet, marginal, kassaflöde och tillväxt.`;
 }
 
-function buildScoreExplanation(score: number, basePassed: number, baseTotal: number, bonusPassed: number, bonusTotal: number) {
+function buildScoreExplanation(score: number, basePassed: number, baseTotal: number, bonusPassed: number, bonusTotal: number, language: AppLanguage) {
+  if (language === 'en') {
+    const parts = [`${score} out of ${MAX_GRADE_SCORE} points: ${basePassed} of ${baseTotal} core criteria and ${bonusPassed} of ${bonusTotal} technical bonuses.`];
+    if (score >= 5) parts.push('The scale measures decline, not quality. Four of the six criteria reward a falling price: a large drop from the high, proximity to the annual low, low RSI and price below its average. A high score therefore mainly means that the share has fallen substantially, not that the company is good.');
+    else if (score <= 2) parts.push('A low score usually means the share has not fallen enough for the model to react. This is consistent both with a strong uptrend and with an average share moving sideways.');
+    else parts.push('The middle of the scale says the least. The model looks for clear pullbacks, and this is not one.');
+    return parts.join(' ');
+  }
   const parts = [
     `${score} av ${MAX_GRADE_SCORE} poäng: ${basePassed} av ${baseTotal} grundkriterier och ${bonusPassed} av ${bonusTotal} tekniska bonusar.`,
   ];
@@ -96,8 +112,19 @@ function buildOwnerText(
   belowYearTrend: boolean,
   earningsImminent: boolean,
   earningsDays: number | null,
+  language: AppLanguage,
 ) {
   const parts: string[] = [];
+
+  if (language === 'en') {
+    if (belowLongTrend && belowYearTrend) parts.push('The price is below both its six-month and one-year averages. This is a downtrend, and the model’s pullback criteria do not indicate when it will end.');
+    else if (belowLongTrend) parts.push('The price has broken below its six-month average but remains above its one-year average. This is often where a pullback and a trend reversal look alike.');
+    else parts.push('The price is above its six-month average, indicating an intact uptrend.');
+    if (stock.rsi != null && stock.rsi > 70) parts.push(`RSI at ${stock.rsi.toFixed(0)} indicates a steep rise. Historically, such conditions have more often been followed by a pause than continued acceleration.`);
+    if (stock.tradePlan) parts.push(`A decline to the stop level at ${stock.tradePlan.stopLoss.toFixed(2)} equals ${stock.tradePlan.riskPercent.toFixed(1)}% from here. A useful question is whether you would buy the share today at the current price. If the answer is no, that is equivalent to wanting to sell.`);
+    if (earningsImminent) parts.push(`Earnings are due in ${earningsDays} ${earningsDays === 1 ? 'day' : 'days'}. Until then, the content of that report matters more than any technical level on this page.`);
+    return parts.join(' ');
+  }
 
   if (belowLongTrend && belowYearTrend) {
     parts.push('Kursen ligger under både halvårs- och årssnittet. Det är en fallande trend, och modellens rekylkriterier säger ingenting om när den tar slut.');
@@ -127,8 +154,24 @@ function buildBuyerText(
   belowLongTrend: boolean,
   earningsImminent: boolean,
   earningsDays: number | null,
+  language: AppLanguage,
 ) {
   const parts: string[] = [];
+
+  if (language === 'en') {
+    if (earningsImminent) parts.push(`The company reports in ${earningsDays} ${earningsDays === 1 ? 'day' : 'days'}. Buying before earnings is a bet on the report, not on the information shown here.`);
+    const grade = stock.healthCheck?.grade;
+    if ((grade === 'A' || grade === 'B') && belowLongTrend) parts.push('The share meets several pullback criteria. This confirms that the decline has been large, not that it is over. The key question is why the price has fallen, which the model cannot answer.');
+    else if (!belowLongTrend) parts.push('The share is not a pullback case according to the model. That does not rule out a purchase, but the decision would need to rest on trend strength and company development rather than this score.');
+    if (stock.tradePlan) {
+      const plan = stock.tradePlan;
+      if (plan.rMultiple >= 2) parts.push(`The distance to the nearest resistance is ${plan.rMultiple.toFixed(1)} times the distance to the stop. This allows the strategy to be wrong more often than right and still remain profitable.`);
+      else if (plan.rMultiple < 1) parts.push(`The nearest resistance is closer than the stop, at ${plan.rMultiple.toFixed(1)} times the risk. You need to be right more often than wrong for the trade to pay off.`);
+    }
+    if (stock.volatility != null && stock.volatility > 40) parts.push(`Volatility at ${stock.volatility.toFixed(0)}% means a position should be smaller than in a calmer share to keep the monetary risk equal.`);
+    if (!parts.length) parts.push('Nothing in the available data stands out clearly. The model sees neither a distinct pullback nor a clear warning.');
+    return parts.join(' ');
+  }
 
   if (earningsImminent) {
     parts.push(`Bolaget rapporterar om ${earningsDays} ${earningsDays === 1 ? 'dag' : 'dagar'}. Att köpa före en rapport är att satsa på innehållet i den, inte på det som står här.`);

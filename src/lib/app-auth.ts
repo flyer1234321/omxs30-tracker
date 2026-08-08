@@ -19,6 +19,8 @@ export interface AuthenticatedUser {
   isAdmin: boolean;
   /** Får anropa den betalda AI-analysen. Styrs per användare av administratören. */
   canUseAi: boolean;
+  /** Högsta antal betalda anrop per dag. 0 betyder obegränsat. */
+  aiDailyLimit: number;
 }
 
 function sign(value: string) {
@@ -142,6 +144,7 @@ async function getSupabaseUser(request: Request): Promise<AuthenticatedUser | nu
       provider: 'supabase',
       isAdmin: access.isAdmin,
       canUseAi: access.canUseAi,
+      aiDailyLimit: access.aiDailyLimit,
     };
     writeTokenCache(token, authenticatedUser);
     return authenticatedUser;
@@ -164,7 +167,7 @@ export async function getAuthenticatedUser(request: Request): Promise<Authentica
   }
   if (isPasswordAuthConfigured && hasValidSession(request)) {
     // Den som kan serverlösenordet äger installationen och får allt.
-    return { id: 'password-user', email: null, provider: 'password', isAdmin: true, canUseAi: true };
+    return { id: 'password-user', email: null, provider: 'password', isAdmin: true, canUseAi: true, aiDailyLimit: 0 };
   }
   return null;
 }

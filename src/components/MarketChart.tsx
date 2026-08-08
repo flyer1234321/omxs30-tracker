@@ -21,6 +21,8 @@ import {
 import { authenticatedFetch } from '@/lib/auth-client';
 import { formatNumber, formatPrice } from '@/lib/format';
 import { colors as palette } from '@/theme';
+import { useAppLanguage } from '@/components/AppLanguage';
+import type { AppLanguage } from '@/lib/language';
 
 const colors = {
   surface: palette.surface,
@@ -68,25 +70,30 @@ function formatAxisValue(value: number) {
   return value.toFixed(value >= 100 ? 0 : 1);
 }
 
-function formatPeriodLabel(date: string, period: ChartPeriod) {
+function formatPeriodLabel(date: string, period: ChartPeriod, language: AppLanguage) {
   const value = new Date(date);
   if (period === '1D') {
     return `${value.getHours()}:${value.getMinutes().toString().padStart(2, '0')}`;
   }
-  if (period === '1W') return ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'][value.getDay()];
+  if (period === '1W') return (language === 'en'
+    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    : ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'])[value.getDay()];
   if (period === '1M' || period === '3M' || period === '6M') return `${value.getDate()}/${value.getMonth() + 1}`;
   return `${value.getMonth() + 1}/${String(value.getFullYear()).slice(-2)}`;
 }
 
-function formatTooltipDate(date: string, isIntraday: boolean) {
+function formatTooltipDate(date: string, isIntraday: boolean, locale: string) {
   const value = new Date(date);
   if (isIntraday) {
-    return value.toLocaleString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return value.toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
-  return value.toLocaleDateString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return value.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function periodTitle(period: ChartPeriod) {
+function periodTitle(period: ChartPeriod, language: AppLanguage) {
+  if (period === 'ALL') return language === 'en' ? 'All' : 'Alla';
+  if (period === 'YTD') return language === 'en' ? 'YTD' : 'I ÅR';
+  if (language === 'en') return period;
   return chartPeriods.find((candidate) => candidate.id === period)?.label ?? period;
 }
 
@@ -95,6 +102,7 @@ interface MarketChartProps {
 }
 
 export function MarketChart({ item }: MarketChartProps) {
+  const { language, locale, t } = useAppLanguage();
   const { width } = useWindowDimensions();
   const [period, setPeriod] = useState<ChartPeriod>('6M');
   const [intraday, setIntraday] = useState<Partial<Record<ChartPeriod, ChartDataPoint[]>>>({});
@@ -122,7 +130,7 @@ export function MarketChart({ item }: MarketChartProps) {
 
     authenticatedFetch(url)
       .then(async (response) => {
-        if (!response.ok) throw new Error('Kunde inte hämta kurshistorik');
+        if (!response.ok) throw new Error(t('Kunde inte hämta kurshistorik', 'Could not load price history'));
         return response.json();
       })
       .then((payload) => {
@@ -136,7 +144,7 @@ export function MarketChart({ item }: MarketChartProps) {
       });
 
     return () => { cancelled = true; };
-  }, [history, intraday, item.ticker, period]);
+  }, [history, intraday, item.ticker, period, t]);
 
   const chartHistory = useMemo(() => {
     if (period === '1D' || period === '1W') return intraday[period] || [];
@@ -167,10 +175,10 @@ export function MarketChart({ item }: MarketChartProps) {
       value: point.close,
       date: point.date,
       label: index % labelInterval === 0 || index === displayHistory.length - 1
-        ? formatPeriodLabel(point.date, period)
+        ? formatPeriodLabel(point.date, period, language)
         : '',
     }));
-  }, [displayHistory, period]);
+  }, [displayHistory, language, period]);
 
   const sma50Data = !isIntraday && showSma50
     ? displayHistory.map((point) => ({ value: point.sma50 ?? point.close }))
@@ -206,11 +214,11 @@ export function MarketChart({ item }: MarketChartProps) {
 
     return (
       <View style={styles.tooltip}>
-        <Text style={styles.tooltipDate}>{formatTooltipDate(point.date, isIntraday)}</Text>
+        <Text style={styles.tooltipDate}>{formatTooltipDate(point.date, isIntraday, locale)}</Text>
         <Text style={styles.tooltipPrice}>{formatPrice(point.close, item.currency)}</Text>
         {changePercent != null && (
           <Text style={[styles.tooltipChange, { color: changePercent >= 0 ? colors.green : colors.red }]}>
-            {changePercent >= 0 ? '+' : ''}{formatNumber(changePercent, 2)} % sedan periodstart
+            {changePercent >= 0 ? '+' : ''}{formatNumber(changePercent, 2)} % {t('sedan periodstart', 'since period start')}
           </Text>
         )}
         {showSma50 && point.sma50 != null && (
@@ -246,13 +254,13 @@ export function MarketChart({ item }: MarketChartProps) {
   };
 
   const showIndicators = !isIntraday && !remoteHistoryRanges[period];
-  const rangeLabel = `${periodTitle(period)} ${isPositive ? 'upp' : 'ned'}`;
+  const rangeLabel = `${periodTitle(period, language)} ${isPositive ? t('upp', 'up') : t('ned', 'down')}`;
 
   return (
     <View style={styles.section}>
       <View style={styles.priceSummary}>
         <View>
-          <Text style={styles.title}>Kursutveckling</Text>
+          <Text style={styles.title}>{t('Kursutveckling', 'Price performance')}</Text>
           <Text style={styles.price}>{formatPrice(item.currentPrice, item.currency)}</Text>
         </View>
         <View style={styles.performanceWrap}>
@@ -260,12 +268,15 @@ export function MarketChart({ item }: MarketChartProps) {
             {performance ? `${performance.absolute >= 0 ? '+' : ''}${formatPrice(performance.absolute, item.currency)}` : '-'}
           </Text>
           <Text style={[styles.performanceSub, { color: accent }]}>
-            {performance ? `${performance.percent >= 0 ? '+' : ''}${formatNumber(performance.percent, 2)} % ${rangeLabel}` : 'Saknar perioddata'}
+            {performance ? `${performance.percent >= 0 ? '+' : ''}${formatNumber(performance.percent, 2)} % ${rangeLabel}` : t('Saknar perioddata', 'No period data')}
           </Text>
         </View>
       </View>
       <Text style={styles.chartExplanation}>
-        Historisk kurs och volym, inte en prognos. Klicka i grafen för exakt datum och kurs; på mobil använder du ett långtryck.
+        {t(
+          'Historisk kurs och volym, inte en prognos. Klicka i grafen för exakt datum och kurs; på mobil använder du ett långtryck.',
+          'Historical price and volume, not a forecast. Click the chart for an exact date and price; on mobile, press and hold.'
+        )}
       </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodTabs}>
@@ -274,12 +285,12 @@ export function MarketChart({ item }: MarketChartProps) {
             key={candidate.id}
             accessibilityRole="button"
             accessibilityState={{ selected: period === candidate.id }}
-            accessibilityLabel={`Visa ${candidate.label}`}
-            hint={`Visar kursutvecklingen för perioden ${candidate.label}.`}
+            accessibilityLabel={`${t('Visa', 'Show')} ${periodTitle(candidate.id, language)}`}
+            hint={t(`Visar kursutvecklingen för perioden ${periodTitle(candidate.id, language)}.`, `Shows price performance for ${periodTitle(candidate.id, language)}.`)}
             style={[styles.periodButton, period === candidate.id && styles.periodButtonActive]}
             onPress={() => setPeriod(candidate.id)}
           >
-            <Text style={[styles.periodText, period === candidate.id && styles.periodTextActive]}>{candidate.label}</Text>
+            <Text style={[styles.periodText, period === candidate.id && styles.periodTextActive]}>{periodTitle(candidate.id, language)}</Text>
           </HintedTouchable>
         ))}
       </ScrollView>
@@ -293,9 +304,9 @@ export function MarketChart({ item }: MarketChartProps) {
       )}
 
       {loading && chartHistory.length === 0 ? (
-        <View style={styles.loading}><ActivityIndicator color={accent} /><Text style={styles.loadingText}>Hämtar kurshistorik</Text></View>
+        <View style={styles.loading}><ActivityIndicator color={accent} /><Text style={styles.loadingText}>{t('Hämtar kurshistorik', 'Loading price history')}</Text></View>
       ) : chartHistory.length === 0 ? (
-        <View style={styles.loading}><Text style={styles.loadingText}>Ingen kurshistorik tillgänglig för perioden.</Text></View>
+        <View style={styles.loading}><Text style={styles.loadingText}>{t('Ingen kurshistorik tillgänglig för perioden.', 'No price history is available for this period.')}</Text></View>
       ) : (
         <>
           <View pointerEvents={INTERACTIVE_CHART ? 'auto' : 'none'} style={styles.chartWrap}>
@@ -347,15 +358,15 @@ export function MarketChart({ item }: MarketChartProps) {
           {periodRange && (
             <View style={styles.rangeRow}>
               <View style={styles.rangeItem}>
-                <Text style={styles.rangeLabel}>Periodens lägsta</Text>
+                <Text style={styles.rangeLabel}>{t('Periodens lägsta', 'Period low')}</Text>
                 <Text style={styles.rangeValue}>{formatPrice(periodRange.low, item.currency)}</Text>
               </View>
               <View style={styles.rangeItem}>
-                <Text style={styles.rangeLabel}>Periodens högsta</Text>
+                <Text style={styles.rangeLabel}>{t('Periodens högsta', 'Period high')}</Text>
                 <Text style={styles.rangeValue}>{formatPrice(periodRange.high, item.currency)}</Text>
               </View>
               <View style={styles.rangeItem}>
-                <Text style={styles.rangeLabel}>Läge i intervallet</Text>
+                <Text style={styles.rangeLabel}>{t('Läge i intervallet', 'Position in range')}</Text>
                 <Text style={styles.rangeValue}>
                   {periodRange.high > periodRange.low
                     ? `${formatNumber(((item.currentPrice - periodRange.low) / (periodRange.high - periodRange.low)) * 100, 0)} %`
@@ -365,8 +376,8 @@ export function MarketChart({ item }: MarketChartProps) {
             </View>
           )}
 
-          <View style={styles.volumeSection} accessibilityLabel="Relativ handelsvolym under den valda perioden">
-            <Text style={styles.volumeLabel}>Volym</Text>
+          <View style={styles.volumeSection} accessibilityLabel={t('Relativ handelsvolym under den valda perioden', 'Relative trading volume during the selected period')}>
+            <Text style={styles.volumeLabel}>{t('Volym', 'Volume')}</Text>
             <View style={styles.volumeBars}>
               {volumeBars.map((volume, index) => (
                 <View key={`${index}-${volume}`} style={[styles.volumeBarSlot, { height: 34 }]}>
@@ -389,12 +400,16 @@ interface IndicatorToggleProps {
 }
 
 function IndicatorToggle({ active, color, label, onPress }: IndicatorToggleProps) {
+  const { t } = useAppLanguage();
   return (
     <HintedTouchable
       accessibilityRole="checkbox"
       accessibilityState={{ checked: active }}
-      accessibilityLabel={`${active ? 'Dölj' : 'Visa'} ${label}`}
-      hint={`${active ? 'Döljer' : 'Visar'} ${label}, ett enkelt glidande medelvärde för de senaste ${label.replace('SMA ', '')} handelsdagarna.`}
+      accessibilityLabel={`${active ? t('Dölj', 'Hide') : t('Visa', 'Show')} ${label}`}
+      hint={t(
+        `${active ? 'Döljer' : 'Visar'} ${label}, ett enkelt glidande medelvärde för de senaste ${label.replace('SMA ', '')} handelsdagarna.`,
+        `${active ? 'Hides' : 'Shows'} ${label}, a simple moving average for the latest ${label.replace('SMA ', '')} trading days.`
+      )}
       style={[styles.indicator, { borderColor: color }, active && styles.indicatorActive]}
       onPress={onPress}
     >

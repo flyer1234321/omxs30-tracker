@@ -46,8 +46,9 @@ export interface EarningsEvent {
   ticker: string;
   quarter: string;
   period: string;
-  surprisePercent: number;
-  bucket: SurpriseBucket;
+  /** Saknas när Yahoo har rapportdatum men inget analytikerkonsensus. */
+  surprisePercent: number | null;
+  bucket: SurpriseBucket | null;
   announcementDate: string;
   /** Hur tydlig volymtoppen var. Låg siffra = osäkert datum. */
   volumeRatio: number;
@@ -57,6 +58,54 @@ export interface EarningsEvent {
 
 interface ChartResponse {
   quotes?: { date: Date | string; close: number | null; volume?: number | null }[];
+}
+
+interface QuarterlyStatement {
+  endDate?: Date | string | null;
+}
+
+interface EarningsSummary {
+  earningsHistory?: { history?: EarningsHistoryEntry[] };
+  incomeStatementHistoryQuarterly?: { incomeStatementHistory?: QuarterlyStatement[] };
+}
+
+interface QuarterCandidate {
+  quarter: Date;
+  period: string;
+  surprisePercent: number | null;
+}
+
+function quarterLabel(date: Date) {
+  return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`;
+}
+
+/** Kombinerar konsensushistorik med rapportperioder som saknar estimat. */
+export function quarterCandidates(summary: EarningsSummary): QuarterCandidate[] {
+  const byDate = new Map<string, QuarterCandidate>();
+
+  for (const entry of summary.earningsHistory?.history || []) {
+    if (!entry.quarter) continue;
+    const quarter = new Date(entry.quarter);
+    if (!Number.isFinite(quarter.getTime())) continue;
+    const surprise = entry.surprisePercent == null ? null : entry.surprisePercent * 100;
+    byDate.set(quarter.toISOString().slice(0, 10), {
+      quarter,
+      period: entry.period || quarterLabel(quarter),
+      surprisePercent: surprise != null && Math.abs(surprise) <= MAX_MEANINGFUL_SURPRISE_PERCENT ? surprise : null,
+    });
+  }
+
+  for (const statement of summary.incomeStatementHistoryQuarterly?.incomeStatementHistory || []) {
+    if (!statement.endDate) continue;
+    const quarter = new Date(statement.endDate);
+    if (!Number.isFinite(quarter.getTime())) continue;
+    const key = quarter.toISOString().slice(0, 10);
+    if (!byDate.has(key)) {
+      byDate.set(key, { quarter, period: quarterLabel(quarter), surprisePercent: null });
+    }
+  }
+
+  return [...byDate.values()].sort((a, b) => b.quarter.getTime() - a.quarter.getTime()).slice(0, 8);
 }
 
 function toPricePoints(chart: ChartResponse): EventPricePoint[] {
@@ -87,24 +136,25 @@ async function loadBenchmark(symbol: string, period1: Date) {
 async function loadTickerEvents(ticker: string, benchmark: EventPricePoint[], period1: Date): Promise<EarningsEvent[]> {
   try {
     const [summary, chart] = await Promise.all([
-      yahooFinance.quoteSummary(ticker, { modules: ['earningsHistory'] }, { validateResult: false }) as Promise<{ earningsHistory?: { history?: EarningsHistoryEntry[] } }>,
+      yahooFinance.quoteSummary(
+        ticker,
+        { modules: ['earningsHistory', 'incomeStatementHistoryQuarterly'] },
+        { validateResult: false },
+      ) as Promise<EarningsSummary>,
       yahooFinance.chart(ticker, { period1, interval: '1d' }, { validateResult: false }) as Promise<ChartResponse>,
     ]);
 
     const history = toPricePoints(chart);
-    const quarters = summary.earningsHistory?.history || [];
+    const quarters = quarterCandidates(summary);
     if (!history.length || !quarters.length) return [];
 
     const events: EarningsEvent[] = [];
     for (const quarter of quarters) {
-      if (quarter.surprisePercent == null || quarter.quarter == null) continue;
-
-      // Yahoo lämnar överraskningen som andel (0,0286 för 2,86 %).
-      const surprisePercent = quarter.surprisePercent * 100;
-      if (Math.abs(surprisePercent) > MAX_MEANINGFUL_SURPRISE_PERCENT) continue;
-
       const located = findAnnouncementIndex(history, quarter.quarter);
-      if (!located || located.volumeRatio < MINIMUM_VOLUME_RATIO) continue;
+      // Utan konsensus används rapportperioden som reservkälla. Då accepteras
+      // en något svagare volymtopp, men estimatöverraskningen lämnas tom.
+      const minimumVolumeRatio = quarter.surprisePercent == null ? 1.2 : MINIMUM_VOLUME_RATIO;
+      if (!located || located.volumeRatio < minimumVolumeRatio) continue;
 
       const outcome = measureEvent(history, benchmark, located.index, HORIZONS);
 
@@ -112,8 +162,8 @@ async function loadTickerEvents(ticker: string, benchmark: EventPricePoint[], pe
         ticker,
         quarter: new Date(quarter.quarter).toISOString().slice(0, 10),
         period: quarter.period,
-        surprisePercent,
-        bucket: bucketForSurprise(surprisePercent),
+        surprisePercent: quarter.surprisePercent,
+        bucket: quarter.surprisePercent == null ? null : bucketForSurprise(quarter.surprisePercent),
         announcementDate: history[located.index].date.slice(0, 10),
         volumeRatio: located.volumeRatio,
         reactionPercent: outcome.reactionPercent,

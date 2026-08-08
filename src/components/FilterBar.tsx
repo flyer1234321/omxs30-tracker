@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { useAppTheme } from '@/components/AppTheme';
+import { useAppLanguage } from '@/components/AppLanguage';
 import { colors, fonts, spacing, radius } from '../theme';
 import type { MarketId } from '@/types/stock';
 
@@ -30,21 +31,21 @@ interface FilterBarProps {
   onOpenAdmin: () => void;
 }
 
-const MARKETS: { id: MarketId; label: string; hint: string }[] = [
-  { id: 'omxs30', label: 'OMXS30', hint: 'Visar de 30 största och mest omsatta aktierna på Stockholmsbörsen.' },
-  { id: 'swe_broad', label: 'Sverige brett', hint: 'Visar ett bredare urval av svenska aktier än OMXS30.' },
-  { id: 'dji', label: 'USA', hint: 'Visar de amerikanska aktier som ingår i Dow Jones Industrial Average.' },
-  { id: 'tech', label: 'Tech', hint: 'Visar ett urval av stora teknikaktier.' },
-  { id: 'swe_fastigheter', label: 'Fastigheter', hint: 'Visar svenska fastighetsbolag.' },
-  { id: 'watchlist', label: 'Min Lista', hint: 'Visar dina personliga favoriter. Varje inloggad användare har sin egen lista.' },
+const MARKETS: { id: MarketId; sv: string; en: string; hintSv: string; hintEn: string }[] = [
+  { id: 'omxs30', sv: 'OMXS30', en: 'OMXS30', hintSv: 'Visar de 30 största och mest omsatta aktierna på Stockholmsbörsen.', hintEn: 'Shows the 30 largest and most actively traded shares on Nasdaq Stockholm.' },
+  { id: 'swe_broad', sv: 'Sverige brett', en: 'Sweden broad', hintSv: 'Visar ett bredare urval av svenska aktier än OMXS30.', hintEn: 'Shows a broader selection of Swedish shares than OMXS30.' },
+  { id: 'dji', sv: 'USA', en: 'US', hintSv: 'Visar de amerikanska aktier som ingår i Dow Jones Industrial Average.', hintEn: 'Shows US shares included in the Dow Jones Industrial Average.' },
+  { id: 'tech', sv: 'Tech', en: 'Tech', hintSv: 'Visar ett urval av stora teknikaktier.', hintEn: 'Shows a selection of large technology companies.' },
+  { id: 'swe_fastigheter', sv: 'Fastigheter', en: 'Real estate', hintSv: 'Visar svenska fastighetsbolag.', hintEn: 'Shows Swedish real-estate companies.' },
+  { id: 'watchlist', sv: 'Min Lista', en: 'My List', hintSv: 'Visar dina personliga favoriter. Varje inloggad användare har sin egen lista.', hintEn: 'Shows your personal favourites. Each signed-in user has a separate list.' },
 ];
 
 const FILTERS = [
-  { id: 'all', label: 'Alla', hint: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.' },
-  { id: 'gradeA', label: 'Rekyl A', hint: 'Visar endast aktier med det tydligaste rekylläget. Det betyder att kursen fallit mycket, inte att bolaget är bäst.' },
-  { id: 'gradeAB', label: 'A + B', hint: 'Visar aktier med rekylläge A eller B.' },
-  { id: 'underSMA', label: 'Under SMA', hint: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.' },
-  { id: 'oversold', label: 'RSI < 30', hint: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.' },
+  { id: 'all', sv: 'Alla', en: 'All', hintSv: 'Tar bort snabbfiltret och visar hela det valda marknadsurvalet.', hintEn: 'Clears the quick filter and shows the full selected market universe.' },
+  { id: 'gradeA', sv: 'Rekyl A', en: 'Pullback A', hintSv: 'Visar endast aktier med det tydligaste rekylläget. Det betyder att kursen fallit mycket, inte att bolaget är bäst.', hintEn: 'Shows shares with the strongest pullback setup. It means the price has fallen substantially, not that the company is best.' },
+  { id: 'gradeAB', sv: 'A + B', en: 'A + B', hintSv: 'Visar aktier med rekylläge A eller B.', hintEn: 'Shows shares with a pullback grade of A or B.' },
+  { id: 'underSMA', sv: 'Under SMA', en: 'Below SMA', hintSv: 'Visar aktier vars kurs ligger under SMA 125, ungefär ett halvårssnitt.', hintEn: 'Shows shares trading below SMA 125, roughly a six-month average.' },
+  { id: 'oversold', sv: 'RSI < 30', en: 'RSI < 30', hintSv: 'Visar aktier med RSI under 30, vilket kan indikera ett översålt läge.', hintEn: 'Shows shares with RSI below 30, which may indicate an oversold condition.' },
 ];
 
 export function FilterBar({
@@ -71,8 +72,9 @@ export function FilterBar({
 }: FilterBarProps) {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const { mode, toggleMode } = useAppTheme();
+  const { language, locale, toggleLanguage, t } = useAppLanguage();
 
-  const formattedTime = lastUpdated ? new Date(lastUpdated).toLocaleTimeString('sv-SE', {
+  const formattedTime = lastUpdated ? new Date(lastUpdated).toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit'
@@ -83,55 +85,55 @@ export function FilterBar({
       <Modal visible={showInfoModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowInfoModal(false)}>
         <SafeAreaView style={styles.modalSafe}>
           <View style={styles.modalHeader}>
-            <HintedTouchable style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)} accessibilityLabel="Stäng betygsförklaringen" hint="Stänger förklaringen av betygssystemet.">
+            <HintedTouchable style={styles.modalCloseBtn} onPress={() => setShowInfoModal(false)} accessibilityLabel={t('Stäng betygsförklaringen', 'Close grade explanation')} hint={t('Stänger förklaringen av betygssystemet.', 'Closes the explanation of the grading system.')}>
               <Text style={styles.modalCloseText}>✕</Text>
             </HintedTouchable>
-            <Text style={styles.modalTitle}>Rekylläget förklarat</Text>
+            <Text style={styles.modalTitle}>{t('Rekylläget förklarat', 'Pullback grade explained')}</Text>
           </View>
           <ScrollView style={styles.modalBody}>
             <Text style={styles.modalText}>
-              Rekylläget (A till F) mäter hur tydligt en aktie fallit tillbaka. Varje aktie kan få upp till 9 poäng från sex grundkriterier och tre tekniska bonusar.
+              {t('Rekylläget (A till F) mäter hur tydligt en aktie fallit tillbaka. Varje aktie kan få upp till 9 poäng från sex grundkriterier och tre tekniska bonusar.', 'The pullback grade (A to F) measures how clearly a share has pulled back. A share can receive up to 9 points from six core criteria and three technical bonuses.')}
             </Text>
             <Text style={styles.modalText}>
-              Läs skalan för vad den är. Fyra av de sex grundkriterierna — fall från toppen, nära årslägsta, lågt RSI och kurs under snittet — reagerar alla på samma sak: att kursen gått ned. Ett A betyder därför att aktien fallit mycket, inte att bolaget är bra. Om fallet är befogat svarar kolumnen Kvalitet på, och den bygger på skuldsättning, kassaflöde och lönsamhet.
+              {t('Läs skalan för vad den är. Fyra av de sex grundkriterierna reagerar på att kursen gått ned. Ett A betyder därför att aktien fallit mycket, inte att bolaget är bra. Kolumnen Kvalitet bedömer i stället skuldsättning, kassaflöde och lönsamhet.', 'Read the scale for what it is. Four of the six core criteria react to a falling share price. An A therefore means the share has fallen substantially, not that the company is good. The Quality column instead assesses debt, cash flow and profitability.')}
             </Text>
             
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>1. Positiv vinst (P/E)</Text>
-              <Text style={styles.criteriaDesc}>Ett positivt P/E-tal visar att bolaget rapporterar vinst. Saknas eller negativt P/E ger ingen poäng.</Text>
+              <Text style={styles.criteriaTitle}>{t('1. Positiv vinst (P/E)', '1. Positive earnings (P/E)')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Ett positivt P/E-tal visar att bolaget rapporterar vinst. Saknas eller negativt P/E ger ingen poäng.', 'A positive P/E indicates reported earnings. A missing or negative P/E receives no point.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>2. Utdelning</Text>
-              <Text style={styles.criteriaDesc}>Positiv direktavkastning ger poäng och indikerar ofta ett moget bolag med kassaflöde.</Text>
+              <Text style={styles.criteriaTitle}>{t('2. Utdelning', '2. Dividend')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Positiv direktavkastning ger poäng och indikerar ofta ett moget bolag med kassaflöde.', 'A positive dividend yield earns a point and often indicates a mature, cash-generative company.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>3. Fall från topp</Text>
-              <Text style={styles.criteriaDesc}>Aktier som har fallit mer än 8 % från 52-veckorshögsta, eller från SMA 125 när 52-veckorsdata saknas, får poäng.</Text>
+              <Text style={styles.criteriaTitle}>{t('3. Fall från topp', '3. Decline from peak')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Aktier som har fallit mer än 8 % från 52-veckorshögsta, eller från SMA 125 när 52-veckorsdata saknas, får poäng.', 'Shares down more than 8% from their 52-week high, or from SMA 125 when that data is unavailable, earn a point.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>4. Nära botten</Text>
-              <Text style={styles.criteriaDesc}>Aktier inom 10 % från 52-veckorslägsta får poäng eftersom läget kan indikera ett potentiellt stödområde.</Text>
+              <Text style={styles.criteriaTitle}>{t('4. Nära botten', '4. Near the low')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Aktier inom 10 % från 52-veckorslägsta får poäng eftersom läget kan indikera ett potentiellt stödområde.', 'Shares within 10% of their 52-week low earn a point because the level may indicate a potential support area.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>5. Översåld RSI</Text>
-              <Text style={styles.criteriaDesc}>RSI under 35 ger poäng. RSI under 20 ger dessutom en extra bonuspoäng.</Text>
+              <Text style={styles.criteriaTitle}>{t('5. Översåld RSI', '5. Oversold RSI')}</Text>
+              <Text style={styles.criteriaDesc}>{t('RSI under 35 ger poäng. RSI under 20 ger dessutom en extra bonuspoäng.', 'RSI below 35 earns a point. RSI below 20 also earns an extra bonus point.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>6. Under SMA 125</Text>
-              <Text style={styles.criteriaDesc}>Kurs under 125-dagars glidande medelvärde ger poäng som möjlig rabatt- eller rekylsignal.</Text>
+              <Text style={styles.criteriaTitle}>{t('6. Under SMA 125', '6. Below SMA 125')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Kurs under 125-dagars glidande medelvärde ger poäng som möjlig rabatt- eller rekylsignal.', 'A price below the 125-day moving average earns a point as a possible discount or pullback signal.')}</Text>
             </View>
             <View style={styles.criteriaBox}>
-              <Text style={styles.criteriaTitle}>Bonusar</Text>
-              <Text style={styles.criteriaDesc}>Extra poäng kan ges när kursen ligger nära nedre Bollinger-bandet eller när MACD visar positiv momentumvändning.</Text>
+              <Text style={styles.criteriaTitle}>{t('Bonusar', 'Bonuses')}</Text>
+              <Text style={styles.criteriaDesc}>{t('Extra poäng kan ges när kursen ligger nära nedre Bollinger-bandet eller när MACD visar positiv momentumvändning.', 'Extra points may be awarded when price is near the lower Bollinger Band or MACD shows a positive momentum turn.')}</Text>
             </View>
 
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>Rekylläge A</Text>
-              <Text style={styles.gradeDesc}>Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30. I praktiken: ett utdelande bolag med vinst som rasat.</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#4CAF5020', color: '#4CAF50' }]}>{t('Rekylläge A', 'Pullback grade A')}</Text>
+              <Text style={styles.gradeDesc}>{t('Kräver hög poäng samt positiv vinst och utdelning. Alternativt minst 5 uppfyllda grundkriterier med RSI under 30.', 'Requires a high score plus positive earnings and a dividend, or at least five core criteria with RSI below 30.')}</Text>
             </View>
             <View style={styles.gradeBox}>
-              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>Rekylläge B/C/D</Text>
-              <Text style={styles.gradeDesc}>B ges från 5 poäng, C från 3 poäng och D från 1 poäng. F betyder att inga tydliga signaler hittas.</Text>
+              <Text style={[styles.gradeBadge, { backgroundColor: '#8BC34A20', color: '#8BC34A' }]}>{t('Rekylläge B/C/D', 'Pullback grade B/C/D')}</Text>
+              <Text style={styles.gradeDesc}>{t('B ges från 5 poäng, C från 3 poäng och D från 1 poäng. F betyder att inga tydliga signaler hittas.', 'B starts at 5 points, C at 3 and D at 1. F means no clear signals were found.')}</Text>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -142,35 +144,43 @@ export function FilterBar({
           <View style={styles.headerActions}>
             <HintedTouchable
               style={styles.themeButton}
-              onPress={toggleMode}
-              accessibilityLabel={mode === 'dark' ? 'Byt till ljust tema' : 'Byt till mörkt tema'}
-              hint={mode === 'dark' ? 'Visar appen med ljus bakgrund och mörk text.' : 'Visar appen med mörk bakgrund och ljus text.'}
+              onPress={toggleLanguage}
+              accessibilityLabel={t('Byt språk till engelska', 'Switch language to Swedish')}
+              hint={t('Visar hela appen på engelska. Valet sparas på den här enheten.', 'Shows the entire app in Swedish. The choice is saved on this device.')}
             >
-              <Text style={styles.themeButtonText}>{mode === 'dark' ? 'Ljust' : 'Mörkt'}</Text>
+              <Text style={styles.themeButtonText}>{language === 'sv' ? 'English' : 'Svenska'}</Text>
+            </HintedTouchable>
+            <HintedTouchable
+              style={styles.themeButton}
+              onPress={toggleMode}
+              accessibilityLabel={mode === 'dark' ? t('Byt till ljust tema', 'Switch to light theme') : t('Byt till mörkt tema', 'Switch to dark theme')}
+              hint={mode === 'dark' ? t('Visar appen med ljus bakgrund och mörk text.', 'Uses a light background with dark text.') : t('Visar appen med mörk bakgrund och ljus text.', 'Uses a dark background with light text.')}
+            >
+              <Text style={styles.themeButtonText}>{mode === 'dark' ? t('Ljust', 'Light') : t('Mörkt', 'Dark')}</Text>
             </HintedTouchable>
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>{filteredCount} av {totalCount}</Text>
+              <Text style={styles.countText}>{filteredCount} {t('av', 'of')} {totalCount}</Text>
             </View>
-            <HintedTouchable style={styles.signOutButton} onPress={onOpenAlertSettings} accessibilityLabel="Inställningar för e-postvarningar" hint="Aktivera eller stäng av daglig e-postbevakning av din personliga favoritlista.">
-              <Text style={styles.signOutText}>Varningar</Text>
+            <HintedTouchable style={styles.signOutButton} onPress={onOpenAlertSettings} accessibilityLabel={t('Inställningar för e-postvarningar', 'Email alert settings')} hint={t('Aktivera eller stäng av daglig e-postbevakning av din personliga favoritlista.', 'Enable or disable daily email monitoring for your personal favourites.')}>
+              <Text style={styles.signOutText}>{t('Varningar', 'Alerts')}</Text>
             </HintedTouchable>
             {isAdmin && (
-              <HintedTouchable style={styles.adminButton} onPress={onOpenAdmin} accessibilityLabel="Administration" hint="Visar konfigurationsstatus och låter dig köra bevakningsjobbet manuellt.">
+              <HintedTouchable style={styles.adminButton} onPress={onOpenAdmin} accessibilityLabel={t('Administration', 'Administration')} hint={t('Visar konfigurationsstatus och låter dig köra bevakningsjobbet manuellt.', 'Shows configuration status and lets you run the monitoring job manually.')}>
                 <Text style={styles.adminText}>Admin</Text>
               </HintedTouchable>
             )}
-            <HintedTouchable style={styles.signOutButton} onPress={onSignOut} accessibilityLabel="Logga ut" hint="Loggar ut från din användare på den här enheten.">
-              <Text style={styles.signOutText}>Logga ut</Text>
+            <HintedTouchable style={styles.signOutButton} onPress={onSignOut} accessibilityLabel={t('Logga ut', 'Sign out')} hint={t('Loggar ut från din användare på den här enheten.', 'Signs your account out on this device.')}>
+              <Text style={styles.signOutText}>{t('Logga ut', 'Sign out')}</Text>
             </HintedTouchable>
           </View>
         </View>
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, marketOpen ? styles.statusDotOpen : styles.statusDotClosed]} />
           <Text style={styles.subtitle}>
-            {marketOpen ? 'Börsen öppen' : 'Börsen stängd'} • Uppdaterad {formattedTime} • {gradeACount} med rekylläge A
+            {marketOpen ? t('Börsen öppen', 'Market open') : t('Börsen stängd', 'Market closed')} • {t('Uppdaterad', 'Updated')} {formattedTime} • {gradeACount} {t('med rekylläge A', 'with pullback grade A')}
           </Text>
         </View>
-        <Text style={styles.delayNote}>Kursdata kommer från Yahoo Finance och kan vara fördröjd.</Text>
+        <Text style={styles.delayNote}>{t('Kursdata kommer från Yahoo Finance och kan vara fördröjd.', 'Market data is provided by Yahoo Finance and may be delayed.')}</Text>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContent}>
@@ -179,10 +189,10 @@ export function FilterBar({
             key={m.id}
             style={[styles.tab, market === m.id && styles.activeTab]}
             onPress={() => onMarketChange(m.id)}
-            accessibilityLabel={`Välj marknad: ${m.label}`}
-            hint={m.hint}
+            accessibilityLabel={`${t('Välj marknad', 'Select market')}: ${t(m.sv, m.en)}`}
+            hint={t(m.hintSv, m.hintEn)}
           >
-            <Text style={[styles.tabText, market === m.id && styles.activeTabText]}>{m.label}</Text>
+            <Text style={[styles.tabText, market === m.id && styles.activeTabText]}>{t(m.sv, m.en)}</Text>
           </HintedTouchable>
         ))}
       </ScrollView>
@@ -193,14 +203,14 @@ export function FilterBar({
             key={f.id}
             style={[styles.chip, filter === f.id && styles.activeChip]}
             onPress={() => onFilterChange(f.id)}
-            accessibilityLabel={`Snabbfilter: ${f.label}`}
-            hint={f.hint}
+            accessibilityLabel={`${t('Snabbfilter', 'Quick filter')}: ${t(f.sv, f.en)}`}
+            hint={t(f.hintSv, f.hintEn)}
           >
-            <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{f.label}</Text>
+            <Text style={[styles.chipText, filter === f.id && styles.activeChipText]}>{t(f.sv, f.en)}</Text>
           </HintedTouchable>
         ))}
-        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel="Förklaring av rekylläget" hint="Öppnar en förklaring av hur skalan A till F räknas fram och vad den faktiskt mäter.">
-          <Text style={styles.infoBtnText}>❔ Rekyl</Text>
+        <HintedTouchable style={styles.infoBtn} onPress={() => setShowInfoModal(true)} accessibilityLabel={t('Förklaring av rekylläget', 'Pullback grade explanation')} hint={t('Öppnar en förklaring av hur skalan A till F räknas fram och vad den faktiskt mäter.', 'Explains how the A-to-F scale is calculated and what it measures.')}>
+          <Text style={styles.infoBtnText}>❔ {t('Rekyl', 'Pullback')}</Text>
         </HintedTouchable>
       </ScrollView>
 
@@ -208,12 +218,12 @@ export function FilterBar({
         <View style={styles.searchSection}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Sök aktie att lägga till..."
+            placeholder={t('Sök aktie att lägga till...', 'Search for a share to add...')}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={onSearchChange}
-            accessibilityLabel="Sök efter aktie att lägga till i Min Lista"
-            accessibilityHint="Skriv bolagsnamn eller ticker. Välj sedan en träff för att lägga till den i dina favoriter."
+            accessibilityLabel={t('Sök efter aktie att lägga till i Min Lista', 'Search for a share to add to My List')}
+            accessibilityHint={t('Skriv bolagsnamn eller ticker. Välj sedan en träff för att lägga till den i dina favoriter.', 'Enter a company name or ticker, then select a result to add it to your favourites.')}
           />
           
           {isSearching && <ActivityIndicator style={styles.searchLoading} color={colors.accent} />}

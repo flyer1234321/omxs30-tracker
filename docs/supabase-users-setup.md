@@ -9,6 +9,7 @@ create table public.app_users (
   email text primary key,
   is_admin boolean not null default false,
   can_use_ai boolean not null default false,
+  ai_daily_limit integer not null default 5 check (ai_daily_limit between 0 and 100),
   created_at timestamptz not null default now(),
   disabled_at timestamptz
 );
@@ -17,6 +18,67 @@ alter table public.app_users enable row level security;
 
 -- Ingen policy för authenticated: tabellen läses och skrivs enbart av servern
 -- med servicenyckeln. Klienten ska aldrig kunna se vilka konton som finns.
+```
+
+## Uppgradering: dagsgräns för AI
+
+Har tabellen redan skapats, kör hela blocket nedan en gång. `0` betyder
+obegränsat. Räknaren använder svensk kalenderdag och uppdateras atomiskt, så
+två samtidiga anrop kan inte passera samma gräns.
+
+```sql
+alter table public.app_users
+add column if not exists ai_daily_limit integer not null default 5
+check (ai_daily_limit between 0 and 100);
+
+create table if not exists public.ai_request_usage (
+  email text not null references public.app_users(email) on delete cascade,
+  usage_date date not null,
+  request_count integer not null default 0 check (request_count >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (email, usage_date)
+);
+
+alter table public.ai_request_usage enable row level security;
+
+create or replace function public.claim_ai_request(
+  p_email text,
+  p_daily_limit integer
+) returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  stockholm_date date := (now() at time zone 'Europe/Stockholm')::date;
+  used_count integer;
+begin
+  if p_daily_limit <= 0 then
+    return 2147483647;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(lower(p_email) || ':' || stockholm_date::text, 0));
+
+  select request_count into used_count
+  from public.ai_request_usage
+  where email = lower(p_email) and usage_date = stockholm_date;
+
+  used_count := coalesce(used_count, 0);
+  if used_count >= p_daily_limit then
+    return -1;
+  end if;
+
+  insert into public.ai_request_usage (email, usage_date, request_count, updated_at)
+  values (lower(p_email), stockholm_date, used_count + 1, now())
+  on conflict (email, usage_date) do update
+  set request_count = excluded.request_count, updated_at = now();
+
+  return p_daily_limit - used_count - 1;
+end;
+$$;
+
+revoke all on function public.claim_ai_request(text, integer) from public;
+grant execute on function public.claim_ai_request(text, integer) to service_role;
 ```
 
 Lägg också till adressen till den första administratören som miljövariabel, i `.env.local` och i Vercel:
@@ -42,6 +104,7 @@ Resultatet cachas i 60 sekunder per token, men rensas direkt när en administrat
 | --- | --- |
 | `is_admin` | Ser administrationsvyn, hanterar användare, kan köra varningsjobbet manuellt |
 | `can_use_ai` | Får den AI-skrivna analystexten. Utan den visas den regelbaserade analysen i stället |
+| `ai_daily_limit` | Högsta antal nya betalda AI-anrop per svensk kalenderdag. `0` = obegränsat |
 
 AI-analysen är det enda i appen som kostar pengar per anrop, och därför det enda som styrs per användare. Saknas behörigheten svarar endpointen ändå — med kvantanalysen, inte med ett felmeddelande.
 

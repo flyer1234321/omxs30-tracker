@@ -5,6 +5,7 @@ import type { AnalystReport } from '@/lib/analyst-engine';
 import { authenticatedFetch } from '@/lib/auth-client';
 import type { StockData } from '@/types/stock';
 import { colors as palette } from '@/theme';
+import { useAppLanguage } from '@/components/AppLanguage';
 
 const colors = {
   surface: palette.surface,
@@ -23,22 +24,27 @@ interface AnalystBriefProps {
 }
 
 function verdictColor(verdict: AnalystReport['verdict']) {
-  if (verdict === 'Positiv analys') return colors.green;
-  if (verdict === 'Avvakta') return colors.red;
+  if (verdict === 'Positiv analys' || verdict === 'Positive') return colors.green;
+  if (verdict === 'Avvakta' || verdict === 'Wait') return colors.red;
   return colors.amber;
 }
 
 export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
+  const { language, locale, t } = useAppLanguage();
   const [report, setReport] = useState<AnalystReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [aiQuotaRemaining, setAiQuotaRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     setReport(null);
     setError(null);
     setAiAvailable(false);
-  }, [item.ticker]);
+    setAiStatus(null);
+    setAiQuotaRemaining(null);
+  }, [item.ticker, language]);
 
   const generateReport = async () => {
     setLoading(true);
@@ -47,15 +53,17 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
       const response = await authenticatedFetch('/api/analyst', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: item }),
+        body: JSON.stringify({ stock: item, language }),
       });
       const payload = await response.json();
-      if (!response.ok || !payload?.report) throw new Error(payload?.error || 'Kunde inte skapa analysen.');
+      if (!response.ok || !payload?.report) throw new Error(payload?.error || t('Kunde inte skapa analysen.', 'Could not create the analysis.'));
       setReport(payload.report);
       onReportGenerated?.(payload.report);
       setAiAvailable(Boolean(payload.aiAvailable));
+      setAiStatus(typeof payload.aiStatus === 'string' ? payload.aiStatus : null);
+      setAiQuotaRemaining(typeof payload.aiQuotaRemaining === 'number' ? payload.aiQuotaRemaining : null);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Kunde inte skapa analysen.');
+      setError(requestError instanceof Error ? requestError.message : t('Kunde inte skapa analysen.', 'Could not create the analysis.'));
     } finally {
       setLoading(false);
     }
@@ -67,44 +75,44 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
     <View style={styles.section}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Analyst AI</Text>
-          <Text style={styles.subtitle}>Generell aktieanalys baserad på aktuell data</Text>
+          <Text style={styles.title}>{t('Analyst AI', 'Analyst AI')}</Text>
+          <Text style={styles.subtitle}>{t('Generell aktieanalys baserad på aktuell data', 'General equity analysis based on current data')}</Text>
         </View>
         {report && (
           <View style={[styles.score, { borderColor: accent }]}>
-            <Text style={styles.scoreLabel}>MODELLPOÄNG</Text>
+            <Text style={styles.scoreLabel}>{t('MODELLPOÄNG', 'MODEL SCORE')}</Text>
             <Text style={[styles.scoreText, { color: accent }]}>{report.score}/100</Text>
           </View>
         )}
       </View>
 
       {!report && !loading && (
-        <Text style={styles.emptyText}>Skapa en tes med styrkor, risker, katalysatorer och tydliga motargument.</Text>
+        <Text style={styles.emptyText}>{t('Skapa en tes med styrkor, risker, katalysatorer och tydliga motargument.', 'Create a thesis with strengths, risks, catalysts and clear counterarguments.')}</Text>
       )}
 
       {loading ? (
-        <View style={styles.loading}><ActivityIndicator color={colors.blue} /><Text style={styles.loadingText}>Analyserar {item.ticker.replace('.ST', '')}</Text></View>
+        <View style={styles.loading}><ActivityIndicator color={colors.blue} /><Text style={styles.loadingText}>{t('Analyserar', 'Analysing')} {item.ticker.replace('.ST', '')}</Text></View>
       ) : report ? (
         <View>
           <View style={styles.verdictRow}>
             <Text style={[styles.verdict, { color: accent }]}>{report.verdict}</Text>
             <Text style={styles.coverage}>
-              Datatäckning: {report.dataCoverage.available}/{report.dataCoverage.total} ({report.dataCoverage.label.toLowerCase()})
+              {t('Datatäckning', 'Data coverage')}: {report.dataCoverage.available}/{report.dataCoverage.total} ({report.dataCoverage.label.toLowerCase()})
             </Text>
           </View>
           <Text style={styles.thesis}>{report.thesis}</Text>
 
           <View style={styles.columns}>
-            <InsightList title="Styrkor" color={colors.green} items={report.strengths} />
-            <InsightList title="Risker" color={colors.red} items={report.risks} />
+            <InsightList title={t('Styrkor', 'Strengths')} color={colors.green} items={report.strengths} />
+            <InsightList title={t('Risker', 'Risks')} color={colors.red} items={report.risks} />
           </View>
-          <InsightList title="Katalysatorer" color={colors.blue} items={report.catalysts} />
+          <InsightList title={t('Katalysatorer', 'Catalysts')} color={colors.blue} items={report.catalysts} />
 
           <View style={styles.invalidation}>
-            <Text style={styles.invalidationLabel}>När tesen försvagas</Text>
+            <Text style={styles.invalidationLabel}>{t('När tesen försvagas', 'When the thesis weakens')}</Text>
             <Text style={styles.invalidationText}>{report.invalidation}</Text>
           </View>
-          <Text style={styles.meta}>{report.source === 'ai' ? 'AI-sammanfattning' : 'Kvantanalys'} · {new Date(report.generatedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</Text>
+          <Text style={styles.meta}>{report.source === 'ai' ? t('AI-sammanfattning', 'AI summary') : t('Kvantanalys', 'Quant analysis')} · {new Date(report.generatedAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text>
         </View>
       ) : null}
 
@@ -112,21 +120,28 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
 
       <HintedTouchable
         accessibilityRole="button"
-        accessibilityLabel={report ? 'Uppdatera AI-analys' : 'Skapa AI-analys'}
-        hint="Skapar en sammanfattning av styrkor, risker, katalysatorer och motargument från aktuell tillgänglig data. Den är beslutsstöd, inte personlig investeringsrådgivning."
+        accessibilityLabel={report ? t('Uppdatera AI-analys', 'Update AI analysis') : t('Skapa AI-analys', 'Create AI analysis')}
+        hint={t('Skapar en sammanfattning av styrkor, risker, katalysatorer och motargument från aktuell tillgänglig data. Den är beslutsstöd, inte personlig investeringsrådgivning.', 'Creates a summary of strengths, risks, catalysts and counterarguments from currently available data. It is decision support, not personal investment advice.')}
         style={[styles.action, loading && styles.actionDisabled]}
         disabled={loading}
         onPress={generateReport}
       >
-        <Text style={styles.actionText}>{report ? 'Uppdatera analys' : 'Skapa analys'}</Text>
+        <Text style={styles.actionText}>{report ? t('Uppdatera analys', 'Update analysis') : t('Skapa analys', 'Create analysis')}</Text>
       </HintedTouchable>
 
       {report && !aiAvailable && (
         <Text style={styles.fallback}>
-          Analysen är regelbaserad. AI-skriven kommentar kräver att administratören gett ditt konto behörighet till modulen.
+          {aiStatus === 'quota-exhausted'
+            ? t('Dagens AI-gräns är nådd. Den regelbaserade analysen visas tills dagskvoten återställs.', "Today's AI limit has been reached. The rule-based analysis is shown until the daily quota resets.")
+            : aiStatus === 'request-failed'
+              ? t('AI-tjänsten svarade inte. Den regelbaserade analysen visas i stället.', 'The AI service did not respond. The rule-based analysis is shown instead.')
+              : t('Analysen är regelbaserad. AI-skriven kommentar kräver att administratören gett ditt konto behörighet till modulen.', 'This analysis is rule-based. AI-written commentary requires the administrator to enable the module for your account.')}
         </Text>
       )}
-      <Text style={styles.disclaimer}>Modellpoängen är en sammanvägning av regler, inte en sannolikhet för uppgång. Beslutsstöd, inte personlig investeringsrådgivning.</Text>
+      {report && aiAvailable && aiQuotaRemaining != null && (
+        <Text style={styles.fallback}>{t(`${aiQuotaRemaining} AI-anrop återstår i dag.`, `${aiQuotaRemaining} AI requests remain today.`)}</Text>
+      )}
+      <Text style={styles.disclaimer}>{t('Modellpoängen är en sammanvägning av regler, inte en sannolikhet för uppgång. Beslutsstöd, inte personlig investeringsrådgivning.', 'The model score combines rules; it is not a probability of a price increase. Decision support, not personal investment advice.')}</Text>
     </View>
   );
 }

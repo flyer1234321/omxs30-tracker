@@ -21,6 +21,8 @@ export interface AppUserRecord {
   email: string;
   isAdmin: boolean;
   canUseAi: boolean;
+  /** Högsta antal betalda AI-anrop per svensk kalenderdag. 0 = obegränsat. */
+  aiDailyLimit: number;
   createdAt: string | null;
   disabledAt: string | null;
 }
@@ -29,6 +31,7 @@ export interface AccessDecision {
   allowed: boolean;
   isAdmin: boolean;
   canUseAi: boolean;
+  aiDailyLimit: number;
   source: 'env-admin' | 'database' | 'env-fallback';
 }
 
@@ -36,6 +39,7 @@ interface AppUserRow {
   email: string;
   is_admin: boolean;
   can_use_ai: boolean;
+  ai_daily_limit?: number | null;
   created_at: string | null;
   disabled_at: string | null;
 }
@@ -63,6 +67,7 @@ function toRecord(row: AppUserRow): AppUserRecord {
     email: row.email,
     isAdmin: Boolean(row.is_admin),
     canUseAi: Boolean(row.can_use_ai),
+    aiDailyLimit: Math.max(0, Math.floor(row.ai_daily_limit ?? 0)),
     createdAt: row.created_at,
     disabledAt: row.disabled_at,
   };
@@ -80,7 +85,9 @@ export async function loadAppUsers(force = false): Promise<AppUserRecord[] | nul
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin
       .from('app_users')
-      .select('email, is_admin, can_use_ai, created_at, disabled_at')
+      // Stjärnan gör driftsättningen bakåtkompatibel medan ai_daily_limit
+      // läggs till: saknas kolumnen kan användarlistan fortfarande läsas.
+      .select('*')
       .order('created_at', { ascending: true });
     if (error) throw error;
 
@@ -112,15 +119,21 @@ export function decideAccess(
   const normalized = email?.trim().toLowerCase() || null;
 
   if (normalized && envAdmins.includes(normalized)) {
-    return { allowed: true, isAdmin: true, canUseAi: true, source: 'env-admin' };
+    return { allowed: true, isAdmin: true, canUseAi: true, aiDailyLimit: 0, source: 'env-admin' };
   }
 
   if (users && users.length > 0) {
     const record = normalized ? users.find((user) => user.email === normalized) : undefined;
     if (!record || record.disabledAt) {
-      return { allowed: false, isAdmin: false, canUseAi: false, source: 'database' };
+      return { allowed: false, isAdmin: false, canUseAi: false, aiDailyLimit: 0, source: 'database' };
     }
-    return { allowed: true, isAdmin: record.isAdmin, canUseAi: record.canUseAi, source: 'database' };
+    return {
+      allowed: true,
+      isAdmin: record.isAdmin,
+      canUseAi: record.canUseAi,
+      aiDailyLimit: record.aiDailyLimit,
+      source: 'database',
+    };
   }
 
   // Tabellen är tom eller oläsbar: fall tillbaka på miljövariablerna.
@@ -132,6 +145,7 @@ export function decideAccess(
     // AI-analysen. Beteendet behålls så att en uppgradering inte tar bort
     // funktioner för befintliga användare.
     canUseAi: allowed,
+    aiDailyLimit: 0,
     source: 'env-fallback',
   };
 }

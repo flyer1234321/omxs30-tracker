@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { InfoTip } from '@/components/Tooltip';
 import { glossaryEntry, WORKSPACE_GLOSSARY_KEYS } from '@/lib/glossary';
-import { TABLE_COLUMNS } from '@/lib/workspaces';
+import { DEFAULT_WORKSPACES, TABLE_COLUMNS, tableColumnLabel, workspaceDisplayName } from '@/lib/workspaces';
+import { useAppLanguage } from '@/components/AppLanguage';
 import type { TableColumnId, Workspace } from '@/types/stock';
 import { colors as palette } from '@/theme';
 
@@ -14,31 +15,40 @@ interface WorkspaceBarProps {
   onUpdateColumns: (id: string, columns: TableColumnId[]) => void;
   onCreate: (name: string, columns: TableColumnId[]) => void;
   onDelete: (id: string) => void;
+  onReset: (id: string) => void;
 }
 
-export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete }: WorkspaceBarProps) {
+export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete, onReset }: WorkspaceBarProps) {
+  const { language, t } = useAppLanguage();
   const [editing, setEditing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [draftColumns, setDraftColumns] = useState<TableColumnId[]>([]);
   const activeWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? workspaces[0],
     [activeWorkspaceId, workspaces],
   );
 
+  useEffect(() => {
+    setDraftColumns(activeWorkspace?.columns ?? []);
+  }, [activeWorkspace?.id, activeWorkspace?.columns]);
+
   if (!activeWorkspace) return null;
-  const selectedColumns = activeWorkspace.columns;
-  const explainedColumns = TABLE_COLUMNS.filter((column) => selectedColumns.includes(column.id));
+  const activeColumns = activeWorkspace.columns;
+  const selectedColumns = editing ? draftColumns : activeColumns;
+  const explainedColumns = TABLE_COLUMNS.filter((column) => activeColumns.includes(column.id));
   const activeGlossaryKey = WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id];
   const activeSummary = activeGlossaryKey
-    ? glossaryEntry(activeGlossaryKey).short
-    : 'Din sparade vy med de kolumner du själv har valt.';
+    ? glossaryEntry(activeGlossaryKey, language).short
+    : t('Din sparade vy med de kolumner du själv har valt.', 'Your saved view with the columns you selected.');
+  const activeName = workspaceDisplayName(activeWorkspace, language);
 
   const toggleColumn = (column: TableColumnId) => {
     if (column === 'ticker') return;
     const next = selectedColumns.includes(column)
       ? selectedColumns.filter((id) => id !== column)
       : [...selectedColumns, column];
-    if (next.length >= 2) onUpdateColumns(activeWorkspace.id, next);
+    if (next.length >= 2) setDraftColumns(next);
   };
 
   const createWorkspace = () => {
@@ -47,6 +57,29 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
     onCreate(name, selectedColumns);
     setNewWorkspaceName('');
     setEditing(false);
+  };
+
+  const toggleEditing = () => {
+    if (!editing) setDraftColumns(activeWorkspace.columns);
+    setEditing((value) => !value);
+  };
+
+  const applyColumns = () => {
+    onUpdateColumns(activeWorkspace.id, draftColumns);
+    setEditing(false);
+  };
+
+  const resetDefault = () => {
+    const original = DEFAULT_WORKSPACES.find((workspace) => workspace.id === activeWorkspace.id);
+    if (!original) return;
+    setDraftColumns(original.columns);
+    onReset(activeWorkspace.id);
+  };
+
+  const deleteCurrent = () => {
+    onDelete(activeWorkspace.id);
+    setEditing(false);
+    setNewWorkspaceName('');
   };
 
   return (
@@ -60,16 +93,16 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
                   term={WORKSPACE_GLOSSARY_KEYS[workspace.id]}
                   style={styles.tabSelect}
                   onPress={() => onSelect(workspace.id)}
-                  accessibilityLabel={`Välj vyn ${workspace.name}`}
+                  accessibilityLabel={`${t('Välj vyn', 'Select view')} ${workspaceDisplayName(workspace, language)}`}
                 >
-                  <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
+                  <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspaceDisplayName(workspace, language)}</Text>
                 </InfoTip>
               ) : (
                 <HintedTouchable
                   style={styles.tabSelect}
                   onPress={() => onSelect(workspace.id)}
-                  accessibilityLabel={`Välj vyn ${workspace.name}`}
-                  hint={`En egen vy med de kolumner du har valt för ${workspace.name}.`}
+                  accessibilityLabel={`${t('Välj vyn', 'Select view')} ${workspace.name}`}
+                  hint={t(`En egen vy med de kolumner du har valt för ${workspace.name}.`, `A custom view with the columns selected for ${workspace.name}.`)}
                 >
                   <Text style={[styles.tabText, workspace.id === activeWorkspace.id && styles.tabTextActive]}>{workspace.name}</Text>
                 </HintedTouchable>
@@ -78,30 +111,35 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
           ))}
         </ScrollView>
         <View style={styles.actionButtons}>
-          <HintedTouchable style={[styles.helpButton, showHelp && styles.helpButtonActive]} onPress={() => setShowHelp((value) => !value)} accessibilityLabel={showHelp ? 'Stäng förklaringar' : 'Visa förklaringar'} hint="Visar en kort förklaring av vyn och tabellens synliga rubriker.">
-            <Text style={[styles.helpButtonText, showHelp && styles.helpButtonTextActive]}>{showHelp ? 'Stäng hjälp' : 'Förklaringar'}</Text>
+          <HintedTouchable style={[styles.helpButton, showHelp && styles.helpButtonActive]} onPress={() => setShowHelp((value) => !value)} accessibilityLabel={showHelp ? t('Stäng förklaringar', 'Close explanations') : t('Visa förklaringar', 'Show explanations')} hint={t('Visar en kort förklaring av vyn och tabellens synliga rubriker.', 'Shows a short explanation of the view and its visible table columns.')}>
+            <Text style={[styles.helpButtonText, showHelp && styles.helpButtonTextActive]}>{showHelp ? t('Stäng hjälp', 'Close help') : t('Förklaringar', 'Explanations')}</Text>
           </HintedTouchable>
-          <HintedTouchable style={styles.editButton} onPress={() => setEditing((value) => !value)} accessibilityLabel={editing ? 'Stäng kolumninställningar' : 'Ändra kolumner'} hint={editing ? 'Stänger inställningarna för tabellkolumner.' : 'Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.'}>
-            <Text style={styles.editButtonText}>{editing ? 'Klar' : 'Kolumner'}</Text>
+          <HintedTouchable
+            style={styles.editButton}
+            onPress={toggleEditing}
+            accessibilityLabel={editing ? t('Stäng kolumninställningar', 'Close column settings') : t('Ändra kolumner', 'Edit columns')}
+            hint={editing ? t('Stänger utan att spara osparade kolumnval.', 'Closes without saving unsaved column choices.') : t('Välj vilka nyckeltal som ska synas i den aktuella tabellvyn.', 'Choose which metrics appear in the current table view.')}
+          >
+            <Text style={styles.editButtonText}>{editing ? t('Stäng', 'Close') : t('Kolumner', 'Columns')}</Text>
           </HintedTouchable>
         </View>
       </View>
-      <Text style={styles.activeSummary}>{activeWorkspace.name}: {activeSummary}</Text>
+      <Text style={styles.activeSummary}>{activeName}: {activeSummary}</Text>
 
       {showHelp && (
         <View style={styles.helpPanel}>
-          <Text style={styles.helpEyebrow}>{activeWorkspace.name}</Text>
-          <Text style={styles.helpTitle}>Så läser du den här vyn</Text>
+          <Text style={styles.helpEyebrow}>{activeName}</Text>
+          <Text style={styles.helpTitle}>{t('Så läser du den här vyn', 'How to read this view')}</Text>
           <Text style={styles.helpIntro}>
             {WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id]
-              ? glossaryEntry(WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id]).detail
-              : `En egen vy med de kolumner du har valt för ${activeWorkspace.name}.`}
+              ? glossaryEntry(WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id], language).detail
+              : t(`En egen vy med de kolumner du har valt för ${activeWorkspace.name}.`, `A custom view with the columns selected for ${activeWorkspace.name}.`)}
           </Text>
           <View style={styles.helpGrid}>
             {explainedColumns.map((column) => (
               <View key={column.id} style={styles.helpItem}>
-                <Text style={styles.helpItemTitle}>{column.label}</Text>
-                <Text style={styles.helpItemText}>{glossaryEntry(column.id).detail}</Text>
+                <Text style={styles.helpItemTitle}>{tableColumnLabel(column, language)}</Text>
+                <Text style={styles.helpItemText}>{glossaryEntry(column.id, language).detail}</Text>
               </View>
             ))}
           </View>
@@ -110,7 +148,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
 
       {editing && (
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>Visade kolumner</Text>
+          <Text style={styles.panelTitle}>{t('Visade kolumner', 'Visible columns')}</Text>
           <View style={styles.columnList}>
             {TABLE_COLUMNS.map((column) => {
               const selected = selectedColumns.includes(column.id);
@@ -120,10 +158,10 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
                   term={column.id}
                   style={[styles.columnToggle, selected && styles.columnToggleSelected]}
                   onPress={() => toggleColumn(column.id)}
-                  accessibilityLabel={`${selected ? 'Dölj' : 'Visa'} kolumnen ${column.label}`}
+                  accessibilityLabel={`${selected ? t('Dölj', 'Hide') : t('Visa', 'Show')} ${t('kolumnen', 'column')} ${tableColumnLabel(column, language)}`}
                 >
                   <Text style={[styles.columnToggleText, selected && styles.columnToggleTextSelected]}>
-                    {selected ? '✓ ' : ''}{column.label}
+                    {selected ? '✓ ' : ''}{tableColumnLabel(column, language)}
                   </Text>
                 </InfoTip>
               );
@@ -133,19 +171,27 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
             <TextInput
               value={newWorkspaceName}
               onChangeText={setNewWorkspaceName}
-              placeholder="Namn på ny vy"
+              placeholder={t('Namn på ny vy', 'Name of new view')}
               placeholderTextColor={palette.textSecondary}
               style={styles.nameInput}
               maxLength={32}
-              accessibilityLabel="Namn på ny tabellvy"
-              accessibilityHint="Skriv ett namn för en sparad vy med de kolumner du valt."
+              accessibilityLabel={t('Namn på ny tabellvy', 'Name of new table view')}
+              accessibilityHint={t('Skriv ett namn för en sparad vy med de kolumner du valt.', 'Enter a name for a saved view containing your selected columns.')}
             />
-            <HintedTouchable style={styles.saveButton} onPress={createWorkspace} accessibilityLabel="Spara som ny vy" hint="Skapar en ny sparad tabellvy med det angivna namnet och de valda kolumnerna.">
-              <Text style={styles.saveButtonText}>Spara som ny</Text>
+            <HintedTouchable style={styles.saveButton} onPress={createWorkspace} accessibilityLabel={t('Spara som ny vy', 'Save as new view')} hint={t('Skapar en ny sparad tabellvy med det angivna namnet och de valda kolumnerna.', 'Creates a saved table view with the entered name and selected columns.')}>
+              <Text style={styles.saveButtonText}>{t('Spara som ny', 'Save as new')}</Text>
             </HintedTouchable>
+            <HintedTouchable style={styles.applyButton} onPress={applyColumns} accessibilityLabel={`${t('Spara kolumner i', 'Save columns in')} ${activeName}`} hint={t('Ersätter kolumnerna i den aktuella vyn med utkastet.', 'Replaces the columns in the current view with the draft selection.')}>
+              <Text style={styles.applyButtonText}>{t('Använd i denna vy', 'Apply to this view')}</Text>
+            </HintedTouchable>
+            {activeWorkspace.isDefault && (
+              <HintedTouchable style={styles.resetButton} onPress={resetDefault} accessibilityLabel={`${t('Återställ standardvyn', 'Reset default view')} ${activeName}`} hint={t('Återställer den här standardvyn till appens ursprungliga kolumner.', 'Restores this default view to the app’s original columns.')}>
+                <Text style={styles.resetButtonText}>{t('Återställ standard', 'Reset default')}</Text>
+              </HintedTouchable>
+            )}
             {!activeWorkspace.isDefault && (
-              <HintedTouchable style={styles.deleteButton} onPress={() => onDelete(activeWorkspace.id)} accessibilityLabel={`Ta bort vyn ${activeWorkspace.name}`} hint="Tar bort den aktuella egna vyn. Standardvyer kan inte tas bort.">
-                <Text style={styles.deleteButtonText}>Ta bort</Text>
+              <HintedTouchable style={styles.deleteButton} onPress={deleteCurrent} accessibilityLabel={`Ta bort vyn ${activeWorkspace.name}`} hint="Tar bort den aktuella egna vyn. Standardvyer kan inte tas bort.">
+                <Text style={styles.deleteButtonText}>{t('Ta bort egen vy', 'Delete custom view')}</Text>
               </HintedTouchable>
             )}
           </View>
@@ -192,6 +238,10 @@ const styles = StyleSheet.create({
   nameInput: { color: palette.textPrimary, borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 7, fontSize: 12, minWidth: 140 },
   saveButton: { backgroundColor: '#2563eb', borderRadius: 5, paddingHorizontal: 9, paddingVertical: 8 },
   saveButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  applyButton: { borderWidth: 1, borderColor: palette.accent, borderRadius: 5, paddingHorizontal: 9, paddingVertical: 8 },
+  applyButtonText: { color: palette.accent, fontSize: 12, fontWeight: '700' },
+  resetButton: { paddingHorizontal: 8, paddingVertical: 8 },
+  resetButtonText: { color: palette.textSecondary, fontSize: 12, fontWeight: '600' },
   deleteButton: { paddingHorizontal: 8, paddingVertical: 8 },
   deleteButtonText: { color: palette.negative, fontSize: 12, fontWeight: '600' },
 });

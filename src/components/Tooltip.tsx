@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { glossaryEntry, glossaryText, type GlossaryKey } from '@/lib/glossary';
 import { colors as palette } from '@/theme';
+import { useAppLanguage } from '@/components/AppLanguage';
 
 /**
  * Förklaringar vid muspekaren.
@@ -64,6 +65,7 @@ const ASSUMED_HEIGHT = 170;
 const HIDE_DELAY_MS = 120;
 
 export function TooltipProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useAppLanguage();
   const [state, setState] = useState<TooltipState | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,7 +126,7 @@ export function TooltipProvider({ children }: { children: React.ReactNode }) {
             <Pressable
               style={styles.dismissLayer}
               onPress={api.hide}
-              accessibilityLabel="Stäng förklaringen"
+              accessibilityLabel={t('Stäng förklaringen', 'Close explanation')}
             />
           )}
           <View
@@ -164,8 +166,9 @@ interface InfoTipProps {
  */
 export function InfoTip({ term, children, style, onPress, accessibilityLabel }: InfoTipProps) {
   const { show, hide } = useContext(TooltipContext);
+  const { language } = useAppLanguage();
   const anchorRef = useRef<View>(null);
-  const entry = glossaryEntry(term);
+  const entry = glossaryEntry(term, language);
 
   const reveal = useCallback(() => {
     anchorRef.current?.measureInWindow((x, y, width, height) => {
@@ -186,7 +189,7 @@ export function InfoTip({ term, children, style, onPress, accessibilityLabel }: 
         delayLongPress={350}
         accessibilityRole={onPress ? 'button' : 'text'}
         accessibilityLabel={accessibilityLabel ?? entry.term}
-        accessibilityHint={glossaryText(term)}
+        accessibilityHint={glossaryText(term, language)}
       >
         {children}
       </Pressable>

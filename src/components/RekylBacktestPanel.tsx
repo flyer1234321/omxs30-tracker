@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
+import { useAppLanguage } from '@/components/AppLanguage';
 import { authenticatedFetch } from '@/lib/auth-client';
 import { formatNumber, formatSignedPercent } from '@/lib/format';
 import { colors as palette } from '@/theme';
@@ -41,6 +42,7 @@ const MINIMUM_OBSERVATIONS = 30;
  * mot baslinjen som huvudsiffra.
  */
 export function RekylBacktestPanel() {
+  const { language } = useAppLanguage();
   const [backtest, setBacktest] = useState<Backtest | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +53,14 @@ export function RekylBacktestPanel() {
     try {
       const response = await authenticatedFetch('/api/rekyl-backtest?market=omxs30&years=10');
       const payload = await response.json() as { result?: Backtest; error?: string };
-      if (!response.ok || !payload.result) throw new Error(payload.error || 'Mätningen kunde inte köras.');
+      if (!response.ok || !payload.result) throw new Error(payload.error || (language === 'en' ? 'The analysis could not be completed.' : 'Mätningen kunde inte köras.'));
       setBacktest(payload.result);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Mätningen kunde inte köras.');
+      setError(requestError instanceof Error ? requestError.message : language === 'en' ? 'The analysis could not be completed.' : 'Mätningen kunde inte köras.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -67,20 +69,21 @@ export function RekylBacktestPanel() {
   return (
     <View>
       <Text style={styles.intro}>
-        Rekylpoängen räknas om för varje månad i historiken, med enbart den information som fanns då.
-        Sedan mäts hur aktien gick de följande 60 handelsdagarna, med indexets rörelse borträknad.
+        {language === 'en'
+          ? 'The pullback score is recalculated for every month in history using only the information available at that time. Performance over the following 60 trading days is then measured relative to the index.'
+          : 'Rekylpoängen räknas om för varje månad i historiken, med enbart den information som fanns då. Sedan mäts hur aktien gick de följande 60 handelsdagarna, med indexets rörelse borträknad.'}
       </Text>
 
       {loading && !backtest ? (
         <View style={styles.loading}>
           <ActivityIndicator color={palette.accent} />
-          <Text style={styles.loadingText}>Räknar tio år för trettio bolag. Tar en stund.</Text>
+          <Text style={styles.loadingText}>{language === 'en' ? 'Analyzing ten years for thirty companies. This takes a while.' : 'Räknar tio år för trettio bolag. Tar en stund.'}</Text>
         </View>
       ) : backtest ? (
         <>
           <Text style={styles.meta}>
-            {backtest.observations} mätpunkter från {backtest.tickers} bolag
-            {baseline ? ` · Genomsnittsdagen gav ${formatSignedPercent(baseline.mean)} på 60 dagar` : ''}
+            {language === 'en' ? `${backtest.observations} observations from ${backtest.tickers} companies` : `${backtest.observations} mätpunkter från ${backtest.tickers} bolag`}
+            {baseline ? language === 'en' ? ` · The average day returned ${formatSignedPercent(baseline.mean)} over 60 days` : ` · Genomsnittsdagen gav ${formatSignedPercent(baseline.mean)} på 60 dagar` : ''}
           </Text>
 
           {backtest.buckets.map((bucket) => {
@@ -98,35 +101,34 @@ export function RekylBacktestPanel() {
 
                 <View style={styles.metrics}>
                   <View style={styles.metric}>
-                    <Text style={styles.metricLabel}>Mot index</Text>
+                    <Text style={styles.metricLabel}>{language === 'en' ? 'Versus index' : 'Mot index'}</Text>
                     <Text style={styles.metricValue}>{formatSignedPercent(summary?.mean ?? null)}</Text>
                   </View>
                   <View style={styles.metric}>
-                    <Text style={styles.metricLabel}>Mot genomsnittsdagen</Text>
+                    <Text style={styles.metricLabel}>{language === 'en' ? 'Versus average day' : 'Mot genomsnittsdagen'}</Text>
                     <Text style={[styles.metricValue, { color: edgeColor }]}>{formatSignedPercent(edge)}</Text>
                   </View>
                   <View style={styles.metric}>
-                    <Text style={styles.metricLabel}>Andel positiva</Text>
+                    <Text style={styles.metricLabel}>{language === 'en' ? 'Positive outcomes' : 'Andel positiva'}</Text>
                     <Text style={styles.metricValue}>{summary ? `${formatNumber(summary.hitRate, 0)} %` : '-'}</Text>
                   </View>
                 </View>
 
                 <Text style={[styles.verdict, trustworthy ? styles.verdictSolid : styles.verdictWeak]}>
                   {!summary || summary.n < MINIMUM_OBSERVATIONS
-                    ? `För få mätpunkter (${summary?.n ?? 0}) för att säga något`
+                    ? language === 'en' ? `Too few observations (${summary?.n ?? 0}) to draw a conclusion` : `För få mätpunkter (${summary?.n ?? 0}) för att säga något`
                     : trustworthy
-                      ? `Skiljer sig från slumpen (t = ${formatNumber(summary.tStat, 1)})`
-                      : `Går inte att skilja från slumpen (t = ${formatNumber(summary.tStat, 1)})`}
+                      ? language === 'en' ? `Statistically distinguishable from chance (t = ${formatNumber(summary.tStat, 1)})` : `Skiljer sig från slumpen (t = ${formatNumber(summary.tStat, 1)})`
+                      : language === 'en' ? `Not distinguishable from chance (t = ${formatNumber(summary.tStat, 1)})` : `Går inte att skilja från slumpen (t = ${formatNumber(summary.tStat, 1)})`}
                 </Text>
               </View>
             );
           })}
 
           <Text style={styles.caveat}>
-            Läs resultatet med tre reservationer. Listan är dagens OMXS30-bolag, alltså de som klarade sig,
-            vilket gör utfallet för optimistiskt. Bara sju av nio poäng går att räkna bakåt i tiden; positiv
-            vinst och utdelning kommer från dagens uppgifter och är utelämnade. Och perioden domineras av en
-            lång uppgångsfas, vilket gynnar allt som liknar att köpa nedgångar.
+            {language === 'en'
+              ? 'Read the result with three caveats. The list contains today’s OMXS30 constituents, creating survivorship bias. Only seven of nine score components can be reconstructed historically; positive earnings and dividends use current data and are excluded. The period is also dominated by a long bull market, which favors strategies that buy declines.'
+              : 'Läs resultatet med tre reservationer. Listan är dagens OMXS30-bolag, alltså de som klarade sig, vilket gör utfallet för optimistiskt. Bara sju av nio poäng går att räkna bakåt i tiden; positiv vinst och utdelning kommer från dagens uppgifter och är utelämnade. Och perioden domineras av en lång uppgångsfas, vilket gynnar allt som liknar att köpa nedgångar.'}
           </Text>
         </>
       ) : null}
@@ -137,10 +139,10 @@ export function RekylBacktestPanel() {
         style={[styles.action, loading && styles.actionDisabled]}
         disabled={loading}
         onPress={() => { void load(); }}
-        accessibilityLabel="Kör mätningen igen"
-        hint="Hämtar tio års kurshistorik för hela urvalet och räknar om utfallet. Resultatet sparas ett halvt dygn."
+        accessibilityLabel={language === 'en' ? 'Run analysis again' : 'Kör mätningen igen'}
+        hint={language === 'en' ? 'Fetches ten years of price history for the full universe and recalculates the result. The result is cached for twelve hours.' : 'Hämtar tio års kurshistorik för hela urvalet och räknar om utfallet. Resultatet sparas ett halvt dygn.'}
       >
-        <Text style={styles.actionText}>{loading ? 'Räknar...' : 'Kör om mätningen'}</Text>
+        <Text style={styles.actionText}>{loading ? (language === 'en' ? 'Analyzing...' : 'Räknar...') : (language === 'en' ? 'Run analysis again' : 'Kör om mätningen')}</Text>
       </HintedTouchable>
     </View>
   );

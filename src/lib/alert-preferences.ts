@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { authenticatedFetch } from '@/lib/auth-client';
 
 export interface AlertPreferences {
   email_alerts_enabled: boolean;
@@ -6,24 +6,18 @@ export interface AlertPreferences {
 }
 
 export async function loadAlertPreferences(): Promise<AlertPreferences | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase.from('alert_preferences')
-    .select('email_alerts_enabled, instant_alerts_enabled')
-    .maybeSingle();
-  if (error) throw error;
-  return data as AlertPreferences | null;
+  const response = await authenticatedFetch('/api/alert-preferences');
+  const payload = await response.json() as { preferences?: AlertPreferences; error?: string };
+  if (!response.ok) throw new Error(payload.error || 'Kunde inte läsa varningsinställningarna.');
+  return payload.preferences ?? null;
 }
 
 export async function saveAlertPreferences(preferences: AlertPreferences) {
-  if (!supabase) throw new Error('Inloggning med e-post krävs för e-postvarningar.');
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user.id;
-  if (!userId) throw new Error('Ingen användarsession hittades.');
-  const { error } = await supabase.from('alert_preferences').upsert({
-    user_id: userId,
-    ...preferences,
-    alert_frequency: 'DAILY_DIGEST',
-    updated_at: new Date().toISOString(),
+  const response = await authenticatedFetch('/api/alert-preferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(preferences),
   });
-  if (error) throw error;
+  const payload = await response.json() as { error?: string };
+  if (!response.ok) throw new Error(payload.error || 'Kunde inte spara varningsinställningen.');
 }
