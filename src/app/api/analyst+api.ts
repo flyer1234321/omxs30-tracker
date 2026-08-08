@@ -1,6 +1,6 @@
 import { buildQuantAnalystReport, isAnalystReport, type AnalystReport } from '@/lib/analyst-engine';
+import { buildAnalystContext } from '@/lib/analyst-context';
 import { getAuthenticatedUser, requireAuthenticatedUser } from '@/lib/app-auth';
-import { roundMarketValue } from '@/lib/market-values';
 import type { StockData } from '@/types/stock';
 
 const CACHE_TTL = 10 * 60 * 1000;
@@ -37,14 +37,13 @@ function cacheKey(stock: StockData) {
 const reportSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['verdict', 'confidence', 'thesis', 'strengths', 'risks', 'catalysts', 'invalidation'],
+  required: ['verdict', 'thesis', 'strengths', 'risks', 'catalysts', 'invalidation'],
   properties: {
     verdict: { type: 'string', enum: ['Positiv analys', 'Bevaka', 'Avvakta'] },
-    confidence: { type: 'string', enum: ['Låg', 'Medel', 'Hög'] },
     thesis: { type: 'string' },
-    strengths: { type: 'array', items: { type: 'string' }, maxItems: 3 },
-    risks: { type: 'array', items: { type: 'string' }, maxItems: 3 },
-    catalysts: { type: 'array', items: { type: 'string' }, maxItems: 2 },
+    strengths: { type: 'array', items: { type: 'string' }, maxItems: 4 },
+    risks: { type: 'array', items: { type: 'string' }, maxItems: 4 },
+    catalysts: { type: 'array', items: { type: 'string' }, maxItems: 3 },
     invalidation: { type: 'string' },
   },
 };
@@ -69,31 +68,19 @@ async function createAiNarrative(stock: StockData, quantReport: AnalystReport) {
           'Ge generell bolagsanalys, aldrig personlig placeringsradgivning.',
           'Hitta inte pa nyheter, konsensus, riktkurser eller data som saknas.',
           'Var tydlig med osakerhet och lat risker vaga tungt nar data ar blandad.',
+          'Ga igenom hela analysisContext innan du skriver och vag teknisk trend, relativ styrka, volym, fundamental kvalitet, vardering, risk, kommande rapport och handelsplan mot varandra.',
+          'Skilj historiska observationer fran framtida mojligheter. RSI, MACD, glidande medelvarden och prisformationer ar bakatblickande och bevisar inte nasta kursrorelse.',
+          'Anvand kvalitetens delkomponenter, inte bara den sammanvagda kvalitetspoangen. Namn konkret skuld, marginal, kassaflode eller tillvaxt nar underlaget finns.',
+          'Anvand inte en signaletikett utan att kontrollera dess detail och observedAt.',
           'Anvand avrundade tal: pris och glidande medelvarden med tva decimaler, P/E med en decimal och procent med en decimal.',
-          'Faltet dividendYieldPercent ar redan en procent, sa skriv exempelvis 2,2 % och multiplicera aldrig det igen.',
+          'Faltet valuation.dividendYieldPercent ar redan en procent, sa skriv exempelvis 2,2 % och multiplicera aldrig det igen.',
+          'Kalla aldrig en aktie billig eller dyr utifran ett absolut P/E. Anvand bara jamforelsen med egen historik eller sektor som skickas in.',
+          'Faltet valuation.trailingPEPriceProxyMedian ar inte historiska rapporterade P/E-tal. Det ar medianpriset for tolv manader delat med dagens VPA och ska alltid kallas prisproxy.',
+          'Om datakallor saknas eller motsager varandra ska det namnas som en osakerhet, inte fyllas ut med antaganden.',
           'Anvand inte ordet kop som uppmaning. Välj endast en av de givna slutsatserna.',
         ].join(' '),
         input: JSON.stringify({
-          stock: {
-            ticker: stock.ticker,
-            companyName: stock.companyName,
-            currentPrice: roundMarketValue(stock.currentPrice),
-            changePercent: roundMarketValue(stock.regularMarketChangePercent, 1),
-            trailingPE: roundMarketValue(stock.trailingPE, 1),
-            dividendYieldPercent: stock.dividendYield == null ? null : roundMarketValue(stock.dividendYield * 100, 1),
-            beta: roundMarketValue(stock.beta, 2),
-            volatility: roundMarketValue(stock.volatility, 1),
-            maxDrawdown: roundMarketValue(stock.maxDrawdown, 1),
-            qualityScore: stock.quality ? roundMarketValue(stock.quality.score, 0) : null,
-            rMultiple: stock.tradePlan ? roundMarketValue(stock.tradePlan.rMultiple, 1) : null,
-            rsi: roundMarketValue(stock.rsi, 1),
-            sma50: roundMarketValue(stock.sma50),
-            sma125: roundMarketValue(stock.sma125),
-            sma200: roundMarketValue(stock.sma200),
-            fiftyTwoWeekHigh: roundMarketValue(stock.fiftyTwoWeekHigh),
-            fiftyTwoWeekLow: roundMarketValue(stock.fiftyTwoWeekLow),
-            signals: stock.signals?.map((signal) => signal.label) || [],
-          },
+          analysisContext: buildAnalystContext(stock),
           quantReport,
         }),
         text: {
@@ -153,7 +140,7 @@ export async function POST(request: Request) {
     const quantReport = buildQuantAnalystReport(stock);
     const narrative = aiAllowed ? await createAiNarrative(stock, quantReport) : null;
     const report: AnalystReport = narrative
-      ? { ...narrative, score: quantReport.score, source: 'ai', generatedAt: new Date().toISOString() }
+      ? { ...narrative, score: quantReport.score, dataCoverage: quantReport.dataCoverage, source: 'ai', generatedAt: new Date().toISOString() }
       : quantReport;
 
     cache.set(key, { report, cachedAt: Date.now() });

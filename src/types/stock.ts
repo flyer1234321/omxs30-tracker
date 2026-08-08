@@ -1,3 +1,5 @@
+import type { QualityScore } from '@/lib/quality-score';
+
 export interface ChartDataPoint {
   date: string;
   close: number;
@@ -44,14 +46,16 @@ export interface StockSignal {
 
 export interface ValuationSnapshot {
   /**
-   * Medianvärdering under de senaste tolv månaderna, beräknad som
+   * Prisbaserad värderingsproxy för de senaste tolv månaderna, beräknad som
    * medianstängningskurs delat med nuvarande vinst per aktie. Vinsten hålls
    * alltså konstant - måttet fångar var kursen legat i förhållande till dagens
    * intjäning, inte hur vinsten utvecklats. Det räknas fram ur kurshistoriken
    * som redan hämtas och kostar därför inga extra anrop.
    */
-  trailingPEMedian: number | null;
+  trailingPEProxyMedian: number | null;
   trailingPESectorMedian: number | null;
+  /** Antal jämförbara bolag bakom sektorns median. */
+  sectorSampleSize: number;
 }
 
 /**
@@ -72,8 +76,6 @@ export interface TradePlan {
 
 /** De marknadsurval som screenern kan visa. */
 export type MarketId = 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
-
-import type { QualityScore } from '@/lib/quality-score';
 
 export type TableColumnId =
   | 'ticker'
@@ -103,6 +105,8 @@ export interface Workspace {
 export interface StockData {
   ticker: string;
   companyName: string;
+  /** Sektor enligt senaste tillgängliga bolagsprofil. */
+  sector: string | null;
   currentPrice: number;
   /** Handelsvaluta enligt Yahoo, t.ex. SEK eller USD. */
   currency: string | null;

@@ -264,6 +264,9 @@ export function MarketChart({ item }: MarketChartProps) {
           </Text>
         </View>
       </View>
+      <Text style={styles.chartExplanation}>
+        Historisk kurs och volym, inte en prognos. Klicka i grafen för exakt datum och kurs; på mobil använder du ett långtryck.
+      </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodTabs}>
         {chartPeriods.map((candidate) => (
@@ -408,6 +411,7 @@ const styles = StyleSheet.create({
   performanceWrap: { alignItems: 'flex-end' },
   performance: { fontSize: 16, fontFamily: 'monospace', fontWeight: '700' },
   performanceSub: { fontSize: 12, fontFamily: 'monospace', marginTop: 4 },
+  chartExplanation: { color: colors.muted, fontSize: 11, lineHeight: 16, paddingHorizontal: 16, marginTop: -6, marginBottom: 10, maxWidth: 760 },
   periodTabs: { paddingHorizontal: 12, gap: 4, marginBottom: 14 },
   periodButton: { minWidth: 42, height: 36, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   periodButtonActive: { backgroundColor: palette.borderStrong },

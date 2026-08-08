@@ -5,7 +5,7 @@ import type { StockData } from '@/types/stock';
 
 function stock(overrides: Partial<StockData> = {}): StockData {
   return {
-    ticker: 'TEST.ST', companyName: 'Test AB', currentPrice: 100,
+    ticker: 'TEST.ST', companyName: 'Test AB', sector: 'Industrials', currentPrice: 100,
     sma50: 101, sma125: 98, sma200: 99, rsi: 55, diffPercent125: 2,
     chartHistory: [
       { date: '2026-01-01T00:00:00.000Z', close: 98, sma50: 98, sma200: 99 },
@@ -19,7 +19,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     currency: 'SEK', atr: 2, tradePlan: null, relativeStrength63: null,
     earningsTimestamp: null, priceToBook: null, bookValue: null,
     quality: null,
-    valuation: { trailingPEMedian: 16, trailingPESectorMedian: null },
+    valuation: { trailingPEProxyMedian: 16, trailingPESectorMedian: null, sectorSampleSize: 0 },
     ...overrides,
   };
 }
@@ -30,7 +30,7 @@ test('derives golden cross, volume spike and historical value discount signals',
 });
 
 test('does not label a stock as discounted without historical valuation data', () => {
-  const signals = deriveStockSignals(stock({ valuation: { trailingPEMedian: null, trailingPESectorMedian: null } }));
+  const signals = deriveStockSignals(stock({ valuation: { trailingPEProxyMedian: null, trailingPESectorMedian: null, sectorSampleSize: 0 } }));
   assert.equal(signals.some((signal) => signal.kind === 'valueDiscount'), false);
 });
 

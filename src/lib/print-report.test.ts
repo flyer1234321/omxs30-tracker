@@ -4,7 +4,7 @@ import { buildPrintReportHtml } from './print-report';
 import type { StockData } from '@/types/stock';
 
 const stock: StockData = {
-  ticker: 'TEST.ST', companyName: 'Test & Co <AB>', currentPrice: 123.45, sma50: 120, sma125: 115, sma200: 110, rsi: 54,
+  ticker: 'TEST.ST', companyName: 'Test & Co <AB>', sector: 'Industrials', currentPrice: 123.45, sma50: 120, sma125: 115, sma200: 110, rsi: 54,
   diffPercent125: 7, chartHistory: [{ date: '2026-01-01', close: 110 }, { date: '2026-01-02', close: 123.45 }],
   fiftyTwoWeekHigh: 130, fiftyTwoWeekLow: 90, trailingPE: 14, dividendYield: 0.04, marketCap: 1_500_000_000,
   regularMarketChangePercent: 1.5, regularMarketOpen: 121, regularMarketDayHigh: 125, regularMarketDayLow: 120,
@@ -16,6 +16,7 @@ const stock: StockData = {
     target: 130, targetBasis: 'Närmaste motstånd: 52v-högsta', riskPerShare: 5,
     riskPercent: 4.05, rewardPercent: 5.31, rMultiple: 1.31,
   },
+  valuation: { trailingPEProxyMedian: 18, trailingPESectorMedian: 16, sectorSampleSize: 7 },
 };
 
 test('builds a printable report and escapes market data text', () => {
@@ -29,4 +30,5 @@ test('builds a printable report and escapes market data text', () => {
   assert.match(html, /SMA 200/);
   assert.match(html, /Senaste sex månaderna/);
   assert.match(html, /SMA 50/);
+  assert.match(html, /Relativ värdering/);
 });

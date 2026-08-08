@@ -28,6 +28,10 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
   if (!activeWorkspace) return null;
   const selectedColumns = activeWorkspace.columns;
   const explainedColumns = TABLE_COLUMNS.filter((column) => selectedColumns.includes(column.id));
+  const activeGlossaryKey = WORKSPACE_GLOSSARY_KEYS[activeWorkspace.id];
+  const activeSummary = activeGlossaryKey
+    ? glossaryEntry(activeGlossaryKey).short
+    : 'Din sparade vy med de kolumner du själv har valt.';
 
   const toggleColumn = (column: TableColumnId) => {
     if (column === 'ticker') return;
@@ -82,6 +86,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
           </HintedTouchable>
         </View>
       </View>
+      <Text style={styles.activeSummary}>{activeWorkspace.name}: {activeSummary}</Text>
 
       {showHelp && (
         <View style={styles.helpPanel}>
@@ -153,6 +158,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
 const styles = StyleSheet.create({
   container: { backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.border },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12 },
+  activeSummary: { color: palette.textSecondary, fontSize: 11, lineHeight: 16, paddingHorizontal: 14, paddingBottom: 8 },
   tabsScroll: { flex: 1 },
   tabs: { gap: 6, paddingVertical: 8, paddingRight: 8 },
   tab: { borderRadius: 5, backgroundColor: '#161620' },

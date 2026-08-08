@@ -14,8 +14,8 @@ export const colors = {
   textStrong: '#ffffff',
   textPrimary: '#e2e2ea',
   textBody: '#d1d1d6',
-  textSecondary: '#6b6b82',
-  textMuted: '#404055',
+  textSecondary: '#a3a3b7',
+  textMuted: '#7f7f95',
   textInverse: '#08080f',
   
   // Semantic colors - muted for pro trader look

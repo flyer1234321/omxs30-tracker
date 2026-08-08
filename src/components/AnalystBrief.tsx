@@ -70,7 +70,12 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
           <Text style={styles.title}>Analyst AI</Text>
           <Text style={styles.subtitle}>Generell aktieanalys baserad på aktuell data</Text>
         </View>
-        {report && <View style={[styles.score, { borderColor: accent }]}><Text style={[styles.scoreText, { color: accent }]}>{report.score}/100</Text></View>}
+        {report && (
+          <View style={[styles.score, { borderColor: accent }]}>
+            <Text style={styles.scoreLabel}>MODELLPOÄNG</Text>
+            <Text style={[styles.scoreText, { color: accent }]}>{report.score}/100</Text>
+          </View>
+        )}
       </View>
 
       {!report && !loading && (
@@ -83,7 +88,9 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
         <View>
           <View style={styles.verdictRow}>
             <Text style={[styles.verdict, { color: accent }]}>{report.verdict}</Text>
-            <Text style={styles.confidence}>Konfidens: {report.confidence}</Text>
+            <Text style={styles.coverage}>
+              Datatäckning: {report.dataCoverage.available}/{report.dataCoverage.total} ({report.dataCoverage.label.toLowerCase()})
+            </Text>
           </View>
           <Text style={styles.thesis}>{report.thesis}</Text>
 
@@ -119,7 +126,7 @@ export function AnalystBrief({ item, onReportGenerated }: AnalystBriefProps) {
           Analysen är regelbaserad. AI-skriven kommentar kräver att administratören gett ditt konto behörighet till modulen.
         </Text>
       )}
-      <Text style={styles.disclaimer}>Beslutsstöd, inte personlig investeringsrådgivning.</Text>
+      <Text style={styles.disclaimer}>Modellpoängen är en sammanvägning av regler, inte en sannolikhet för uppgång. Beslutsstöd, inte personlig investeringsrådgivning.</Text>
     </View>
   );
 }
@@ -144,14 +151,15 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   title: { color: colors.text, fontSize: 17, fontWeight: '700' },
   subtitle: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  score: { minWidth: 66, minHeight: 34, borderWidth: 1, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  score: { minWidth: 82, minHeight: 44, borderWidth: 1, borderRadius: 6, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  scoreLabel: { color: colors.muted, fontSize: 8, fontWeight: '700', marginBottom: 2 },
   scoreText: { fontFamily: 'monospace', fontSize: 13, fontWeight: '700' },
   emptyText: { color: '#D1D1D6', lineHeight: 19, fontSize: 13, marginBottom: 14 },
   loading: { minHeight: 100, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { color: colors.muted, fontSize: 13 },
   verdictRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 },
   verdict: { fontSize: 16, fontWeight: '700' },
-  confidence: { color: colors.muted, fontSize: 12 },
+  coverage: { color: colors.muted, fontSize: 12, textAlign: 'right', flexShrink: 1 },
   thesis: { color: colors.text, fontSize: 14, lineHeight: 20, marginBottom: 14 },
   columns: { flexDirection: 'row', gap: 12 },
   insight: { flex: 1, marginBottom: 12 },

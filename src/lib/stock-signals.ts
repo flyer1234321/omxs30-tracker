@@ -59,13 +59,13 @@ export function deriveStockSignals(stock: StockData, now = Date.now()): StockSig
     });
   }
 
-  const medianPE = stock.valuation?.trailingPEMedian;
+  const medianPE = stock.valuation?.trailingPEProxyMedian;
   if (stock.trailingPE != null && stock.trailingPE > 0 && medianPE != null && medianPE > 0 && stock.trailingPE <= medianPE * 0.8) {
     const discount = (1 - stock.trailingPE / medianPE) * 100;
     signals.push({
       kind: 'valueDiscount',
-      label: `P/E -${discount.toFixed(0)}%`,
-      detail: 'P/E är minst 20% under medianvärderingen det senaste året, räknat med nuvarande vinst per aktie',
+      label: `P/E-proxy -${discount.toFixed(0)}%`,
+      detail: 'P/E är minst 20 % under en prisbaserad årsproxy där dagens vinst per aktie hålls konstant',
       tone: 'value',
       observedAt,
     });

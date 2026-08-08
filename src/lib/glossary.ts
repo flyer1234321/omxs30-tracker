@@ -125,7 +125,7 @@ export const GLOSSARY = {
   workspaceValue: {
     term: 'Värde',
     short: 'Värdering och kvalitet.',
-    detail: 'Rekylläge, kvalitet, P/E och volym. Vyn för frågan: får jag mycket bolag för pengarna, och är rabatten befogad?',
+    detail: 'Rekylläge, kvalitet, P/E och volym. Vyn hjälper dig att jämföra värdering och bolagsekonomi, men avgör inte vad aktien egentligen är värd.',
     caution: 'Låg värdering och bra bolag är två olika saker. Det billigaste i listan är ofta billigt av en anledning.',
   },
 
@@ -219,8 +219,8 @@ export const GLOSSARY = {
   goldenCross: {
     term: 'Golden Cross',
     short: 'SMA 50 korsade upp genom SMA 200.',
-    detail: 'Det kortare snittet har passerat det längre uppifrån, vilket brukar tolkas som att en nedåttrend övergått i en uppåttrend.',
-    caution: 'Signalen kommer sent, eftersom båda snitten är eftersläpande. Den bekräftar en vändning som redan skett.',
+    detail: 'Det kortare snittet har passerat det längre underifrån. Det beskriver hur den senaste kursutvecklingen skiljer sig från den längre trenden.',
+    caution: 'Båda snitten är eftersläpande. Korsningen bevisar varken en varaktig vändning eller framtida uppgång.',
   },
   volumeSpike: {
     term: 'Volymspik',
@@ -229,10 +229,10 @@ export const GLOSSARY = {
     caution: 'Spiken säger inte åt vilket håll omprövningen gick. Titta på kursen samma dag.',
   },
   valueDiscount: {
-    term: 'Värderabatt',
-    short: 'P/E under sin egen 12-månadersmedian.',
-    detail: 'Aktien värderas minst 20 % lägre än sin egen median det senaste året, räknat med nuvarande vinst per aktie.',
-    caution: 'Måttet jämför med bolagets egen historik, inte med vad bolaget är värt. Har förutsättningarna försämrats är den lägre värderingen befogad.',
+    term: 'Lägre P/E-proxy',
+    short: 'P/E under en prisbaserad 12-månadersreferens.',
+    detail: 'Dagens P/E är minst 20 % under medianpriset för året delat med dagens VPA. Vinsten hålls alltså konstant i hela jämförelsen.',
+    caution: 'Detta är inte bolagets verkliga historiska P/E-serie och inte ett mått på inneboende värde. Ändrad vinst eller risk kan motivera skillnaden.',
   },
   earningsSoon: {
     term: 'Rapport snart',

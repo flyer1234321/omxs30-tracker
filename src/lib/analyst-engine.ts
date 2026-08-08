@@ -1,11 +1,18 @@
 import type { StockData } from '@/types/stock';
+import { assessValuation } from '@/lib/valuation';
 
 export type AnalystVerdict = 'Positiv analys' | 'Bevaka' | 'Avvakta';
-export type AnalystConfidence = 'Låg' | 'Medel' | 'Hög';
+
+export interface DataCoverage {
+  available: number;
+  total: number;
+  percentage: number;
+  label: 'Begränsad' | 'God' | 'Mycket god';
+}
 
 export interface AnalystReport {
   verdict: AnalystVerdict;
-  confidence: AnalystConfidence;
+  dataCoverage: DataCoverage;
   score: number;
   thesis: string;
   strengths: string[];
@@ -20,15 +27,40 @@ function percent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
+export function calculateDataCoverage(stock: StockData): DataCoverage {
+  const available = [
+    stock.sma125,
+    stock.sma200,
+    stock.rsi,
+    stock.trailingPE,
+    stock.valuation?.trailingPEProxyMedian,
+    stock.valuation?.trailingPESectorMedian,
+    stock.volatility,
+    stock.maxDrawdown,
+    stock.beta,
+    stock.quality,
+    stock.tradePlan,
+    stock.latestVolume != null && stock.avgVolume20 != null ? true : null,
+    stock.macdData,
+    stock.atr,
+    stock.relativeStrength63,
+    stock.earningsTimestamp,
+    stock.priceToBook,
+    stock.chartHistory.length >= 20 ? true : null,
+  ].filter((value) => value != null).length;
+  const total = 18;
+  const percentage = Math.round((available / total) * 100);
+  const label: DataCoverage['label'] = percentage >= 80 ? 'Mycket god' : percentage >= 55 ? 'God' : 'Begränsad';
+  return { available, total, percentage, label };
+}
+
 export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   let score = 50;
-  let observedSignals = 0;
   const strengths: string[] = [];
   const risks: string[] = [];
   const catalysts: string[] = [];
 
   if (stock.sma125 != null) {
-    observedSignals += 1;
     if (stock.currentPrice > stock.sma125) {
       score += 10;
       strengths.push('Kursen handlas över sitt 125-dagars snitt.');
@@ -39,7 +71,6 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   }
 
   if (stock.sma200 != null) {
-    observedSignals += 1;
     if (stock.currentPrice > stock.sma200) {
       score += 8;
       strengths.push('Kursen ligger över 200-dagars snittet.');
@@ -50,31 +81,25 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   }
 
   if (stock.rsi != null) {
-    observedSignals += 1;
     if (stock.rsi >= 45 && stock.rsi <= 65) score += 5;
     if (stock.rsi > 72) risks.push(`RSI ${stock.rsi.toFixed(0)} indikerar ett utsträckt kortsiktigt läge.`);
-    if (stock.rsi < 30) catalysts.push(`RSI ${stock.rsi.toFixed(0)} ger möjlighet till en teknisk rekyl.`);
+    if (stock.rsi < 30) catalysts.push(`RSI ${stock.rsi.toFixed(0)} visar ett pressat läge, men bekräftar inte att kursen har vänt.`);
   }
 
-  if (stock.trailingPE != null && stock.trailingPE > 0) {
-    observedSignals += 1;
-    if (stock.trailingPE <= 18) {
-      score += 8;
-      strengths.push(`Värderingen är måttlig med P/E ${stock.trailingPE.toFixed(1)}.`);
-    } else if (stock.trailingPE >= 30) {
-      score -= 8;
-      risks.push(`Värderingen är krävande med P/E ${stock.trailingPE.toFixed(1)}.`);
-    }
+  const valuation = assessValuation(stock);
+  if (valuation.tone === 'positive') {
+    score += 8;
+    strengths.push(`${valuation.summary} ${valuation.evidence.join('; ')}.`);
+  } else if (valuation.tone === 'negative') {
+    score -= 8;
+    risks.push(`${valuation.summary} ${valuation.evidence.join('; ')}.`);
   }
 
   if (stock.dividendYield != null && stock.dividendYield >= 0.03) {
-    observedSignals += 1;
-    score += 4;
-    strengths.push(`Direktavkastningen är ${percent(stock.dividendYield * 100)}.`);
+    catalysts.push(`Uppgiven direktavkastning är ${percent(stock.dividendYield * 100)}; nästa utdelningsbeslut behöver bekräftas.`);
   }
 
   if (stock.volatility != null) {
-    observedSignals += 1;
     if (stock.volatility <= 25) score += 6;
     if (stock.volatility > 40) {
       score -= 8;
@@ -83,7 +108,6 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   }
 
   if (stock.maxDrawdown != null && stock.maxDrawdown > 25) {
-    observedSignals += 1;
     score -= 6;
     risks.push(`Historisk max drawdown är ${percent(stock.maxDrawdown)}.`);
   }
@@ -91,7 +115,6 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   // Handelsplanens R-multipel ersätter den tidigare interna poängen: den mäter
   // samma sak men i en enhet som går att agera på.
   if (stock.tradePlan) {
-    observedSignals += 1;
     const { rMultiple } = stock.tradePlan;
     if (rMultiple >= 2) {
       score += 7;
@@ -103,7 +126,6 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   }
 
   if (stock.quality) {
-    observedSignals += 1;
     if (stock.quality.score >= 7) {
       score += 6;
       strengths.push(`Bolagets ekonomi är stark (kvalitet ${stock.quality.score.toFixed(0)} av 10).`);
@@ -117,21 +139,20 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
     ? ((stock.currentPrice - stock.fiftyTwoWeekHigh) / stock.fiftyTwoWeekHigh) * 100
     : null;
   if (highDistance != null && highDistance >= -5) {
-    observedSignals += 1;
-    catalysts.push('Ett utbrott över 52-veckorshögsta kan bekräfta fortsatt styrka.');
+    catalysts.push('52-veckorshögsta är en tydlig bevakningsnivå; ett eventuellt utbrott behöver följas över flera handelstillfällen.');
   }
 
   if (stock.signals?.some((signal) => signal.kind === 'goldenCross')) {
     score += 5;
-    strengths.push('Golden Cross är aktivt i den tekniska signalmodellen.');
+    strengths.push('SMA 50 har nyligen korsat över SMA 200 (Golden Cross); signalen är eftersläpande.');
   }
   if (stock.signals?.some((signal) => signal.kind === 'volumeSpike')) {
-    catalysts.push('Förhöjd relativ volym kan bekräfta ett kursutbrott.');
+    catalysts.push('Relativ volym är förhöjd. Riktningen måste bedömas tillsammans med kursrörelsen.');
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
   const verdict: AnalystVerdict = score >= 68 ? 'Positiv analys' : score >= 45 ? 'Bevaka' : 'Avvakta';
-  const confidence: AnalystConfidence = observedSignals >= 7 ? 'Hög' : observedSignals >= 4 ? 'Medel' : 'Låg';
+  const dataCoverage = calculateDataCoverage(stock);
   const invalidation = stock.sma125 != null
     ? `Tesen försvagas om kursen etablerar sig under SMA 125 (${stock.sma125.toFixed(2)} kr) med fortsatt hög volatilitet.`
     : 'Tesen försvagas om trend och riskmått försämras ytterligare.';
@@ -142,9 +163,9 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
 
   return {
     verdict,
-    confidence,
+    dataCoverage,
     score,
-    thesis: `${stock.companyName} klassificeras som ${verdict.toLowerCase()} baserat på nuvarande trend, värdering och riskmått.`,
+    thesis: `${stock.companyName} klassificeras som ${verdict.toLowerCase()} utifrån de trend-, värderings- och riskmått som finns tillgängliga.`,
     strengths: strengths.slice(0, 3),
     risks: risks.slice(0, 3),
     catalysts: catalysts.slice(0, 2),
@@ -154,11 +175,10 @@ export function buildQuantAnalystReport(stock: StockData): AnalystReport {
   };
 }
 
-export function isAnalystReport(value: unknown): value is Omit<AnalystReport, 'source' | 'generatedAt' | 'score'> {
+export function isAnalystReport(value: unknown): value is Omit<AnalystReport, 'source' | 'generatedAt' | 'score' | 'dataCoverage'> {
   if (!value || typeof value !== 'object') return false;
   const report = value as Record<string, unknown>;
   return ['Positiv analys', 'Bevaka', 'Avvakta'].includes(String(report.verdict))
-    && ['Låg', 'Medel', 'Hög'].includes(String(report.confidence))
     && typeof report.thesis === 'string'
     && Array.isArray(report.strengths)
     && Array.isArray(report.risks)

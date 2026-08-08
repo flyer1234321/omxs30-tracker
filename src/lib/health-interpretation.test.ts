@@ -29,7 +29,7 @@ function health(overrides: Partial<HealthCheck> = {}): HealthCheck {
 
 function stock(overrides: Partial<StockData> = {}): StockData {
   return {
-    ticker: 'TEST.ST', companyName: 'Test AB', currency: 'SEK', currentPrice: 100,
+    ticker: 'TEST.ST', companyName: 'Test AB', sector: 'Industrials', currency: 'SEK', currentPrice: 100,
     sma50: 105, sma125: 110, sma200: 115, rsi: 35, diffPercent125: -9, chartHistory: [],
     fiftyTwoWeekHigh: 140, fiftyTwoWeekLow: 95, trailingPE: 12, dividendYield: 0.03,
     marketCap: null, regularMarketChangePercent: -1, regularMarketOpen: null,

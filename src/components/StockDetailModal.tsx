@@ -6,6 +6,7 @@ import {
   Modal,
   ScrollView,
   SafeAreaView,
+  TextInput,
   useWindowDimensions,
 } from 'react-native';
 import type { DimensionValue } from 'react-native';
@@ -24,7 +25,10 @@ import { positionSizeForRisk } from '@/lib/trade-plan';
 import { daysUntilEarnings } from '@/lib/stock-signals';
 import { EarningsHistory } from '@/components/EarningsHistory';
 import { InfoTip } from '@/components/Tooltip';
+import { NoviceOverview } from '@/components/NoviceOverview';
 import type { GlossaryKey } from '@/lib/glossary';
+import { parseNumericInput } from '@/lib/numeric-input';
+import { assessValuation } from '@/lib/valuation';
 
 export type { StockData } from '@/types/stock';
 
@@ -62,18 +66,18 @@ function DetailStat({ label, value, term, valueColor, width }: DetailStatProps) 
   );
 }
 
-/** Hur mycket man är beredd att förlora om stoppen träffas. */
-const DEFAULT_RISK_AMOUNT = 1000;
-
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
   const { width: viewportWidth } = useWindowDimensions();
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
   const [analystReport, setAnalystReport] = useState<AnalystReport | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [detailMode, setDetailMode] = useState<'simple' | 'analysis'>('simple');
+  const [riskAmountText, setRiskAmountText] = useState('1000');
 
   useEffect(() => {
     setAnalystReport(null);
     setPrintError(null);
+    setDetailMode('simple');
   }, [item?.ticker]);
 
   if (!item) return null;
@@ -89,15 +93,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
   const getExplanation = (label: string, stock: StockData) => {
     switch (label) {
       case 'Tjänar företaget pengar?':
-        return `P/E-talet visar hur mycket du betalar för 1 kr av bolagets vinst. Ett "normalt" värde ligger runt 15. ${stock.companyName} har just nu ett P/E på ${stock.trailingPE?.toFixed(1) || 'okänt'}, vilket innebär att det är ${stock.trailingPE ? (stock.trailingPE < 15 ? 'relativt lågt värderat i förhållande till vinsten' : 'ganska högt värderat') : 'okänt'}.`;
+        return stock.trailingPE != null && stock.trailingPE > 0
+          ? `${stock.companyName} har positiv vinst de senaste tolv månaderna. P/E är ${stock.trailingPE.toFixed(1)}, men nivån måste jämföras med bolagets historik och sektor för att säga något om relativ värdering.`
+          : 'Positiv vinst eller ett användbart P/E-tal saknas. Det säger inte ensamt att bolaget går med förlust just nu; kontrollera senaste rapporten.';
       case 'Betalar utdelning?':
-        return `Direktavkastningen visar hur stor del av aktiekursen du får tillbaka varje år i utdelning. ${stock.companyName} delar ut ${(stock.dividendYield ? (stock.dividendYield * 100).toFixed(1) : '0')}% varje år. Stabil utdelning över tid tyder på ett hälsosamt bolag.`;
+        return `Uppgiven direktavkastning är ${stock.dividendYield != null ? `${(stock.dividendYield * 100).toFixed(1)} %` : 'okänd'}. Den bygger på nuvarande kurs och senast kända utdelning; framtida utdelning kan höjas, sänkas eller ställas in.`;
       case 'Har aktien fallit kraftigt?':
-        return `När en aktie faller snabbt kan det vara tillfällig panik (bra köpläge) eller ett genuint problem (varning). ${stock.companyName} handlas just nu på ${price(stock.currentPrice)}.`;
+        return `Ett kraftigt fall beskriver bara prisrörelsen. Orsaken kan vara tillfällig oro eller försämrade framtidsutsikter och behöver kontrolleras i rapporter och nyheter. ${stock.companyName} handlas nu på ${price(stock.currentPrice)}.`;
       case 'Nära botten?':
-        return `Lägsta priset för ${stock.ticker.replace('.ST','')} de senaste 52 veckorna var ${price(stock.fiftyTwoWeekLow)} (Nuvarande pris: ${price(stock.currentPrice)}). Om kursen vänder upp från botten kan det vara ett starkt stödområde.`;
+        return `52-veckorslägsta var ${price(stock.fiftyTwoWeekLow)} och nuvarande pris är ${price(stock.currentPrice)}. En tidigare botten kan fungera som stöd, men ett nytt lägsta visar i stället fortsatt svaghet.`;
       case 'Översåld (RSI)?':
-        return `RSI mäter om en aktie har sålts för aggressivt. Under 30 är "översålt" och över 70 "överköpt". ${stock.companyName} har ett RSI på ${stock.rsi?.toFixed(1) || 'okänt'}. ${stock.rsi && stock.rsi < 35 ? 'Den är utsträckt på nedsidan, som ett gummiband som kan snärta tillbaka.' : 'Den befinner sig i en normal/stark zon.'}`;
+        return `RSI sammanfattar de senaste fjorton dagarnas momentum. Under 30 kallas ofta översålt, men en fallande aktie kan förbli där länge. ${stock.companyName} har RSI ${stock.rsi?.toFixed(1) || 'okänt'}.`;
       case 'Under glidande medelvärde?':
         return `Genomsnittskursen de senaste 6 månaderna (SMA 125) ligger på ${price(stock.sma125)}. ${stock.companyName} ligger just nu ${stock.sma125 && stock.currentPrice && stock.currentPrice < stock.sma125 ? 'under detta snitt (svag kortsiktig trend)' : 'över detta snitt (stark trend)'}.`;
       default:
@@ -107,11 +113,13 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
 
   const earningsDays = daysUntilEarnings(item.earningsTimestamp);
   const interpretation = interpretHealth(item);
+  const valuationAssessment = assessValuation(item);
 
   const renderTradePlan = () => {
     const plan = item.tradePlan;
     if (!plan) return null;
-    const shares = positionSizeForRisk(plan, DEFAULT_RISK_AMOUNT);
+    const riskAmount = parseNumericInput(riskAmountText);
+    const shares = riskAmount != null && riskAmount > 0 ? positionSizeForRisk(plan, riskAmount) : null;
     // Under 1R betyder att man riskerar mer än man rimligen kan vinna till
     // närmaste motstånd. Det är inte ett säljråd, men värt att se innan köp.
     const rColor = plan.rMultiple >= 2 ? colors.green : plan.rMultiple >= 1 ? colors.yellow : colors.red;
@@ -144,9 +152,25 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           </View>
         </View>
 
-        {shares != null && shares > 0 && (
+        <View style={s.riskExample}>
+          <Text style={s.riskExampleLabel}>Räkneexempel: maximal förlust om stoppen träffas</Text>
+          <View style={s.riskInputRow}>
+            <TextInput
+              style={s.riskInput}
+              value={riskAmountText}
+              onChangeText={setRiskAmountText}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder="t.ex. 1000"
+              placeholderTextColor={palette.textMuted}
+              accessibilityLabel="Maximal förlust i räkneexemplet"
+            />
+            <Text style={s.riskCurrency}>kr</Text>
+          </View>
+        </View>
+        {shares != null && shares > 0 && riskAmount != null && (
           <Text style={s.planSizing}>
-            Vill du riskera {formatNumber(DEFAULT_RISK_AMOUNT, 0)} kr till stoppen motsvarar det {formatNumber(shares, 0)} aktier
+            En maximal förlust på {formatNumber(riskAmount, 0)} kr till stoppen motsvarar {formatNumber(shares, 0)} aktier
             {' '}({price(shares * item.currentPrice, 0)} investerat).
           </Text>
         )}
@@ -348,76 +372,92 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           </View>
           {printError && <Text style={s.printError}>{printError}</Text>}
 
-          {/* Market data mirrors the compact quote block in Apple Stocks. */}
-          <View style={s.statsGrid}>
-            <DetailStat width={statWidth} label="Öppning" term="open" value={price(item.regularMarketOpen)} />
-            <DetailStat width={statWidth} label="Högsta" term="dayHigh" value={price(item.regularMarketDayHigh)} />
-            <DetailStat width={statWidth} label="Lägsta" term="dayLow" value={price(item.regularMarketDayLow)} />
-            <DetailStat width={statWidth} label="Volym" term="volume" value={formatVol(item.latestVolume)} />
-            <DetailStat width={statWidth} label="P/E" term="pe" value={item.trailingPE?.toFixed(1) || '-'} />
-            <DetailStat width={statWidth} label="Börsvärde" term="marketCap" value={formatMCap(item.marketCap)} />
-            <DetailStat width={statWidth} label="52v Hög" term="fiftyTwoWeekHigh" value={price(item.fiftyTwoWeekHigh)} />
-            <DetailStat width={statWidth} label="52v Låg" term="fiftyTwoWeekLow" value={price(item.fiftyTwoWeekLow)} />
-            <DetailStat width={statWidth} label="Snittvolym" term="avgVolume" value={formatVol(item.avgVolume20)} />
-            <DetailStat width={statWidth} label="Direktavk." term="dividendYield" value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} />
-            <DetailStat width={statWidth} label="Beta" term="beta" value={item.beta?.toFixed(2) || '-'} />
-            <DetailStat width={statWidth} label="VPA" term="eps" value={price(item.epsTrailingTwelveMonths)} />
-            <DetailStat width={statWidth} label="Volatilitet" term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
-            <DetailStat width={statWidth} label="Max drawdown" term="drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} valueColor={colors.red} />
-            <DetailStat
-              width={statWidth}
-              label="Mot index 3m"
-              term="relativeStrength"
-              value={formatSignedPercent(item.relativeStrength63)}
-              valueColor={item.relativeStrength63 == null ? undefined : item.relativeStrength63 >= 0 ? colors.green : colors.red}
-            />
-            <DetailStat
-              width={statWidth}
-              label="ATR (14)" term="atr"
-              value={item.atr != null ? `${formatNumber(item.atr, 2)} (${formatNumber((item.atr / item.currentPrice) * 100, 1)}%)` : '-'}
-            />
-            <DetailStat width={statWidth} label="P/B" term="priceToBook" value={item.priceToBook != null ? formatNumber(item.priceToBook, 2) : '-'} />
-            <DetailStat
-              width={statWidth}
-              label="Rapport"
-              term="earnings"
-              value={earningsDays == null ? '-' : earningsDays === 0 ? 'I dag' : earningsDays < 0 ? 'Nyligen' : `Om ${earningsDays} d`}
-              valueColor={earningsDays != null && earningsDays >= 0 && earningsDays <= 7 ? colors.yellow : undefined}
-            />
+          <View style={s.modeSwitch} accessibilityRole="tablist">
+            <HintedTouchable
+              style={[s.modeButton, detailMode === 'simple' && s.modeButtonActive]}
+              onPress={() => setDetailMode('simple')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: detailMode === 'simple' }}
+              accessibilityLabel="Visa enkel aktieöversikt"
+              hint="Visar de viktigaste slutsatserna med mindre fackspråk."
+            >
+              <Text style={[s.modeButtonText, detailMode === 'simple' && s.modeButtonTextActive]}>Enkel vy</Text>
+            </HintedTouchable>
+            <HintedTouchable
+              style={[s.modeButton, detailMode === 'analysis' && s.modeButtonActive]}
+              onPress={() => setDetailMode('analysis')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: detailMode === 'analysis' }}
+              accessibilityLabel="Visa fullständig analysvy"
+              hint="Visar samtliga nyckeltal, handelsplan, rapportdata och rekyllogik."
+            >
+              <Text style={[s.modeButtonText, detailMode === 'analysis' && s.modeButtonTextActive]}>Analysvy</Text>
+            </HintedTouchable>
           </View>
 
-          {renderTradePlan()}
+          <NoviceOverview item={item} />
 
-          {/* Chart */}
+          {detailMode === 'simple' && <MarketChart item={item} />}
+
+          {detailMode === 'analysis' && (
+            <>
+              <View style={s.sectionHeading}>
+                <Text style={s.sectionTitle}>Marknadsdata</Text>
+                <Text style={s.sectionIntro}>Nyckeltalen beskriver pris, värdering och historisk risk. Tryck eller håll över ett värde för en full förklaring.</Text>
+              </View>
+              <View style={s.statsGrid}>
+                <DetailStat width={statWidth} label="Öppning" term="open" value={price(item.regularMarketOpen)} />
+                <DetailStat width={statWidth} label="Högsta" term="dayHigh" value={price(item.regularMarketDayHigh)} />
+                <DetailStat width={statWidth} label="Lägsta" term="dayLow" value={price(item.regularMarketDayLow)} />
+                <DetailStat width={statWidth} label="Volym" term="volume" value={formatVol(item.latestVolume)} />
+                <DetailStat width={statWidth} label="P/E" term="pe" value={item.trailingPE?.toFixed(1) || '-'} />
+                <DetailStat width={statWidth} label="Börsvärde" term="marketCap" value={formatMCap(item.marketCap)} />
+                <DetailStat width={statWidth} label="52v Hög" term="fiftyTwoWeekHigh" value={price(item.fiftyTwoWeekHigh)} />
+                <DetailStat width={statWidth} label="52v Låg" term="fiftyTwoWeekLow" value={price(item.fiftyTwoWeekLow)} />
+                <DetailStat width={statWidth} label="Snittvolym" term="avgVolume" value={formatVol(item.avgVolume20)} />
+                <DetailStat width={statWidth} label="Direktavk." term="dividendYield" value={item.dividendYield != null ? `${(item.dividendYield * 100).toFixed(1)}%` : '-'} />
+                <DetailStat width={statWidth} label="Beta" term="beta" value={item.beta?.toFixed(2) || '-'} />
+                <DetailStat width={statWidth} label="VPA" term="eps" value={price(item.epsTrailingTwelveMonths)} />
+                <DetailStat width={statWidth} label="Volatilitet" term="volatility" value={item.volatility != null ? `${item.volatility.toFixed(1)}%` : '-'} />
+                <DetailStat width={statWidth} label="Max drawdown" term="drawdown" value={item.maxDrawdown != null ? `-${item.maxDrawdown.toFixed(1)}%` : '-'} valueColor={colors.red} />
+                <DetailStat width={statWidth} label="Mot index 3m" term="relativeStrength" value={formatSignedPercent(item.relativeStrength63)} valueColor={item.relativeStrength63 == null ? undefined : item.relativeStrength63 >= 0 ? colors.green : colors.red} />
+                <DetailStat width={statWidth} label="ATR (14)" term="atr" value={item.atr != null ? `${formatNumber(item.atr, 2)} (${formatNumber((item.atr / item.currentPrice) * 100, 1)}%)` : '-'} />
+                <DetailStat width={statWidth} label="P/B" term="priceToBook" value={item.priceToBook != null ? formatNumber(item.priceToBook, 2) : '-'} />
+                <DetailStat width={statWidth} label="Rapport" term="earnings" value={earningsDays == null ? '-' : earningsDays === 0 ? 'I dag' : earningsDays < 0 ? 'Nyligen' : `Om ${earningsDays} d`} valueColor={earningsDays != null && earningsDays >= 0 && earningsDays <= 7 ? colors.yellow : undefined} />
+              </View>
+              <View style={s.valuationNote}>
+                <Text style={s.valuationNoteTitle}>Relativ värdering: {valuationAssessment.label}</Text>
+                <Text style={s.valuationNoteText}>{valuationAssessment.summary} {valuationAssessment.evidence.join(' · ')}</Text>
+              </View>
+              {renderTradePlan()}
+            </>
+          )}
+
           <AnalystBrief item={item} onReportGenerated={setAnalystReport} />
 
-          <MarketChart item={item} />
-
-          {/* Bull vs Bear */}
-          <View style={s.bullBearContainer}>
-            <View style={[s.bullBearColumn, s.bullColumn]}>
-              <Text style={s.bullTitle}>Styrkor 📈</Text>
-              {bullPoints.length > 0 ? bullPoints.map((p, i) => (
-                <Text key={i} style={s.bullBearItem}>• {p}</Text>
-              )) : <Text style={s.bullBearEmpty}>Inga tydliga styrkor just nu</Text>}
-            </View>
-            <View style={[s.bullBearColumn, s.bearColumn]}>
-              <Text style={s.bearTitle}>Svagheter 📉</Text>
-              {bearPoints.length > 0 ? bearPoints.map((p, i) => (
-                <Text key={i} style={s.bullBearItem}>• {p}</Text>
-              )) : <Text style={s.bullBearEmpty}>Inga tydliga svagheter just nu</Text>}
-            </View>
-          </View>
-
-          {renderQualityCard()}
-
-          <EarningsHistory item={item} />
-
-          {/* Trend Analysis */}
-          {renderTrendAnalysis()}
-
-          {/* Health Check */}
-          {renderHealthCard()}
+          {detailMode === 'analysis' && (
+            <>
+              <MarketChart item={item} />
+              <View style={s.sectionHeading}>
+                <Text style={s.sectionTitle}>Faktorer i modellen</Text>
+                <Text style={s.sectionIntro}>Listorna visar vad aktuell data talar för och emot. De är observationer, inte en prognos.</Text>
+              </View>
+              <View style={s.bullBearContainer}>
+                <View style={[s.bullBearColumn, s.bullColumn]}>
+                  <Text style={s.bullTitle}>Styrkor</Text>
+                  {bullPoints.length > 0 ? bullPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>Inga tydliga styrkor just nu</Text>}
+                </View>
+                <View style={[s.bullBearColumn, s.bearColumn]}>
+                  <Text style={s.bearTitle}>Svagheter</Text>
+                  {bearPoints.length > 0 ? bearPoints.map((p, i) => <Text key={i} style={s.bullBearItem}>• {p}</Text>) : <Text style={s.bullBearEmpty}>Inga tydliga svagheter just nu</Text>}
+                </View>
+              </View>
+              {renderQualityCard()}
+              <EarningsHistory item={item} />
+              {renderTrendAnalysis()}
+              {renderHealthCard()}
+            </>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -485,6 +525,31 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
+  modeSwitch: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 4,
+    padding: 3,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+  },
+  modeButton: {
+    minHeight: 34,
+    minWidth: 92,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 4,
+  },
+  modeButtonActive: { backgroundColor: palette.accentBg },
+  modeButtonText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  modeButtonTextActive: { color: '#93c5fd' },
+  sectionHeading: { marginBottom: 10 },
+  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  sectionIntro: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4, maxWidth: 760 },
   printError: { color: colors.red, fontSize: 12, lineHeight: 18, marginTop: -14, marginBottom: 16 },
   priceText: {
     color: colors.text,
@@ -547,8 +612,39 @@ const s = StyleSheet.create({
   planValue: { fontSize: 19, fontWeight: '700', fontFamily: 'monospace' },
   planDelta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   planBasis: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
+  riskExample: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  riskExampleLabel: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginBottom: 7 },
+  riskInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 240 },
+  riskInput: {
+    flex: 1,
+    minHeight: 40,
+    color: colors.text,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 11,
+    fontSize: 14,
+    fontFamily: 'monospace',
+  },
+  riskCurrency: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   planSizing: { color: '#EBEBF5', fontSize: 13, lineHeight: 19, marginTop: 16 },
   planDisclaimer: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 10 },
+  valuationNote: {
+    marginTop: -10,
+    marginBottom: 24,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: palette.accent,
+    backgroundColor: palette.accentBg,
+  },
+  valuationNoteTitle: { color: '#bfdbfe', fontSize: 12, fontWeight: '800', marginBottom: 4 },
+  valuationNoteText: { color: colors.textMuted, fontSize: 12, lineHeight: 18 },
   bullBearContainer: {
     flexDirection: 'row',
     gap: 12,

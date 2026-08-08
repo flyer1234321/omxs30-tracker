@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildQuantAnalystReport } from './analyst-engine';
+import { buildQuantAnalystReport, calculateDataCoverage } from './analyst-engine';
 import type { StockData } from '@/types/stock';
 
 function stock(overrides: Partial<StockData> = {}): StockData {
   return {
-    ticker: 'TEST.ST', companyName: 'Test AB', currentPrice: 110,
+    ticker: 'TEST.ST', companyName: 'Test AB', sector: 'Industrials', currentPrice: 110,
     sma50: 105, sma125: 100, sma200: 98, rsi: 55, diffPercent125: 10,
     chartHistory: [], fiftyTwoWeekHigh: 112, fiftyTwoWeekLow: 80, trailingPE: 15,
     dividendYield: 0.04, marketCap: null, regularMarketChangePercent: 1,
@@ -16,6 +16,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     currency: 'SEK', atr: 2.2, tradePlan: null, relativeStrength63: null,
     earningsTimestamp: null, priceToBook: null, bookValue: null,
     quality: null,
+    valuation: { trailingPEProxyMedian: 20, trailingPESectorMedian: 18, sectorSampleSize: 6 },
     ...overrides,
   };
 }
@@ -34,4 +35,30 @@ test('waits when trend, valuation and risk metrics deteriorate', () => {
   }));
   assert.equal(report.verdict, 'Avvakta');
   assert.ok(report.risks.length > 0);
+});
+
+test('reports how much of the model input is actually available', () => {
+  const coverage = calculateDataCoverage(stock());
+  assert.deepEqual(coverage, {
+    available: 10,
+    total: 18,
+    percentage: 56,
+    label: 'God',
+  });
+});
+
+test('labels sparse input as limited rather than expressing false certainty', () => {
+  const coverage = calculateDataCoverage(stock({
+    sma125: null,
+    sma200: null,
+    rsi: null,
+    trailingPE: null,
+    valuation: undefined,
+    volatility: null,
+    maxDrawdown: null,
+    beta: null,
+    atr: null,
+  }));
+  assert.equal(coverage.available, 0);
+  assert.equal(coverage.label, 'Begränsad');
 });

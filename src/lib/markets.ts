@@ -49,15 +49,6 @@ export const BENCHMARKS: Record<string, string> = {
   watchlist: '^OMX',
 };
 
-/**
- * Hur många aktier som hämtas samtidigt. Yahoo Finance är ett inofficiellt
- * gratis-API som stryper trafik per IP. Sex parallella anrop är snabbt nog för
- * att hela listan ska hinna klart inom en serverless-timeout, men lågt nog att
- * inte se ut som en skrapare.
- */
-const FETCH_CONCURRENCY = 6;
-
-
 export function benchmarkForTicker(ticker: string, market: string, isCustomRequest: boolean) {
   if (isCustomRequest) return ticker.endsWith('.ST') ? '^OMX' : '^GSPC';
   return BENCHMARKS[market] || BENCHMARKS.omxs30;

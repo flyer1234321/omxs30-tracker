@@ -195,14 +195,16 @@ export async function GET(request: Request) {
 
         const benchmarkHistory = benchmarkHistories.get(benchmarkForTicker(ticker, market, Boolean(customTickers))) || [];
 
-        // Medianvärdering det senaste året, med nuvarande vinst per aktie.
+        // Prisbaserad värderingsproxy för senaste året. Dagens VPA hålls
+        // konstant, så detta är inte en historisk serie av rapporterade P/E-tal.
         const eps = quote?.epsTrailingTwelveMonths ?? null;
         const medianClose = median(history.slice(-252).map((point) => point.close));
-        const trailingPEMedian = eps != null && eps > 0 && medianClose != null ? medianClose / eps : null;
+        const trailingPEProxyMedian = eps != null && eps > 0 && medianClose != null ? medianClose / eps : null;
 
         const itemData = {
           ticker,
           companyName,
+          sector: qualityInputs.get(ticker)?.sector ?? null,
           currency: quote?.currency ?? null,
           currentPrice,
           sma50,
@@ -254,12 +256,13 @@ export async function GET(request: Request) {
           }),
           quality: qualityForTicker(qualityInputs.get(ticker), quote?.marketCap ?? null),
           valuation: {
-            trailingPEMedian,
+            trailingPEProxyMedian,
             trailingPESectorMedian: null,
+            sectorSampleSize: 0,
           },
         };
 
-        return { ...stock, signals: deriveStockSignals(stock) };
+        return stock;
       } catch (err) {
         console.error(`Failed to fetch data for ${ticker}:`, err);
         return null;
@@ -267,13 +270,33 @@ export async function GET(request: Request) {
     });
 
     const results = settled.filter((stock): stock is StockData => stock !== null);
+    const peBySector = new Map<string, number[]>();
+    results.forEach((stock) => {
+      if (!stock.sector || stock.trailingPE == null || stock.trailingPE <= 0) return;
+      const values = peBySector.get(stock.sector) ?? [];
+      values.push(stock.trailingPE);
+      peBySector.set(stock.sector, values);
+    });
+
+    // Sektormedianen beräknas först när hela marknadsurvalet är hämtat. Minst
+    // tre bolag krävs för att ett enskilt bolag inte ska dominera jämförelsen.
+    const enrichedResults = results.map((stock): StockData => {
+      const sectorValues = stock.sector ? peBySector.get(stock.sector) ?? [] : [];
+      const valuation = {
+        trailingPEProxyMedian: stock.valuation?.trailingPEProxyMedian ?? null,
+        trailingPESectorMedian: sectorValues.length >= 3 ? median(sectorValues) : null,
+        sectorSampleSize: sectorValues.length,
+      };
+      const enriched = { ...stock, valuation };
+      return { ...enriched, signals: deriveStockSignals(enriched) };
+    });
 
     cache[cacheKey] = {
-      data: results,
+      data: enrichedResults,
       lastUpdated: Date.now()
     };
 
-    return Response.json({ data: results, cached: false, timestamp: cache[cacheKey].lastUpdated });
+    return Response.json({ data: enrichedResults, cached: false, timestamp: cache[cacheKey].lastUpdated });
 
   } catch (error) {
     console.error("API Error:", error);

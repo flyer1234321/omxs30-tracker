@@ -32,30 +32,30 @@ export interface PresetStrategy {
 export const PRESET_STRATEGIES: PresetStrategy[] = [
   {
     id: 'deep_value',
-    name: 'Deep Value',
-    icon: '🔴',
-    description: 'Lågt P/E + RSI < 30',
+    name: 'Lågt P/E + låg RSI',
+    icon: '▼',
+    description: 'P/E högst 15 och RSI under 30. Visar prispress, inte bevisat värde',
     filter: { peMax: 15, rsiMax: 30 },
   },
   {
     id: 'trend_breakout',
-    name: 'Trend Breakout',
-    icon: '📈',
+    name: 'Stark trend',
+    icon: '↗',
     description: 'Över SMA50 + Nära 52v High + Hög volym',
     filter: { aboveSMA50: true, near52wHigh: true, volAboveAvg: true },
   },
   {
     id: 'dividend_discount',
-    name: 'Utdelning i Rabatt',
-    icon: '💰',
-    description: 'Direktavkastning > 4% + RSI < 40',
+    name: 'Hög utdelning + låg RSI',
+    icon: '%',
+    description: 'Direktavkastning över 4 % och RSI under 40. Utdelningen kan sänkas',
     filter: { divYieldMin: 4, rsiMax: 40 },
   },
   {
     id: 'oversold_bounce',
-    name: 'Översåld Studs',
-    icon: '🔻',
-    description: 'RSI < 25 + Under SMA125',
+    name: 'Kraftigt pressad',
+    icon: '↓',
+    description: 'RSI under 25 och kurs under SMA 125. Ingen vändning är bekräftad',
     filter: { rsiMax: 25, belowSMA125: true },
   },
 ];
@@ -189,6 +189,7 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
         <View style={st.panel}>
           {/* Preset strategies */}
           <Text style={st.sectionTitle}>STRATEGIER</Text>
+          <Text style={st.sectionHelp}>Färdiga sökningar som kombinerar flera villkor. De sorterar fram kandidater men är inte köpråd.</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.presetScroll}>
             {PRESET_STRATEGIES.map(p => (
               <HintedTouchable
@@ -207,25 +208,28 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
 
           {/* Numeric filters */}
           <Text style={st.sectionTitle}>TEKNISKA FILTER</Text>
+          <Text style={st.sectionHelp}>RSI beskriver styrkan i den senaste kursrörelsen. Lågt RSI kan fortsätta vara lågt i en fallande trend.</Text>
           <View style={st.filterRow}>
             <NumberInput label="RSI max" value={activeFilter.rsiMax} onChange={v => updateFilter({ rsiMax: v })} placeholder="t.ex. 30" />
             <NumberInput label="RSI min" value={activeFilter.rsiMin} onChange={v => updateFilter({ rsiMin: v })} placeholder="t.ex. 20" />
           </View>
 
           <Text style={st.sectionTitle}>FUNDAMENTALA FILTER</Text>
+          <Text style={st.sectionHelp}>P/E och direktavkastning bygger på senast tillgängliga vinst- och utdelningsdata. Lågt P/E är inte automatiskt billigt.</Text>
           <View style={st.filterRow}>
             <NumberInput label="P/E max" value={activeFilter.peMax} onChange={v => updateFilter({ peMax: v })} placeholder="t.ex. 15" />
             <NumberInput label="Utdeln. min %" value={activeFilter.divYieldMin} onChange={v => updateFilter({ divYieldMin: v })} placeholder="t.ex. 4" />
           </View>
 
           <Text style={st.sectionTitle}>RISKFILTER</Text>
-          <View style={st.filterRow}>
+          <Text style={st.sectionHelp}>Volatilitet visar historiska svängningar och är inte ett tak för framtida risk.</Text>
+          <View style={st.singleFilterRow}>
             <NumberInput label="Volatilitet max %" value={activeFilter.volatilityMax} onChange={v => updateFilter({ volatilityMax: v })} placeholder="t.ex. 30" />
-            <NumberInput label="RSI min" value={activeFilter.rsiMin} onChange={v => updateFilter({ rsiMin: v })} placeholder="t.ex. 20" />
           </View>
 
           {/* Toggle filters */}
           <Text style={st.sectionTitle}>TRENDFILTER</Text>
+          <Text style={st.sectionHelp}>Beskriver kursens läge mot historiska nivåer. Trendfilter är bakåtblickande och förutspår inte nästa rörelse.</Text>
           <View style={st.chipWrap}>
             <ToggleChip label="Över SMA 50" hint="Visar bara aktier med kurs över sitt 50-dagars glidande medelvärde, en kortare trendindikator." active={!!activeFilter.aboveSMA50} onToggle={() => updateFilter({ aboveSMA50: !activeFilter.aboveSMA50 })} />
             <ToggleChip label="Över SMA 125" hint="Visar bara aktier med kurs över sitt 125-dagars glidande medelvärde, ungefär ett halvårssnitt." active={!!activeFilter.aboveSMA125} onToggle={() => updateFilter({ aboveSMA125: !activeFilter.aboveSMA125 })} />
@@ -321,8 +325,9 @@ const st = StyleSheet.create({
 
   sectionTitle: {
     color: C.textMuted, fontSize: 10, fontWeight: '700',
-    letterSpacing: 1.2, marginBottom: 8, marginTop: 12,
+    letterSpacing: 1.2, marginBottom: 4, marginTop: 12,
   },
+  sectionHelp: { color: C.textSecondary, fontSize: 11, lineHeight: 16, marginBottom: 8, maxWidth: 760 },
 
   presetScroll: { marginBottom: 8, marginHorizontal: -4 },
   presetCard: {
@@ -336,6 +341,7 @@ const st = StyleSheet.create({
   presetDesc: { color: C.textMuted, fontSize: 11 },
 
   filterRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  singleFilterRow: { flexDirection: 'row', maxWidth: 520, marginBottom: 8 },
   inputGroup: { flex: 1 },
   inputLabel: { color: C.textSecondary, fontSize: 11, marginBottom: 4 },
   numberInput: {

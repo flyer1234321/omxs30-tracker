@@ -95,7 +95,11 @@ export function generateHealthCheck(item: HealthCheckInput): HealthCheck {
   const divText = dividendYield ? `. Direktavkastningen är ${(dividendYield * 100).toFixed(1)}%` : '';
   const lowText = fiftyTwoWeekLow && ((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) <= 0.10 ? `. ${(((currentPrice - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100).toFixed(1)}% från 52v-lägsta` : '';
   let summary = `${companyName} ${priceAction}${rsiText}${divText}${lowText}. Risken bedöms som ${riskLevel.toLowerCase()}.`;
-  summary += grade === 'A' || grade === 'B' ? ' Övergripande visar aktien flera tecken på köpläge.' : grade === 'C' ? ' Övergripande är aktien i ett neutralt läge.' : ' Inga tydliga köpsignaler för tillfället.';
+  summary += grade === 'A' || grade === 'B'
+    ? ' Rekylen är tydlig, men modellen bekräftar inte att kursen har vänt.'
+    : grade === 'C'
+      ? ' Rekylen är måttlig och ger ingen tydlig slutsats om nästa kursrörelse.'
+      : ' Modellen ser ingen tydlig rekyl i nuläget.';
 
   return { grade, gradeScore, summary, riskLevel, momentum, checklist, bonuses };
 }
