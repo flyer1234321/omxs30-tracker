@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   barValue: {
-    width: 45,
+    minWidth: 85,
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'right',
