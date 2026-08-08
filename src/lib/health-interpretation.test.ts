@@ -37,7 +37,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     epsTrailingTwelveMonths: 8, latestVolume: 1000, avgVolume20: 900, volatility: 25,
     beta: 1, maxDrawdown: 20, riskRewardScore: 60, healthCheck: health(),
     atr: 2, relativeStrength63: -3, earningsTimestamp: null, priceToBook: 1.2, bookValue: 80,
-    tradePlan: null,
+    tradePlan: null, quality: null,
     ...overrides,
   };
 }
@@ -88,4 +88,30 @@ test('asks the owner the only question that matters', () => {
 
 test('returns nothing without a health check', () => {
   assert.equal(interpretHealth(stock({ healthCheck: null })), null);
+});
+
+test('flags the combination that makes dip models dangerous', () => {
+  const result = interpretHealth(stock({
+    healthCheck: health({ grade: 'A', gradeScore: 8 }),
+    quality: {
+      score: 2, measured: 5, label: 'Svag', debtNotComparable: false,
+      components: [],
+    },
+  }));
+  assert.match(result!.qualityVerdict!, /gör rekylmodeller farliga/);
+});
+
+test('separates a large fall in a well run company from a value trap', () => {
+  const result = interpretHealth(stock({
+    healthCheck: health({ grade: 'A', gradeScore: 8 }),
+    quality: {
+      score: 9, measured: 5, label: 'Stark', debtNotComparable: false,
+      components: [],
+    },
+  }));
+  assert.match(result!.qualityVerdict!, /mer intressanta varianten/);
+});
+
+test('says nothing about quality when the data is missing', () => {
+  assert.equal(interpretHealth(stock())!.qualityVerdict, null);
 });

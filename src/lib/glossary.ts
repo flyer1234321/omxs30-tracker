@@ -99,6 +99,12 @@ export const GLOSSARY = {
     detail: 'Aktiens utveckling de senaste 63 handelsdagarna med indexets rörelse borträknad. Positivt tal betyder att aktien gått bättre än marknaden.',
     caution: 'Relativ styrka har historiskt tenderat att bestå en tid, men vänder ofta abrupt. Den säger inget om värderingen.',
   },
+  quality: {
+    term: 'Kvalitet',
+    short: 'Bolagets ekonomi, 0 till 10.',
+    detail: 'Väger skuldsättning, avkastning på eget kapital, rörelsemarginal, fritt kassaflöde och omsättningstillväxt. Måttet är avsiktligt skilt från betyget: betyget mäter om kursen fallit, kvalitet om fallet är befogat.',
+    caution: 'Siffrorna är ett kvartal gamla och ersätter inte rapporten. För banker och fastighetsbolag utgår skuldsättningen, eftersom hög belåning hör till affärsmodellen.',
+  },
   trend: {
     term: '7d trend',
     short: 'Kursen de senaste sju dagarna.',

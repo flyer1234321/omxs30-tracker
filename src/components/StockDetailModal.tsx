@@ -157,6 +157,45 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
     );
   };
 
+  const renderQualityCard = () => {
+    const quality = item.quality;
+    if (!quality) return null;
+    const color = quality.score >= 7 ? colors.green : quality.score >= 4 ? colors.yellow : colors.red;
+
+    return (
+      <View style={s.planCard}>
+        <View style={s.qualityHeader}>
+          <View style={s.planHeader}>
+            <Text style={s.planTitle}>Bolagets ekonomi</Text>
+            <Text style={s.planSubtitle}>Skild från betyget: betyget mäter kursen, det här mäter bolaget</Text>
+          </View>
+          <View style={[s.qualityBadge, { borderColor: color }]}>
+            <Text style={[s.qualityScore, { color }]}>{quality.score.toFixed(0)}</Text>
+            <Text style={[s.qualityLabel, { color }]}>{quality.label}</Text>
+          </View>
+        </View>
+
+        {quality.components.map((component) => (
+          <View key={component.id} style={s.qualityRow}>
+            <Text style={s.qualityRowLabel}>{component.label}</Text>
+            <Text style={s.qualityRowDetail}>{component.detail}</Text>
+            <Text style={[
+              s.qualityRowPoints,
+              component.points == null ? { color: colors.textMuted } : component.points === 2 ? { color: colors.green } : component.points === 1 ? { color: colors.yellow } : { color: colors.red },
+            ]}>
+              {component.points == null ? '–' : `${component.points}/2`}
+            </Text>
+          </View>
+        ))}
+
+        <Text style={s.planDisclaimer}>
+          Siffrorna kommer från senaste kvartalsrapporten och är alltså upp till tre månader gamla.
+          {quality.debtNotComparable ? ' Skuldsättningen utgår här, eftersom hög belåning hör till affärsmodellen i den här sektorn.' : ''}
+        </Text>
+      </View>
+    );
+  };
+
   const renderHealthCard = () => {
     const hc = item.healthCheck;
     if (!hc) return null;
@@ -224,6 +263,10 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
           {interpretation && (
             <View style={s.interpretation}>
               <Text style={s.interpretationScore}>{interpretation.scoreExplanation}</Text>
+
+              {interpretation.qualityVerdict && (
+                <Text style={[s.interpretationScore, { marginTop: 10 }]}>{interpretation.qualityVerdict}</Text>
+              )}
 
               <View style={s.interpretationBlock}>
                 <Text style={s.interpretationLabel}>Om du äger aktien</Text>
@@ -366,6 +409,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               )) : <Text style={s.bullBearEmpty}>Inga tydliga svagheter just nu</Text>}
             </View>
           </View>
+
+          {renderQualityCard()}
 
           <EarningsHistory item={item} />
 
@@ -681,6 +726,14 @@ const s = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: 'center',
   },
+  qualityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  qualityBadge: { minWidth: 70, alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
+  qualityScore: { fontSize: 20, fontWeight: '700', fontFamily: 'monospace' },
+  qualityLabel: { fontSize: 10, fontWeight: '700', marginTop: 1 },
+  qualityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  qualityRowLabel: { color: '#EBEBF5', fontSize: 13, flex: 1.1 },
+  qualityRowDetail: { color: colors.textMuted, fontSize: 11, flex: 1.3, textAlign: 'right' },
+  qualityRowPoints: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'], width: 34, textAlign: 'right' },
   interpretation: { marginTop: 18, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
   interpretationScore: { color: '#EBEBF5', fontSize: 13, lineHeight: 19 },
   interpretationBlock: { marginTop: 14, borderLeftWidth: 2, borderLeftColor: '#3b82f6', paddingLeft: 12 },

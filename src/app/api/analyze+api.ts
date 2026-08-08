@@ -19,6 +19,7 @@ import { cacheTtlForRegions, regionForMarket, regionsForTickers } from '@/lib/ma
 import { parseTickerList } from '@/lib/ticker-validation';
 import { buildTradePlan } from '@/lib/trade-plan';
 import { mapWithConcurrency } from '@/lib/concurrency';
+import { loadQualityInputs, qualityForTicker } from '@/lib/quality-data';
 import { benchmarkForTicker, MARKETS } from '@/lib/markets';
 import type { StockData } from '@/types/stock';
 import { requireAuthenticatedUser } from '@/lib/app-auth';
@@ -155,6 +156,10 @@ export async function GET(request: Request) {
       }
     }));
 
+    // Balansräkningen har egen dygnscache, så den här raden kostar bara anrop
+    // en gång per dag och bolag - inte vid varje uppdatering av kurserna.
+    const qualityInputs = await loadQualityInputs(tickersToFetch);
+
     const quotesResponse = await yahooFinance.quote(tickersToFetch, {}, { validateResult: false }) as YahooQuote[] | YahooQuote;
     const quotes = Array.isArray(quotesResponse) ? quotesResponse : [quotesResponse];
     const quotesMap = new Map<string, YahooQuote>();
@@ -269,6 +274,7 @@ export async function GET(request: Request) {
             fiftyTwoWeekHigh: itemData.fiftyTwoWeekHigh,
             fiftyTwoWeekLow: itemData.fiftyTwoWeekLow,
           }),
+          quality: qualityForTicker(qualityInputs.get(ticker), quote?.marketCap ?? null),
           valuation: {
             trailingPEMedian,
             trailingPESectorMedian: null,

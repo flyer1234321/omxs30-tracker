@@ -17,6 +17,8 @@ import type { StockData } from '@/types/stock';
 
 export interface HealthInterpretation {
   scoreExplanation: string;
+  /** Vad kombinationen av kursfall och bolagsekonomi säger. */
+  qualityVerdict: string | null;
   ifYouOwn: string;
   ifYouConsiderBuying: string;
 }
@@ -33,12 +35,42 @@ export function interpretHealth(stock: StockData, now = Date.now()): HealthInter
   const earningsImminent = earningsDays != null && earningsDays >= 0 && earningsDays <= 7;
 
   const scoreExplanation = buildScoreExplanation(health.gradeScore, basePassed, health.checklist.length, bonusPassed, health.bonuses.length);
+  const qualityVerdict = buildQualityVerdict(stock, belowLongTrend);
 
   return {
     scoreExplanation,
+    qualityVerdict,
     ifYouOwn: buildOwnerText(stock, belowLongTrend, belowYearTrend, earningsImminent, earningsDays),
     ifYouConsiderBuying: buildBuyerText(stock, belowLongTrend, earningsImminent, earningsDays),
   };
+}
+
+/**
+ * Kombinationen av de två måtten säger mer än något av dem för sig. Ett stort
+ * fall i ett välskött bolag och ett stort fall i ett bolag som förbrukar kassa
+ * ser identiska ut i kursgrafen, och det är skillnaden mellan ett tillfälle och
+ * en värdefälla.
+ */
+function buildQualityVerdict(stock: StockData, belowLongTrend: boolean): string | null {
+  const quality = stock.quality;
+  const grade = stock.healthCheck?.grade;
+  if (!quality) return null;
+
+  const fallenHard = belowLongTrend && (grade === 'A' || grade === 'B');
+
+  if (fallenHard && quality.score < 4) {
+    return `Kursen har fallit mycket samtidigt som bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den kombination som gör rekylmodeller farliga: kriterierna slår in hela vägen ned, även när nedgången är befogad. Ta reda på varför siffrorna ser ut som de gör innan du tolkar fallet som ett tillfälle.`;
+  }
+
+  if (fallenHard && quality.score >= 7) {
+    return `Kursen har fallit mycket, men bolagets ekonomi ser stark ut (kvalitet ${quality.score.toFixed(0)} av 10). Det är den mer intressanta varianten av ett rekylläge: marknaden har omprövat priset utan att räkenskaperna hittills ändrats. Frågan är om marknaden vet något som ännu inte syns i siffrorna.`;
+  }
+
+  if (quality.score < 4) {
+    return `Bolagets ekonomi ser svag ut (kvalitet ${quality.score.toFixed(0)} av 10), oavsett vad kursen gjort. Svaga finanser begränsar handlingsutrymmet när något går emot.`;
+  }
+
+  return `Kvalitet ${quality.score.toFixed(0)} av 10 utifrån skuldsättning, lönsamhet, marginal, kassaflöde och tillväxt.`;
 }
 
 function buildScoreExplanation(score: number, basePassed: number, baseTotal: number, bonusPassed: number, bonusTotal: number) {

@@ -18,6 +18,7 @@ function stock(overrides: Partial<StockData> = {}): StockData {
     volatility: 20, beta: 1, maxDrawdown: 15, riskRewardScore: 80, healthCheck: null,
     currency: 'SEK', atr: 2, tradePlan: null, relativeStrength63: null,
     earningsTimestamp: null, priceToBook: null, bookValue: null,
+    quality: null,
     valuation: { trailingPEMedian: 16, trailingPESectorMedian: null },
     ...overrides,
   };

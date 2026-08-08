@@ -11,7 +11,7 @@ const stock: StockData = {
   regularMarketPreviousClose: 121.5, epsTrailingTwelveMonths: 8.8, latestVolume: 1_200_000, avgVolume20: 900_000,
   volatility: 22, beta: 0.9, maxDrawdown: 18, riskRewardScore: 75, healthCheck: null,
   currency: 'SEK', atr: 2.5, relativeStrength63: 4.2, earningsTimestamp: null,
-  priceToBook: 1.8, bookValue: 68, tradePlan: {
+  priceToBook: 1.8, bookValue: 68, quality: null, tradePlan: {
     atr: 2.5, atrPercent: 2.03, stopLoss: 118.45, stopBasis: '2 x ATR under kursen',
     target: 130, targetBasis: 'Närmaste motstånd: 52v-högsta', riskPerShare: 5,
     riskPercent: 4.05, rewardPercent: 5.31, rMultiple: 1.31,

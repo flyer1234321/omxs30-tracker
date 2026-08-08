@@ -49,6 +49,7 @@ const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
   drawdown: { id: 'drawdown', label: 'Max DD', flex: 0.8, align: 'flex-end' },
   riskReward: { id: 'riskReward', label: 'R/R', flex: 0.65, align: 'flex-end' },
   relativeStrength: { id: 'relativeStrength', label: 'Mot index', flex: 0.9, align: 'flex-end' },
+  quality: { id: 'quality', label: 'Kvalitet', flex: 0.75, align: 'flex-end' },
   trend: { id: 'trend', label: '7d trend', flex: 0.9, align: 'center' },
 };
 
@@ -81,6 +82,7 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
     case 'drawdown': return item.maxDrawdown ?? -1;
     case 'riskReward': return item.riskRewardScore ?? -1;
     case 'relativeStrength': return item.relativeStrength63 ?? -999;
+    case 'quality': return item.quality?.score ?? -1;
     case 'trend': return item.chartHistory.at(-1)?.close ?? -1;
   }
 }
@@ -134,6 +136,13 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       case 'relativeStrength': {
         const relative = item.relativeStrength63;
         return <Text style={[styles.numeric, relative != null && relative > 0 && styles.positive, relative != null && relative < 0 && styles.negative]}>{relative != null ? `${relative > 0 ? '+' : ''}${relative.toFixed(1)}` : '-'}</Text>;
+      }
+      case 'quality': {
+        const quality = item.quality;
+        if (!quality) return <Text style={styles.empty}>-</Text>;
+        // Grön först vid 7: ett godtagbart bolag ska inte se ut som ett starkt.
+        const color = quality.score >= 7 ? COLORS.positive : quality.score >= 4 ? palette.warningBright : COLORS.negative;
+        return <Text style={[styles.numeric, { color }]}>{quality.score.toFixed(0)}</Text>;
       }
       case 'trend': {
         const color = recentHistory.length > 1 && recentHistory.at(-1)! >= recentHistory[0] ? COLORS.positive : COLORS.negative;

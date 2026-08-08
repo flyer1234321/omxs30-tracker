@@ -73,6 +73,8 @@ export interface TradePlan {
 /** De marknadsurval som screenern kan visa. */
 export type MarketId = 'omxs30' | 'swe_broad' | 'dji' | 'tech' | 'swe_fastigheter' | 'watchlist';
 
+import type { QualityScore } from '@/lib/quality-score';
+
 export type TableColumnId =
   | 'ticker'
   | 'grade'
@@ -87,6 +89,7 @@ export type TableColumnId =
   | 'drawdown'
   | 'riskReward'
   | 'relativeStrength'
+  | 'quality'
   | 'trend';
 
 export interface Workspace {
@@ -140,4 +143,9 @@ export interface StockData {
   earningsTimestamp: number | null;
   priceToBook: number | null;
   bookValue: number | null;
+  /**
+   * Kvalitet ur balans- och resultaträkningen, skild från hälsobetyget.
+   * Hälsobetyget mäter om kursen fallit; det här måttet om fallet är befogat.
+   */
+  quality: QualityScore | null;
 }
