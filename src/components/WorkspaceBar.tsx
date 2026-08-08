@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { InfoTip } from '@/components/Tooltip';
 import { glossaryEntry, WORKSPACE_GLOSSARY_KEYS } from '@/lib/glossary';
@@ -20,6 +20,10 @@ interface WorkspaceBarProps {
 
 export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdateColumns, onCreate, onDelete, onReset }: WorkspaceBarProps) {
   const { language, t } = useAppLanguage();
+  const { height: viewportHeight } = useWindowDimensions();
+  // Utfallbara paneler får aldrig äta hela höjden: tabellen ligger under dem
+  // och sidan i sig scrollar inte.
+  const panelMaxHeight = Math.max(200, viewportHeight * 0.4);
   const [editing, setEditing] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
@@ -127,7 +131,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
       <Text style={styles.activeSummary}>{activeName}: {activeSummary}</Text>
 
       {showHelp && (
-        <View style={styles.helpPanel}>
+        <ScrollView style={[styles.helpPanel, { maxHeight: panelMaxHeight }]} contentContainerStyle={styles.helpPanelContent} nestedScrollEnabled>
           <Text style={styles.helpEyebrow}>{activeName}</Text>
           <Text style={styles.helpTitle}>{t('Så läser du den här vyn', 'How to read this view')}</Text>
           <Text style={styles.helpIntro}>
@@ -143,11 +147,11 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
               </View>
             ))}
           </View>
-        </View>
+        </ScrollView>
       )}
 
       {editing && (
-        <View style={styles.panel}>
+        <ScrollView style={[styles.panel, { maxHeight: panelMaxHeight }]} contentContainerStyle={styles.panelContent} nestedScrollEnabled>
           <Text style={styles.panelTitle}>{t('Visade kolumner', 'Visible columns')}</Text>
           <View style={styles.columnList}>
             {TABLE_COLUMNS.map((column) => {
@@ -195,7 +199,7 @@ export function WorkspaceBar({ workspaces, activeWorkspaceId, onSelect, onUpdate
               </HintedTouchable>
             )}
           </View>
-        </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -219,7 +223,8 @@ const styles = StyleSheet.create({
   helpButtonTextActive: { color: palette.accent },
   editButton: { paddingVertical: 6, paddingHorizontal: 8 },
   editButtonText: { color: palette.accent, fontSize: 12, fontWeight: '600' },
-  helpPanel: { paddingHorizontal: 14, paddingVertical: 13, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surfaceAlt },
+  helpPanelContent: { paddingHorizontal: 14, paddingVertical: 13 },
+  helpPanel: { borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surfaceAlt },
   helpEyebrow: { color: palette.accent, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
   helpTitle: { color: palette.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 3 },
   helpIntro: { color: palette.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4, maxWidth: 760 },
@@ -227,7 +232,8 @@ const styles = StyleSheet.create({
   helpItem: { width: '31.8%', minWidth: 210, flexGrow: 1, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 6, backgroundColor: palette.surface },
   helpItemTitle: { color: palette.textPrimary, fontSize: 12, fontWeight: '800', marginBottom: 3 },
   helpItemText: { color: palette.textSecondary, fontSize: 11, lineHeight: 16 },
-  panel: { borderTopWidth: 1, borderTopColor: palette.border, padding: 12, backgroundColor: palette.surfaceAlt },
+  panelContent: { padding: 12 },
+  panel: { borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surfaceAlt },
   panelTitle: { color: palette.textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 },
   columnList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   columnToggle: { borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 5 },

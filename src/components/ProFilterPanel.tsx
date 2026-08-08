@@ -7,6 +7,7 @@ import {
   TextInput,
   Modal,
   SafeAreaView,
+  useWindowDimensions,
 } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import {
@@ -143,6 +144,9 @@ function ToggleChip({ label, hint, active, onToggle }: {
 }
 
 export default function ProFilterPanel({ activeFilter, onFilterChange, isExpanded, onToggleExpand, onShowResults, candidateCount, matchCount }: ProFilterPanelProps) {
+  const { height: viewportHeight } = useWindowDimensions();
+  // Knappt halva fönstret, så att tabellen alltid syns under panelen.
+  const panelMaxHeight = Math.max(220, viewportHeight * 0.45);
   const { language, t } = useAppLanguage();
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -200,7 +204,15 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
       </HintedTouchable>
 
       {isExpanded && (
-        <View style={st.panel}>
+        // Panelen har egen scroll och ett tak på höjden. Utan det växte den
+        // fritt, klämde tabellen till noll pixlar och lämnade ingen väg
+        // tillbaka: sidan i sig scrollar inte.
+        <ScrollView
+          style={[st.panel, { maxHeight: panelMaxHeight }]}
+          contentContainerStyle={st.panelContent}
+          showsVerticalScrollIndicator
+          nestedScrollEnabled
+        >
           {/* Preset strategies */}
           <Text style={st.sectionTitle}>{t('STRATEGIER', 'STRATEGIES')}</Text>
           <Text style={st.sectionHelp}>{t('Färdiga sökningar som kombinerar flera villkor. De sorterar fram kandidater men är inte köpråd.', 'Preset searches that combine several conditions. They surface candidates but are not buy recommendations.')}</Text>
@@ -284,7 +296,7 @@ export default function ProFilterPanel({ activeFilter, onFilterChange, isExpande
               </HintedTouchable>
             </View>
           )}
-        </View>
+        </ScrollView>
       )}
 
       <Modal visible={showHelp} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowHelp(false)}>
@@ -335,7 +347,8 @@ const st = StyleSheet.create({
   },
   filterCountText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
-  panel: { backgroundColor: C.surfaceAlt, paddingHorizontal: 16, paddingVertical: 12 },
+  panel: { backgroundColor: C.surfaceAlt },
+  panelContent: { paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 20 },
 
   sectionTitle: {
     color: C.textMuted, fontSize: 10, fontWeight: '700',

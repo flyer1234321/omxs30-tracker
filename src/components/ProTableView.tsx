@@ -192,7 +192,8 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg }, horizontalScroll: { flex: 1 }, horizontalScrollContent: { flexGrow: 1 }, table: { flex: 1 }, listContent: { paddingBottom: 20 },
+  // Golvet gor att tabellen syns aven nar flera paneler ar utfallda samtidigt.
+  container: { flex: 1, minHeight: 180, backgroundColor: COLORS.bg }, horizontalScroll: { flex: 1 }, horizontalScrollContent: { flexGrow: 1 }, table: { flex: 1 }, listContent: { paddingBottom: 20 },
   headerRow: { flexDirection: 'row', backgroundColor: COLORS.surfaceHover, paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: COLORS.surfaceAlt },
   headerCell: { justifyContent: 'center' }, headerText: { color: COLORS.textSecondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   row: { flexDirection: 'row', minHeight: 54, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.surfaceAlt, alignItems: 'center' },
