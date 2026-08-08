@@ -471,7 +471,7 @@ export default function HomeScreen() {
       ) : (
         <>
           {market === 'holdings' && (
-            <HoldingsOverview portfolio={portfolio} />
+            <HoldingsOverview portfolio={portfolio} data={filteredData} />
           )}
           <ProTableView
             holdings={holdingsByTicker}
