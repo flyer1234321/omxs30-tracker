@@ -91,6 +91,7 @@ export type TableColumnId =
   | 'drawdown'
   | 'relativeStrength'
   | 'quality'
+  | 'holding'
   | 'trend';
 
 export interface Workspace {

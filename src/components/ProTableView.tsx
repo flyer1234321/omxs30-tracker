@@ -5,6 +5,8 @@ import { SignalBadges } from '@/components/SignalBadges';
 import { InfoTip } from '@/components/Tooltip';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import type { StockData, TableColumnId } from '@/types/stock';
+import { buildPosition, type Holding, type PortfolioSummary } from '@/lib/holdings';
+import { formatPrice } from '@/lib/format';
 import { colors as palette } from '@/theme';
 import { useAppLanguage } from '@/components/AppLanguage';
 
@@ -22,6 +24,8 @@ const COLORS = {
 };
 
 interface ProTableViewProps {
+  holdings?: Map<string, Holding>;
+  portfolio?: PortfolioSummary | null;
   data: StockData[];
   visibleColumns: TableColumnId[];
   onStockPress: (ticker: string) => void;
@@ -50,6 +54,7 @@ const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
   beta: { id: 'beta', label: 'Beta', labelEn: 'Beta', flex: 0.7, align: 'flex-end' },
   drawdown: { id: 'drawdown', label: 'Max DD', labelEn: 'Max DD', flex: 0.8, align: 'flex-end' },
   relativeStrength: { id: 'relativeStrength', label: 'Mot index', labelEn: 'vs index', flex: 0.9, align: 'flex-end' },
+  holding: { id: 'holding', label: 'Innehav', labelEn: 'Holding', flex: 0.95, align: 'flex-end' },
   quality: { id: 'quality', label: 'Kvalitet', labelEn: 'Quality', flex: 0.75, align: 'flex-end' },
   trend: { id: 'trend', label: '7d trend', labelEn: '7d trend', flex: 0.9, align: 'center' },
 };
@@ -68,7 +73,12 @@ function gradeColor(grade?: 'A' | 'B' | 'C' | 'D' | 'F') {
   return ({ A: COLORS.gradeA, B: COLORS.gradeB, C: COLORS.gradeC, D: COLORS.gradeD, F: COLORS.gradeF } as Record<string, string>)[String(grade)] ?? COLORS.textSecondary;
 }
 
-function sortValue(item: StockData, column: TableColumnId): number | string {
+function holdingValue(item: StockData, holdings: Map<string, Holding> | undefined) {
+  const position = buildPosition(item, holdings?.get(item.ticker));
+  return position ? position.marketValue : null;
+}
+
+function sortValue(item: StockData, column: TableColumnId, holdings?: Map<string, Holding>): number | string {
   switch (column) {
     case 'ticker': return item.ticker;
     case 'grade': return item.healthCheck?.gradeScore ?? -1;
@@ -83,11 +93,12 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
     case 'drawdown': return item.maxDrawdown ?? -1;
     case 'relativeStrength': return item.relativeStrength63 ?? -999;
     case 'quality': return item.quality?.score ?? -1;
+    case 'holding': return holdingValue(item, holdings) ?? -1;
     case 'trend': return item.chartHistory.at(-1)?.close ?? -1;
   }
 }
 
-export default function ProTableView({ data, visibleColumns, onStockPress, refreshing, onRefresh }: ProTableViewProps) {
+export default function ProTableView({ data, visibleColumns, onStockPress, refreshing, onRefresh, holdings }: ProTableViewProps) {
   const { language, t } = useAppLanguage();
   const [sortColumn, setSortColumn] = useState<TableColumnId>('grade');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -97,13 +108,13 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
     return unique.map((id) => COLUMNS[id]).filter(Boolean);
   }, [visibleColumns]);
   const sortedData = useMemo(() => [...data].sort((a, b) => {
-    const aValue = sortValue(a, sortColumn);
-    const bValue = sortValue(b, sortColumn);
+    const aValue = sortValue(a, sortColumn, holdings);
+    const bValue = sortValue(b, sortColumn, holdings);
     const comparison = typeof aValue === 'string' && typeof bValue === 'string'
       ? aValue.localeCompare(bValue)
       : Number(aValue) - Number(bValue);
     return sortDirection === 'asc' ? comparison : -comparison;
-  }), [data, sortColumn, sortDirection]);
+  }), [data, sortColumn, sortDirection, holdings]);
   const minimumTableWidth = columns.reduce((width, column) => width + (column.id === 'ticker' ? 112 : 68), 0);
   const tableWidth = Math.max(availableWidth, minimumTableWidth);
 
@@ -144,6 +155,18 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
         // Grön först vid 7: ett godtagbart bolag ska inte se ut som ett starkt.
         const color = quality.score >= 7 ? COLORS.positive : quality.score >= 4 ? palette.warningBright : COLORS.negative;
         return <Text style={[styles.numeric, { color }]}>{quality.score.toFixed(0)}</Text>;
+      }
+      case 'holding': {
+        const position = buildPosition(item, holdings?.get(item.ticker));
+        if (!position) return <Text style={styles.empty}>-</Text>;
+        return (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.numeric}>{formatPrice(position.marketValue, item.currency, 0)}</Text>
+            <Text style={[styles.holdingChange, position.unrealisedAmount >= 0 ? styles.positive : styles.negative]}>
+              {position.unrealisedAmount >= 0 ? '+' : ''}{position.unrealisedPercent.toFixed(1)}%
+            </Text>
+          </View>
+        );
       }
       case 'trend': {
         const color = recentHistory.length > 1 && recentHistory.at(-1)! >= recentHistory[0] ? COLORS.positive : COLORS.negative;
@@ -201,5 +224,6 @@ const styles = StyleSheet.create({
   tickerText: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
   numeric: { color: COLORS.textPrimary, fontSize: 12, fontVariant: ['tabular-nums'], ...Platform.select({ ios: { fontFamily: 'Menlo' }, android: { fontFamily: 'monospace' } }) },
   positive: { color: COLORS.positive }, negative: { color: COLORS.negative }, warning: { color: palette.warningBright }, sma: { fontSize: 14, fontWeight: '700' }, empty: { color: COLORS.textSecondary, fontSize: 12 },
+  holdingChange: { fontSize: 10, fontVariant: ['tabular-nums'], marginTop: 1 },
   gradeBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }, gradeText: { fontSize: 12, fontWeight: '700' },
 });

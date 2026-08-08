@@ -99,6 +99,12 @@ export const GLOSSARY = {
     detail: 'Väger skuldsättning, avkastning på eget kapital, rörelsemarginal, fritt kassaflöde och omsättningstillväxt. Måttet är avsiktligt skilt från rekylläget: rekylläget mäter om kursen fallit, kvalitet om fallet är befogat.',
     caution: 'Siffrorna är ett kvartal gamla och ersätter inte rapporten. För banker och fastighetsbolag utgår skuldsättningen, eftersom hög belåning hör till affärsmodellen.',
   },
+  holding: {
+    term: 'Innehav',
+    short: 'Ditt positionsvärde till dagens kurs.',
+    detail: 'Antal aktier gånger senaste kurs, med orealiserad vinst eller förlust under. Öppna aktien för att fylla i antal och anskaffningsvärde.',
+    caution: 'Bygger enbart på det du matat in. Courtage, utdelningar och skatt ingår inte, och en aktiesplit måste uppdateras för hand.',
+  },
   trend: {
     term: '7d trend',
     short: 'Kursen de senaste sju dagarna.',
@@ -258,6 +264,7 @@ const GLOSSARY_EN: Partial<Record<GlossaryKey, GlossaryEntry>> = {
   drawdown: { term: 'Max DD', short: 'Largest decline from a previous peak.', detail: 'The deepest peak-to-trough fall over the measured period.', caution: 'Historical drawdown is not a limit on future losses.' },
   relativeStrength: { term: 'vs index', short: 'Return minus the index over three months.', detail: 'The share’s 63-session return after subtracting the index return.', caution: 'Relative strength can reverse abruptly and says nothing about valuation.' },
   quality: { term: 'Quality', short: 'Company fundamentals, 0 to 10.', detail: 'Combines leverage, return on equity, operating margin, free cash flow and revenue growth.', caution: 'Report data can be several months old and does not replace reading the accounts.' },
+  holding: { term: 'Holding', short: 'Your position value at the current price.', detail: 'Number of shares times the latest price, with unrealised profit or loss below. Open the stock to enter shares and purchase price.', caution: 'Based only on what you entered. Brokerage, dividends and tax are excluded, and a share split must be updated by hand.' },
   trend: { term: '7d trend', short: 'The latest seven closing prices.', detail: 'A miniature chart showing the direction over the past week.' },
   workspaceOverview: { term: 'Overview', short: 'Balanced default view.', detail: 'Pullback grade, price move, RSI, volume, valuation and trend in one table.' },
   workspaceMomentum: { term: 'Momentum', short: 'Strength of the current move.', detail: 'Daily change, RSI, relative volume, performance versus the index and volatility.', caution: 'Momentum describes what has happened, not what must happen next.' },

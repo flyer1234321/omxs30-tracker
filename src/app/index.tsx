@@ -23,6 +23,8 @@ import { colors, maxContentWidth } from '../theme';
 import { authenticatedFetch } from '../lib/auth-client';
 import { useAppAuth } from '../components/AuthGate';
 import { loadCloudFavorites, saveCloudFavorites } from '../lib/cloud-favorites';
+import { loadCloudHoldings, removeCloudHolding, saveCloudHolding } from '../lib/cloud-holdings';
+import { buildPosition, summarisePortfolio, type Holding } from '../lib/holdings';
 import { normalizeFavoriteTickers } from '../lib/favorite-tickers';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AlertSettings } from '../components/AlertSettings';
@@ -40,6 +42,8 @@ interface SearchResult { symbol: string; shortname: string; exchange: string; }
  */
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
+const HOLDINGS_STORAGE_KEY = '@holdings_v1';
+
 export default function HomeScreen() {
   const { signOut, isAdmin, email: currentEmail } = useAppAuth();
   const { t } = useAppLanguage();
@@ -53,6 +57,7 @@ export default function HomeScreen() {
   const [market, setMarket] = useState<MarketId>('omxs30');
   const [filter, setFilter] = useState<string>('all');
   const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -141,6 +146,44 @@ export default function HomeScreen() {
       } catch {}
     })();
   }, []);
+
+  // Innehaven laddas som favoriterna: lokalt direkt, molnet nar det svarar.
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(HOLDINGS_STORAGE_KEY);
+        if (stored) {
+          const parsed: unknown = JSON.parse(stored);
+          if (Array.isArray(parsed)) setHoldings(parsed as Holding[]);
+        }
+      } catch {}
+      if (!isSupabaseConfigured) return;
+      try {
+        const cloud = await loadCloudHoldings();
+        if (cloud) setHoldings(cloud);
+      } catch {}
+    })();
+  }, []);
+
+  const persistHoldings = async (next: Holding[]) => {
+    setHoldings(next);
+    try { await AsyncStorage.setItem(HOLDINGS_STORAGE_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const saveHolding = async (holding: Holding) => {
+    const next = [...holdings.filter((entry) => entry.ticker !== holding.ticker), holding];
+    await persistHoldings(next);
+    if (isSupabaseConfigured) {
+      try { await saveCloudHolding(holding); } catch {}
+    }
+  };
+
+  const removeHolding = async (ticker: string) => {
+    await persistHoldings(holdings.filter((entry) => entry.ticker !== ticker));
+    if (isSupabaseConfigured) {
+      try { await removeCloudHolding(ticker); } catch {}
+    }
+  };
 
   const saveWatchlist = async (list: string[]) => {
     const normalized = normalizeFavoriteTickers(list);
@@ -310,6 +353,17 @@ export default function HomeScreen() {
   );
 
   // ─── MODAL ─────────────────────────────────
+  const holdingsByTicker = useMemo(
+    () => new Map(holdings.map((holding) => [holding.ticker, holding])),
+    [holdings],
+  );
+  const portfolio = useMemo(() => {
+    const positions = data
+      .map((stock) => buildPosition(stock, holdingsByTicker.get(stock.ticker)))
+      .filter((position): position is NonNullable<typeof position> => position !== null);
+    return positions.length ? summarisePortfolio(positions) : null;
+  }, [data, holdingsByTicker]);
+
   const selectedItem = useMemo(() => data.find(d => d.ticker === selectedTicker) || null, [data, selectedTicker]);
   const isWatchlisted = selectedTicker ? watchlist.includes(selectedTicker) : false;
   const favoriteSyncMessage = favoriteSyncError === 'Favoriter kunde inte synkas. Den lokala listan används tills anslutningen fungerar igen.'
@@ -404,6 +458,8 @@ export default function HomeScreen() {
         </View>
       ) : (
         <ProTableView
+          holdings={holdingsByTicker}
+          portfolio={portfolio}
           data={filteredData}
           visibleColumns={activeWorkspace?.columns ?? DEFAULT_WORKSPACES[0].columns}
           onStockPress={setSelectedTicker}
@@ -415,6 +471,10 @@ export default function HomeScreen() {
       </View>
 
       <StockDetailModal
+        holding={selectedTicker ? holdingsByTicker.get(selectedTicker) : undefined}
+        portfolio={portfolio}
+        onSaveHolding={saveHolding}
+        onRemoveHolding={removeHolding}
         item={selectedItem}
         onClose={() => setSelectedTicker(null)}
         isWatchlisted={isWatchlisted}

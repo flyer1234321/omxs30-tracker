@@ -24,6 +24,8 @@ import { interpretHealth } from '@/lib/health-interpretation';
 import { positionSizeForRisk } from '@/lib/trade-plan';
 import { daysUntilEarnings } from '@/lib/stock-signals';
 import { EarningsHistory } from '@/components/EarningsHistory';
+import { HoldingEditor } from '@/components/HoldingEditor';
+import type { Holding, PortfolioSummary } from '@/lib/holdings';
 import { InfoTip } from '@/components/Tooltip';
 import { NoviceOverview } from '@/components/NoviceOverview';
 import type { GlossaryKey } from '@/lib/glossary';
@@ -39,6 +41,10 @@ interface StockDetailModalProps {
   onClose: () => void;
   isWatchlisted: boolean;
   onToggleWatchlist: () => void;
+  holding: Holding | undefined;
+  portfolio: PortfolioSummary | null;
+  onSaveHolding: (holding: Holding) => void;
+  onRemoveHolding: (ticker: string) => void;
 }
 
 const colors = {
@@ -68,7 +74,7 @@ function DetailStat({ label, value, term, valueColor, width }: DetailStatProps) 
   );
 }
 
-export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist }) => {
+export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClose, isWatchlisted, onToggleWatchlist, holding, portfolio, onSaveHolding, onRemoveHolding }) => {
   const { language, t } = useAppLanguage();
   const { width: viewportWidth } = useWindowDimensions();
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
@@ -444,6 +450,14 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ item, onClos
               {renderTradePlan()}
             </>
           )}
+
+          <HoldingEditor
+            item={item}
+            holding={holding}
+            portfolio={portfolio}
+            onSave={onSaveHolding}
+            onRemove={onRemoveHolding}
+          />
 
           <AnalystBrief item={item} onReportGenerated={setAnalystReport} />
 

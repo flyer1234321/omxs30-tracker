@@ -10,6 +10,7 @@ Appen är beslutsstöd. Den ger inte personlig investeringsrådgivning, och all 
 - **Rekylläge A–F** som väger sex grundkriterier och tre tekniska bonusar. Skalan mäter hur tydligt en aktie fallit tillbaka — fyra av de sex kriterierna reagerar på samma nedgång. Ett A betyder att kursen fallit mycket, inte att bolaget är bäst.
 - **Kvalitetsmått 0–10** ur balans- och resultaträkningen: skuldsättning, avkastning på eget kapital, marginal, fritt kassaflöde och tillväxt. Avsiktligt skilt från rekylläget — rekylläget mäter om kursen fallit, kvalitet om fallet är befogat. Kombinationen stort fall och svag ekonomi är den som gör rekylmodeller farliga, och den markeras särskilt.
 - **Handelsplan** per aktie: stop loss och riktkurs härledda ur ATR och närliggande stöd och motstånd, uttryckta i kronor, procent och R-multipel.
+- **Innehav** per bolag: antal aktier och anskaffningsvärde, med orealiserad vinst, andel av portföljen och handelsplanens risk uttryckt i kronor. Se [docs/supabase-holdings-setup.md](docs/supabase-holdings-setup.md).
 - **Pro Filter** med sparbara vyer (workspaces) och färdiga strategier.
 - **Analyst AI** som sammanfattar styrkor, risker och katalysatorer. Utan `OPENAI_API_KEY` används en regelbaserad analys i stället.
 - **E-postvarningar** för favoritlistan, som daglig sammanfattning eller som snabbvarning vid högprioriterade lägen.
@@ -57,7 +58,7 @@ Administratörer anges i `APP_ADMIN_EMAILS`. Den som loggar in med `APP_ACCESS_P
 
 **Viktigt om e-postlänkarna:** Supabase inbyggda utskick ligger på ett par mejl i timmen på gratisnivån. Konfigurera egen SMTP under Project Settings → Authentication → SMTP och peka den mot samma Resend-konto som varningarna använder, annars slutar inloggningslänkarna komma fram efter några försök.
 
-Installationsanvisningar för databasen finns i [docs/supabase-users-setup.md](docs/supabase-users-setup.md), [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
+Installationsanvisningar för databasen finns i [docs/supabase-users-setup.md](docs/supabase-users-setup.md), [docs/supabase-holdings-setup.md](docs/supabase-holdings-setup.md), [docs/supabase-favorites-setup.md](docs/supabase-favorites-setup.md) och [docs/supabase-alerts-setup.md](docs/supabase-alerts-setup.md).
 
 ## Datakällor och gränser
 
