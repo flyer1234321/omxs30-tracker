@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { HintedTouchable } from '@/components/HintedTouchable';
 import { useAppLanguage } from '@/components/AppLanguage';
-import { formatNumber, formatPrice, formatSignedPercent } from '@/lib/format';
+import { currencySuffix, formatNumber, formatPrice, formatSignedPercent } from '@/lib/format';
 import { formatNumericInput, parseNumericInput } from '@/lib/numeric-input';
 import {
   buildPosition,
-  looksLikeSplit,
+  detectHoldingMismatch,
   portfolioWeight,
   type Holding,
   type PortfolioSummary,
@@ -45,7 +45,7 @@ export function HoldingEditor({ item, holding, portfolio, onSave, onRemove }: Ho
 
   const position = buildPosition(item, holding);
   const weight = position && portfolio ? portfolioWeight(position, portfolio) : null;
-  const splitSuspected = position ? looksLikeSplit(position) : false;
+  const mismatch = position ? detectHoldingMismatch(position) : null;
   const price = (value: number | null | undefined, decimals = 2) => formatPrice(value, item.currency, decimals);
 
   return (
@@ -150,7 +150,16 @@ export function HoldingEditor({ item, holding, portfolio, onSave, onRemove }: Ho
             )}
           </View>
 
-          {splitSuspected && (
+          {mismatch === 'currency' && (
+            <Text style={styles.warning}>
+              {t(
+                `Aktien handlas i ${item.currency ?? currencySuffix(item.currency)}, men ditt anskaffningsvärde ser ut att vara angivet i kronor - avvikelsen motsvarar ungefär växelkursen. Det här är sannolikt bolagets utländska notering. Leta upp den svenska, som slutar på .ST, och lägg in innehavet där i stället.`,
+                `This share trades in ${item.currency ?? 'a foreign currency'}, but your purchase price looks like it was entered in another currency - the discrepancy matches the exchange rate. This is probably the company's foreign listing. Find the local listing and record the holding there instead.`,
+              )}
+            </Text>
+          )}
+
+          {mismatch === 'split' && (
             <Text style={styles.warning}>
               {t(
                 'Kursen ligger långt från ditt registrerade anskaffningsvärde. Har aktien delats eller slagits samman behöver antal och GAV uppdateras - kurshistoriken är redan justerad, så felet syns annars inte.',

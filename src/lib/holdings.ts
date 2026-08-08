@@ -125,17 +125,57 @@ export function portfolioWeight(position: HoldingPosition, summary: PortfolioSum
   return summary.marketValue > 0 ? (position.marketValue / summary.marketValue) * 100 : 0;
 }
 
+export type HoldingMismatch = 'currency' | 'split' | null;
+
 /**
- * Varnar när kursen ligger orimligt långt från det registrerade
- * anskaffningsvärdet.
- *
- * Det vanligaste skälet är en aktiesplit: antalet aktier och kursen ändras,
- * men det som står i appen gör det inte. Eftersom Yahoo levererar
- * splitjusterade kurser blir felet annars osynligt - avkastningen ser bara
- * märkligt stor ut åt ena hållet.
+ * Växelkurser som gör en valutaförväxling igenkännbar. En svensk sparare som
+ * lägger in sitt anskaffningsvärde i kronor på ett bolags amerikanska notering
+ * får en avvikelse som ligger nära kursen, inte nära två.
  */
-export function looksLikeSplit(position: HoldingPosition) {
-  if (!(position.averagePrice > 0)) return false;
+const PLAUSIBLE_FX_RATES = [
+  { code: 'USD', rate: 10 },
+  { code: 'EUR', rate: 11.5 },
+  { code: 'GBP', rate: 13 },
+  { code: 'NOK', rate: 1 },
+  { code: 'DKK', rate: 1.5 },
+];
+
+/**
+ * Avgör varför kursen ligger orimligt långt från registrerat
+ * anskaffningsvärde, och skiljer på de två troliga orsakerna.
+ *
+ * **Valuta.** Har man matat in kronor på en aktie som handlas i dollar blir
+ * avvikelsen ungefär växelkursen. Det är den vanligaste förväxlingen, eftersom
+ * många svenska bolag också har en amerikansk notering som dyker upp i sökningen.
+ *
+ * **Split.** Delas aktien ändras antal och kurs, men det som står i appen gör
+ * det inte. Eftersom Yahoo levererar splitjusterade kurser blir felet annars
+ * osynligt: avkastningen ser bara märkligt stor ut åt ena hållet.
+ *
+ * Skillnaden spelar roll, för åtgärderna är olika. Vid valutaförväxling ska man
+ * byta till rätt notering; vid split ska man räkna om antal och GAV.
+ */
+export function detectHoldingMismatch(position: HoldingPosition): HoldingMismatch {
+  if (!(position.averagePrice > 0) || !(position.costBasis > 0)) return null;
+
   const ratio = position.marketValue / position.costBasis;
-  return ratio >= 1.9 || ratio <= 0.55;
+  if (ratio < 1.9 && ratio > 0.55) return null;
+
+  // Handlas aktien i något annat än kronor, och ligger avvikelsen nära den
+  // valutans kurs, är valutaförväxling den klart troligaste förklaringen.
+  const currency = position.currency?.toUpperCase();
+  if (currency && currency !== 'SEK') {
+    const match = PLAUSIBLE_FX_RATES.find((candidate) => candidate.code === currency);
+    if (match) {
+      const impliedRate = 1 / ratio;
+      if (impliedRate >= match.rate * 0.75 && impliedRate <= match.rate * 1.35) return 'currency';
+    }
+  }
+
+  return 'split';
+}
+
+/** Behålls för bakåtkompatibilitet: sant när något ser fel ut, oavsett orsak. */
+export function looksLikeSplit(position: HoldingPosition) {
+  return detectHoldingMismatch(position) !== null;
 }

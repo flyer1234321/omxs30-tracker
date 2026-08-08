@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildPosition,
+  detectHoldingMismatch,
   isValidHolding,
   looksLikeSplit,
   portfolioWeight,
@@ -95,12 +96,41 @@ test('flags mixed currencies instead of quietly adding them up', () => {
 });
 
 test('spots a probable share split', () => {
-  // Kursen halverad mot registrerat GAV: ser ut som en split pa 2 for 1.
+  // Kursen halverad mot registrerat GAV, i kronor: ser ut som 2 for 1.
   const halved = buildPosition(stock({ currentPrice: 25 }), holding)!;
+  assert.equal(detectHoldingMismatch(halved), 'split');
   assert.equal(looksLikeSplit(halved), true);
 
   const normal = buildPosition(stock(), holding)!;
+  assert.equal(detectHoldingMismatch(normal), null);
   assert.equal(looksLikeSplit(normal), false);
+});
+
+test('recognises a Swedish purchase price entered on the dollar listing', () => {
+  // GAV 50 kronor mot en kurs pa 5 dollar: avvikelsen ar vaxelkursen, inte en split.
+  const confused = buildPosition(
+    stock({ currency: 'USD', currentPrice: 5, regularMarketPreviousClose: 5 }),
+    holding,
+  )!;
+  assert.equal(detectHoldingMismatch(confused), 'currency');
+});
+
+test('still calls it a split when the gap is far from any exchange rate', () => {
+  // Kursen en tiondel, men aktien handlas i kronor: ingen valuta forklarar det.
+  const tenth = buildPosition(stock({ currentPrice: 5 }), holding)!;
+  assert.equal(detectHoldingMismatch(tenth), 'split');
+
+  // Dollarnoterad, men avvikelsen ar bara tva ganger: for langt fran kursen.
+  const doubled = buildPosition(
+    stock({ currency: 'USD', currentPrice: 25, regularMarketPreviousClose: 25 }),
+    holding,
+  )!;
+  assert.equal(detectHoldingMismatch(doubled), 'split');
+});
+
+test('says nothing when the numbers look reasonable', () => {
+  const fine = buildPosition(stock({ currency: 'USD', currentPrice: 55, regularMarketPreviousClose: 55 }), holding)!;
+  assert.equal(detectHoldingMismatch(fine), null);
 });
 
 test('returns nothing when there is no holding', () => {
