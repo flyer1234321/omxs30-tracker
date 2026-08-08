@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Platform, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import { SignalBadges } from '@/components/SignalBadges';
 import { InfoTip } from '@/components/Tooltip';
@@ -36,7 +36,7 @@ interface ColumnDefinition {
 }
 
 const COLUMNS: Record<TableColumnId, ColumnDefinition> = {
-  ticker: { id: 'ticker', label: 'Ticker', flex: 1.55, align: 'flex-start' },
+  ticker: { id: 'ticker', label: 'Ticker', flex: 1, align: 'flex-start' },
   grade: { id: 'grade', label: 'Rekyl', flex: 0.7, align: 'center' },
   price: { id: 'price', label: 'Pris', flex: 0.95, align: 'flex-end' },
   change: { id: 'change', label: '% idag', flex: 0.95, align: 'flex-end' },
@@ -88,7 +88,7 @@ function sortValue(item: StockData, column: TableColumnId): number | string {
 export default function ProTableView({ data, visibleColumns, onStockPress, refreshing, onRefresh }: ProTableViewProps) {
   const [sortColumn, setSortColumn] = useState<TableColumnId>('grade');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const { width: viewportWidth } = useWindowDimensions();
+  const [availableWidth, setAvailableWidth] = useState(0);
   const columns = useMemo(() => {
     const unique = Array.from(new Set(['ticker', ...visibleColumns] as TableColumnId[]));
     return unique.map((id) => COLUMNS[id]).filter(Boolean);
@@ -101,7 +101,8 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
       : Number(aValue) - Number(bValue);
     return sortDirection === 'asc' ? comparison : -comparison;
   }), [data, sortColumn, sortDirection]);
-  const tableWidth = Math.max(viewportWidth, columns.reduce((width, column) => width + (column.id === 'ticker' ? 120 : 68), 0));
+  const minimumTableWidth = columns.reduce((width, column) => width + (column.id === 'ticker' ? 112 : 68), 0);
+  const tableWidth = Math.max(availableWidth, minimumTableWidth);
 
   const handleSort = (column: TableColumnId) => {
     if (column === sortColumn) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
@@ -149,7 +150,13 @@ export default function ProTableView({ data, visibleColumns, onStockPress, refre
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={({ nativeEvent }) => {
+        const nextWidth = Math.round(nativeEvent.layout.width);
+        setAvailableWidth((currentWidth) => currentWidth === nextWidth ? currentWidth : nextWidth);
+      }}
+    >
       <ScrollView horizontal style={styles.horizontalScroll} contentContainerStyle={styles.horizontalScrollContent} showsHorizontalScrollIndicator={false}>
         <View style={[styles.table, { width: tableWidth }]}>
           <View style={styles.headerRow}>
